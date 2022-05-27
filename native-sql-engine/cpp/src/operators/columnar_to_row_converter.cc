@@ -149,6 +149,9 @@ arrow::Status ColumnarToRowConverter::Init(
         __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
         __m256i offsetarray_1_8x;
         if (j + 16 < num_rows_) {
+          // The address shall be 64-bytes aligned. But currently if use
+          // _mm256_load_si256, will crash. Track with
+          // https://github.com/oap-project/gazelle_plugin/issues/927
           offsetarray_1_8x = _mm256_loadu_si256((__m256i*)&offsetarray[j]);
         }
         for (j; j + 16 < num_rows_; j += 8) {
