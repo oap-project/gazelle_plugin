@@ -177,6 +177,10 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list,
                                                     &function_kernel, true));
+      } else if (window_function_name == "row_number") {
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
+                                                    function_param_type_list,
+                                                    &function_kernel, true/*FIXME: force decending*/));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);
