@@ -57,16 +57,12 @@ import scala.collection.mutable
 case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
   val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
-  var fallbacks = 0
+
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: SparkPlan)
       if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(child) =>
-      val replacedPlan = replaceWithColumnarPlan(child)
-      if (child.children.map(child => child.supportsColumnar).exists(_ == true)) {
-        fallbacks = fallbacks + 1
-      }
-      replacedPlan
+      replaceWithColumnarPlan(child)
     case plan: RowGuard =>
       val actualPlan = plan.child match {
         case p: BroadcastHashJoinExec =>
@@ -84,12 +80,7 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
           other
       }
       logDebug(s"Columnar Processing for ${actualPlan.getClass} is under RowGuard.")
-      val replacedPlan =
-        actualPlan.withNewChildren(actualPlan.children.map(replaceWithColumnarPlan))
-      if (actualPlan.children.map(child => child.supportsColumnar).exists(_ == true)) {
-        fallbacks = fallbacks + 1
-      }
-      replacedPlan
+      actualPlan.withNewChildren(actualPlan.children.map(replaceWithColumnarPlan))
     case plan: ArrowEvalPythonExec =>
       val columnarChild = replaceWithColumnarPlan(plan.child)
       ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, columnarChild, plan.evalType)
@@ -447,26 +438,8 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
   }
   def setAdaptiveSupport(enable: Boolean): Unit = { isSupportAdaptive = enable }
 
-  def removeRowGuard(plan: SparkPlan): SparkPlan = plan match {
-    case plan: RowGuard =>
-      plan.child
-    case shuffle: ShuffleExchangeExec =>
-      shuffle
-    case other =>
-      val children = other.children.map(removeRowGuard)
-      other.withNewChildren(children)
-  }
-
   def apply(plan: SparkPlan): SparkPlan = {
-    val originalPlan = plan
-    fallbacks = 0
-    val replacedPlan = replaceWithColumnarPlan(plan)
-    // Currently, only consider to make the entire stage fallback when AQE is on.
-    if (isSupportAdaptive && fallbacks > 2) {
-      removeRowGuard(originalPlan)
-    } else {
-      replacedPlan
-    }
+    replaceWithColumnarPlan(plan)
   }
 
 }
