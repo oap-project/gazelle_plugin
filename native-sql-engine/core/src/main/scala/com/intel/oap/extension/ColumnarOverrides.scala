@@ -548,8 +548,11 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def preOverrides = ColumnarPreOverrides(session)
   def postOverrides = ColumnarPostOverrides()
 
-  def columnarWholeStageEnabled = conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true) && !codegendisable
+  def columnarWholeStageEnabled = conf.getBoolean(
+    "spark.oap.sql.columnar.wholestagecodegen", defaultValue = true) && !codegendisable
   def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
+  def enableArrowColumnarToRow =
+    conf.getBoolean("spark.oap.sql.columnar.columnartorow", defaultValue = true)
 
   var isSupportAdaptive: Boolean = true
 
@@ -613,7 +616,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
           val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
           val columnarBatchScan: SparkPlan =
             new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters)
-//          if (columnarConf.enableArrowColumnarToRow) {
+          if (enableArrowColumnarToRow) {
             try {
               ArrowColumnarToRowExec(columnarBatchScan)
             } catch {
@@ -621,9 +624,15 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
                 logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
                 ColumnarToRowExec(columnarBatchScan)
             }
-//          } else {
-//            ColumnarToRowExec(columnarBatchScan)
-//          }
+          } else {
+            ColumnarToRowExec(columnarBatchScan)
+          }
+        case p: BroadcastQueryStageExec =>
+          p
+        case p: ShuffleQueryStageExec =>
+          p
+        case p if (SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan)) =>
+          p
         case other =>
           replaceBatchScan(other)
 //          other.withNewChildren(other.children.map(child => replaceBatchScan(child)))
