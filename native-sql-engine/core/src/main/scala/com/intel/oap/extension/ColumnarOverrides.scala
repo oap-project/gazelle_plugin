@@ -160,6 +160,10 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
         case p: ArrowCoalesceBatchesExec =>
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
+        // If SortAggregateExec is forcibly replaced by ColumnarHashAggregateExec,
+        // Sort is useless. So just return child.
+        case p: ColumnarHashAggregateExec =>
+          child
         case _ =>
           ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       }
