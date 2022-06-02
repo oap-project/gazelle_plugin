@@ -580,6 +580,9 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   var isSupportAdaptive: Boolean = true
 
+  var originalPlan: SparkPlan = _
+  var fallbacks = 0
+
   private def supportAdaptive(plan: SparkPlan): Boolean = {
     // TODO migrate dynamic-partition-pruning onto adaptive execution.
     // Only QueryStage will have Exchange as Leaf Plan
@@ -598,6 +601,10 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
+      // According to Spark's Columnar.scala, the plan is tackled one by one.
+      // By recording the original plan, we can easily let the whole stage
+      // fallback at #postColumnarTransitions.
+      originalPlan = plan
       isSupportAdaptive = supportAdaptive(plan)
       val rule = preOverrides
       rule.setAdaptiveSupport(isSupportAdaptive)
@@ -607,18 +614,68 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
     }
   }
 
+  def checkColumnarToRow(plan: SparkPlan): Unit = {
+    plan match {
+      case _: ColumnarToRowExec =>
+        fallbacks = fallbacks + 1
+      case _ =>
+    }
+    plan.children.map(plan => checkColumnarToRow(plan))
+  }
+
+  def fallbackWholeStage(plan: SparkPlan): Boolean = {
+    fallbacks = 0
+    checkColumnarToRow(plan)
+    if (fallbacks > 2) {
+      true
+    } else {
+      false
+    }
+  }
+
+  def replaceBatchScan(plan: SparkPlan): SparkPlan = {
+    plan.withNewChildren(plan.children.map(child =>
+      child match {
+        case plan: BatchScanExec =>
+          val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
+          val columnarBatchScan: SparkPlan =
+            new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters)
+//          if (columnarConf.enableArrowColumnarToRow) {
+            try {
+              ArrowColumnarToRowExec(columnarBatchScan)
+            } catch {
+              case _: Throwable =>
+                logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
+                ColumnarToRowExec(columnarBatchScan)
+            }
+//          } else {
+//            ColumnarToRowExec(columnarBatchScan)
+//          }
+        case other =>
+          replaceBatchScan(other)
+//          other.withNewChildren(other.children.map(child => replaceBatchScan(child)))
+      }
+    ))
+  }
+
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      val rule = postOverrides
-      rule.setAdaptiveSupport(isSupportAdaptive)
-      val tmpPlan = rule(plan)
-      val ret = collapseOverrides(tmpPlan)
-      if (codegendisable)
-      {
-        logDebug("postColumnarTransitions: resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
-        session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "false")
+      if (fallbackWholeStage(plan)) {
+        replaceBatchScan(originalPlan)
+      } else {
+        val rule = postOverrides
+        rule.setAdaptiveSupport(isSupportAdaptive)
+        val tmpPlan = rule(plan)
+        val ret = collapseOverrides(tmpPlan)
+        if (codegendisable)
+        {
+          logDebug("postColumnarTransitions:" +
+            " resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
+          session.sqlContext.setConf(
+            "spark.oap.sql.columnar.codegendisableforsmallshuffles", "false")
+        }
+        ret
       }
-      ret
     } else {
       plan
     }
