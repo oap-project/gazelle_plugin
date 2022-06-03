@@ -135,6 +135,33 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
   }
 }
 
+class ColumnarRLike(left: Expression, right: Expression, original: Expression)
+    extends RLike(left: Expression, right: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (!right.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException(
+        s"Gandiva 'like' function requires a literal as the second parameter.")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (left_node, left_type): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (right_node, right_type): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Bool()
+    val funcNode =
+      TreeBuilder.makeFunction("like", Lists.newArrayList(left_node, right_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
 class ColumnarContains(left: Expression, right: Expression, original: Expression)
     extends Contains(left: Expression, right: Expression)
     with ColumnarExpression
@@ -507,6 +534,8 @@ object ColumnarBinaryOperator {
         new ColumnarContains(left, right, c)
       case l: Like =>
         new ColumnarLike(left, right, l)
+      case rl: RLike =>
+        new ColumnarRLike(left, right, rl)
       case s: ShiftLeft =>
         new ColumnarShiftLeft(left, right, s)
       case s: ShiftRight =>
