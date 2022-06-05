@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "operators/columnar_to_row_converter.h"
+#include "operators/row_to_columnar_converter.h"
 
 #include <arrow/compute/api.h>
 #include <arrow/datum.h>
@@ -28,7 +28,7 @@
 
 #include <iostream>
 
-#include "operators/row_to_columnar_converter.h"
+#include "operators/columnar_to_row_converter.h"
 #include "tests/test_utils.h"
 
 namespace sparkcolumnarplugin {
@@ -313,7 +313,6 @@ TEST_F(Row2ColumnarTest, TestColumnarToRowConverterResultBuffer_float_double) {
               << std::endl;
     ASSERT_EQ(*(address + i), *(expect_arr + i));
   }
-
 
   auto length_vec = columnarToRowConverter->GetLengths();
   long arr[length_vec.size()];
