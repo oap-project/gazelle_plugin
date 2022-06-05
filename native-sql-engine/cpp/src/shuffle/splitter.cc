@@ -340,10 +340,6 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
   auto reminder = size & 0x3f;
   size += (64 - reminder) & ((reminder == 0) - 1);
 
-  std::cout << " combine_buffer capacity = " << combine_buffer_->capacity()
-            << " allocated = " << combine_buffer_->size() << " to allocate = " << size
-            << std::endl;
-
   if (size > combine_buffer_size_) {
     ARROW_ASSIGN_OR_RAISE(buffer,
                           arrow::AllocateResizableBuffer(size, options_.memory_pool));
@@ -355,8 +351,6 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
         arrow::AllocateResizableBuffer(combine_buffer_size_, options_.memory_pool));
     madvise(combine_buffer_->mutable_data(), combine_buffer_size_, /*MADV_HUGEPAGE */ 14);
     madvise(combine_buffer_->mutable_data(), combine_buffer_size_, MADV_WILLNEED);
-    std::cout << " combine buffer addr " << std::hex << combine_buffer_->address()
-              << std::dec << std::endl;
 
     combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
   }
