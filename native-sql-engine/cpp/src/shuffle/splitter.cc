@@ -26,6 +26,7 @@
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
 #include <immintrin.h>
+#include <sys/mman.h>
 #include <x86intrin.h>
 
 #include <cstring>
@@ -338,6 +339,11 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
   // make size 64byte aligned
   auto reminder = size & 0x3f;
   size += (64 - reminder) & ((reminder == 0) - 1);
+
+  std::cout << " combine_buffer capacity = " << combine_buffer_->capacity()
+            << " allocated = " << combine_buffer_->size() << " to allocate = " << size
+            << std::endl;
+
   if (size > combine_buffer_size_) {
     ARROW_ASSIGN_OR_RAISE(buffer,
                           arrow::AllocateResizableBuffer(size, options_.memory_pool));
@@ -347,6 +353,11 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
     ARROW_ASSIGN_OR_RAISE(
         combine_buffer_,
         arrow::AllocateResizableBuffer(combine_buffer_size_, options_.memory_pool));
+    madvise(combine_buffer_->mutable_data(), combine_buffer_size_, /*MADV_HUGEPAGE */ 14);
+    madvise(combine_buffer_->mutable_data(), combine_buffer_size_, MADV_WILLNEED);
+    std::cout << " combine buffer addr " << std::hex << combine_buffer_->address()
+              << std::dec << std::endl;
+
     combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
   }
   buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(), size);
@@ -817,6 +828,7 @@ Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
                 reinterpret_cast<const arrow::StringType::offset_type*>(
                     offsetbuf)[num_rows] -
                 reinterpret_cast<const arrow::StringType::offset_type*>(offsetbuf)[0];
+            size_per_row += sizeof(arrow::StringType::offset_type);
             break;
           case arrow::LargeBinaryType::type_id:
           case arrow::LargeStringType::type_id:
@@ -824,6 +836,7 @@ Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
                          offsetbuf)[num_rows] -
                      reinterpret_cast<const arrow::LargeStringType::offset_type*>(
                          offsetbuf)[0];
+            size_per_row += sizeof(arrow::LargeStringType::offset_type);
             break;
         }
         binary_array_empirical_size_[i - fixed_width_col_cnt_] =
@@ -833,8 +846,8 @@ Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
       }
     }
   }
-  size_per_row = std::accumulate(binary_array_empirical_size_.begin(),
-                                 binary_array_empirical_size_.end(), 0);
+  size_per_row += std::accumulate(binary_array_empirical_size_.begin(),
+                                  binary_array_empirical_size_.end(), 0);
 
   for (auto col = 0; col < fixed_width_col_cnt_; ++col) {
     auto col_idx = array_idx_[col];
