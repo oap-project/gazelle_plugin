@@ -338,14 +338,15 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
   // make size 64byte aligned
   auto reminder = size & 0x3f;
   size += (64 - reminder) & ((reminder == 0) - 1);
-  if (size > SPLIT_BUFFER_SIZE) {
+  if (size > combine_buffer_size_) {
     ARROW_ASSIGN_OR_RAISE(buffer,
                           arrow::AllocateResizableBuffer(size, options_.memory_pool));
     return arrow::Status::OK();
   } else if (combine_buffer_->capacity() - combine_buffer_->size() < size) {
     // memory pool is not enough
-    ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
-                                               SPLIT_BUFFER_SIZE, options_.memory_pool));
+    ARROW_ASSIGN_OR_RAISE(
+        combine_buffer_,
+        arrow::AllocateResizableBuffer(combine_buffer_size_, options_.memory_pool));
     combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
   }
   buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(), size);
@@ -514,7 +515,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                         buffers[1]->data())[0]
                   : reinterpret_cast<const arrow::LargeBinaryType::offset_type*>(
                         buffers[1]->data())[0];
-          ARROW_CHECK_EQ(dst_offset0, 0);
+          ARROW_CHECK_EQ(dst_offset0, 0) << dst_offset0;
 
           if (reset_buffers) {
             partition_validity_addrs_[fixed_width_col_cnt_ + binary_idx][partition_id] =
@@ -629,11 +630,10 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         }
 
         std::shared_ptr<arrow::Buffer> offset_buffer;
+        std::shared_ptr<arrow::Buffer> value_buffer;
         std::shared_ptr<arrow::Buffer> validity_buffer = nullptr;
         auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size + 1024;
-        ARROW_ASSIGN_OR_RAISE(
-            std::shared_ptr<arrow::Buffer> value_buffer,
-            arrow::AllocateResizableBuffer(value_buf_size, options_.memory_pool));
+        ARROW_RETURN_NOT_OK(AllocateBufferFromPool(value_buffer, value_buf_size));
         ARROW_RETURN_NOT_OK(
             AllocateBufferFromPool(offset_buffer, new_size * sizeof_binary_offset + 1));
         // set the first offset to 0
@@ -836,17 +836,23 @@ Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
   size_per_row = std::accumulate(binary_array_empirical_size_.begin(),
                                  binary_array_empirical_size_.end(), 0);
 
-  for (auto col = 0; col < array_idx_.size(); ++col) {
+  for (auto col = 0; col < fixed_width_col_cnt_; ++col) {
     auto col_idx = array_idx_[col];
-    if (col_idx < fixed_width_col_cnt_)
-      size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) >> 3;
+    size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) >> 3;
   }
+
+  // add validity buffer
+  size_per_row += (array_idx_.size() >> 3) + 1;
 
   int64_t prealloc_row_cnt =
       options_.offheap_per_task > 0 && size_per_row > 0
           ? options_.offheap_per_task / size_per_row / num_partitions_ >> 2
           : options_.buffer_size;
   prealloc_row_cnt = std::min(prealloc_row_cnt, (int64_t)options_.buffer_size);
+
+  combine_buffer_size_ = 1L * prealloc_row_cnt * size_per_row * num_partitions_;
+  // each binary buffer is allocated 1024 bytes more
+  combine_buffer_size_ += (array_idx_.size() - fixed_width_col_cnt_) * 1024;
 
   return (row_offset_type)prealloc_row_cnt;
 }
@@ -1232,21 +1238,42 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
       value_offset = dst_offset_base[x + 1] = value_offset + strlength;
       if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
         // allocate value buffer again
-        // enlarge the buffer by 1.5x
-        capacity = capacity + std::max((capacity >> 1), (uint64_t)strlength);
+        // calculated the buffer size based on already filled buffer
+        uint64_t size_per_row = value_offset / (partition_buffer_idx_base_[pid] + x) + 1;
+        combine_buffer_size_ = combine_buffer_size_ +
+                               (size_per_row - binary_array_empirical_size_[binary_idx]) *
+                                   partition_buffer_size_[pid];
+        binary_array_empirical_size_[binary_idx] =
+            std::max(binary_array_empirical_size_[binary_idx], size_per_row);
+        uint64_t new_size =
+            binary_array_empirical_size_[binary_idx] * partition_buffer_size_[pid] + 1024;
+        capacity = std::max(new_size, capacity + strlength);
 
         auto value_buffer = std::static_pointer_cast<arrow::ResizableBuffer>(
             partition_buffers_[fixed_width_col_cnt_ + binary_idx][pid][2]);
-        value_buffer->Reserve(capacity);
+        // if it's allocated from combine buffer, we need to allocate a new buffer and
+        // copy the data there
+        if (value_buffer->parent() != NULL) {
+          ARROW_ASSIGN_OR_RAISE(value_buffer, arrow::AllocateResizableBuffer(
+                                                  capacity, options_.memory_pool));
+          memcpy(value_buffer->mutable_data(), dst_addrs[pid].valueptr,
+                 dst_addrs[pid].value_capacity);
+          partition_buffers_[fixed_width_col_cnt_ + binary_idx][pid][2] = value_buffer;
+        } else {
+          // if it's allocated from memory pool directly, reserve more memory
+          value_buffer->Reserve(capacity);
+        }
+
+        std::cout << " value buffer resized colid = " << binary_idx << " dst_start "
+                  << dst_offset_base[x] << " dst_end " << dst_offset_base[x + 1]
+                  << " old size = " << dst_addrs[pid].value_capacity
+                  << " new size = " << capacity
+                  << " row = " << (partition_buffer_idx_base_[pid] + x)
+                  << " strlen = " << strlength << std::endl;
 
         dst_addrs[pid].valueptr = value_buffer->mutable_data();
         dst_addrs[pid].value_capacity = capacity;
         dst_value_base = dst_addrs[pid].valueptr + value_offset - strlength;
-        std::cout << " value buffer resized colid = " << binary_idx << " dst_start "
-                  << dst_offset_base[x] << " dst_end " << dst_offset_base[x + 1]
-                  << " old size = " << capacity << " new size = " << capacity
-                  << " row = " << partition_buffer_idx_base_[pid]
-                  << " strlen = " << strlength << std::endl;
       }
       auto value_src_ptr = src_addr + src_offset_addr[src_offset];
 //#if NATIVE_AVX512 == ON
