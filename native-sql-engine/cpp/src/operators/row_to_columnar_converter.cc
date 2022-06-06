@@ -31,31 +31,15 @@ int64_t GetFieldOffset(int64_t nullBitsetWidthInBytes, int32_t index) {
   return nullBitsetWidthInBytes + 8L * index;
 }
 
-bool IsNull(uint8_t* buffer_address, int32_t index) {
+inline bool IsNull(uint8_t* buffer_address, int32_t index) {
   int64_t mask = 1L << (index & 0x3f);  // mod 64 and shift
   int64_t wordOffset = (index >> 6) * 8;
-  int64_t word;
-  memcpy(&word, buffer_address + wordOffset, sizeof(int64_t));
-  int64_t value = (word & mask);
-  int64_t thebit = value >> (index & 0x3f);
-  if (thebit == 1) {
-    return true;
-  } else {
-    return false;
-  }
+  int64_t value = *((int64_t*)(buffer_address + wordOffset));
+  return (value & mask) != 0;
 }
 
 int32_t CalculateHeaderPortionInBytes(int32_t num_elements) {
   return 8 + ((num_elements + 63) / 64) * 8;
-}
-
-int32_t WordOffset(uint8_t* buffer_address, int32_t index) {
-  int64_t mask = 1L << (index & 0x3f);  // mod 64 and shift
-  int64_t wordOffset = (index >> 6) * 8;
-  int64_t word;
-  memcpy(&word, buffer_address + wordOffset, sizeof(int64_t));
-  int64_t value = (word & mask);
-  int64_t thebit = value >> (index & 0x3f);
 }
 
 arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num_rows,

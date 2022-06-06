@@ -32,6 +32,7 @@
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
 #include "operators/columnar_to_row_converter.h"
+#include "operators/row_to_columnar_converter.h"
 #include "tests/test_utils.h"
 
 namespace sparkcolumnarplugin {
@@ -69,7 +70,7 @@ class GoogleBenchmarkColumnarToRow {
       row_group_indices.push_back(i);
     }
 
-    auto num_columns = schema->num_fields();
+    num_columns = schema->num_fields();
     for (int i = 0; i < num_columns; ++i) {
       column_indices.push_back(i);
     }
@@ -91,6 +92,7 @@ class GoogleBenchmarkColumnarToRow {
   std::vector<int> row_group_indices;
   std::vector<int> column_indices;
   std::shared_ptr<arrow::Schema> schema;
+  int32_t num_columns;
   parquet::ArrowReaderProperties properties;
 };
 class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
@@ -114,30 +116,12 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
     int64_t init_time = 0;
     int64_t write_time = 0;
 
-    /*      std::vector<int> local_column_indices;
-          local_column_indices.push_back(0);
-          local_column_indices.push_back(1);
-          local_column_indices.push_back(2);
-          local_column_indices.push_back(4);
-          local_column_indices.push_back(5);
-          local_column_indices.push_back(6);
-          local_column_indices.push_back(7);
-    */
     std::vector<int> local_column_indices = column_indices;
 
     std::shared_ptr<arrow::Schema> local_schema;
     local_schema = std::make_shared<arrow::Schema>(*schema.get());
+    local_schema->field_names();
 
-    /*      ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(15));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(14));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(13));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(12));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(11));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(10));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(9));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(8));
-          ARROW_ASSIGN_OR_THROW(local_schema, local_schema->RemoveField(3));
-      */
     if (state.thread_index() == 0) std::cout << local_schema->ToString() << std::endl;
 
     std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
@@ -147,6 +131,7 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
         properties, &parquet_reader));
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+    std::vector<std::shared_ptr<ColumnarToRowConverter>> vec_C2RConverter;
     ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(
         row_group_indices, local_column_indices, &record_batch_reader));
     do {
@@ -156,21 +141,61 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
         batches.push_back(record_batch);
         num_batches += 1;
         num_rows += record_batch->num_rows();
+
+        std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+            std::make_shared<ColumnarToRowConverter>(arrow::default_memory_pool());
+        columnarToRowConverter->Init(record_batch);
+        columnarToRowConverter->Write();
+        vec_C2RConverter.push_back(columnarToRowConverter);
+
+        // uint8_t* address = c2rConverter->GetBufferAddress();
+        // auto length_vec = columnarToRowConverter->GetLengths();
+        // long arr[length_vec.size()];
+        // for (int i = 0; i < length_vec.size(); i++) {
+        //   arr[i] = length_vec[i];
+        // }
+        // long* lengthPtr = arr;
+        // std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>
+        //     row_to_columnar_converter = std::make_shared<
+        //         sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(
+        //         schema, num_columns, record_batch->num_rows(), lengthPtr, address,
+        //         arrow::default_memory_pool());
+        // std::shared_ptr<arrow::RecordBatch> rb;
+        // TIME_NANO_OR_THROW(init_time,row_to_columnar_converter->Init(&rb));
+        // std::cout << "rb->ToString():\n"
+        //     << rb->ToString() << std::endl;
       }
     } while (record_batch);
 
     std::cout << " parquet parse done elapsed time = " << elapse_read / 1000000
               << " rows = " << num_rows << std::endl;
 
-    // reuse the columnarToRowConverter for batches caused system % increase a lot
-
-    std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
-        std::make_shared<ColumnarToRowConverter>(arrow::default_memory_pool());
-
     for (auto _ : state) {
-      for (const auto& batch : batches) {
-        TIME_NANO_OR_THROW(init_time, columnarToRowConverter->Init(batch));
-        TIME_NANO_OR_THROW(write_time, columnarToRowConverter->Write());
+      for (int i = 0; i < batches.size(); i++) {
+        // for (int i = 0; i < 1; i++) {
+        auto& batch = batches[i];
+        auto& c2rConverter = vec_C2RConverter[i];
+
+        uint8_t* address = c2rConverter->GetBufferAddress();
+        auto length_vec = c2rConverter->GetLengths();
+        long arr[length_vec.size()];
+        for (int i = 0; i < length_vec.size(); i++) {
+          arr[i] = length_vec[i];
+        }
+        long* lengthPtr = arr;
+        // std::cout << "batch->ToString():\n"
+        //     << batch->ToString() << std::endl;
+
+        std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>
+            row_to_columnar_converter = std::make_shared<
+                sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(
+                schema, num_columns, batch->num_rows(), lengthPtr, address,
+                arrow::default_memory_pool());
+
+        std::shared_ptr<arrow::RecordBatch> rb;
+        TIME_NANO_OR_THROW(init_time, row_to_columnar_converter->Init(&rb));
+        // std::cout << "rb->ToString():\n"
+        //     << rb->ToString() << std::endl;
       }
     }
 
@@ -192,8 +217,6 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
         elapse_read, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
     state.counters["init_time"] = benchmark::Counter(
         init_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
-    state.counters["write_time"] = benchmark::Counter(
-        write_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
   }
 };
 
@@ -219,9 +242,6 @@ class GoogleBenchmarkColumnarToRow_IterateScan_Benchmark
         arrow::default_memory_pool(), ::parquet::ParquetFileReader::Open(file),
         properties, &parquet_reader));
 
-    std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
-        std::make_shared<ColumnarToRowConverter>(arrow::default_memory_pool());
-
     for (auto _ : state) {
       ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(
           row_group_indices, column_indices, &record_batch_reader));
@@ -229,8 +249,26 @@ class GoogleBenchmarkColumnarToRow_IterateScan_Benchmark
       while (record_batch) {
         num_batches += 1;
         num_rows += record_batch->num_rows();
-        TIME_NANO_OR_THROW(init_time, columnarToRowConverter->Init(record_batch));
-        TIME_NANO_OR_THROW(write_time, columnarToRowConverter->Write());
+        std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+            std::make_shared<ColumnarToRowConverter>(arrow::default_memory_pool());
+        columnarToRowConverter->Init(record_batch);
+        columnarToRowConverter->Write();
+
+        uint8_t* address = columnarToRowConverter->GetBufferAddress();
+        auto length_vec = columnarToRowConverter->GetLengths();
+        long arr[length_vec.size()];
+        for (int i = 0; i < length_vec.size(); i++) {
+          arr[i] = length_vec[i];
+        }
+        long* lengthPtr = arr;
+        std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>
+            row_to_columnar_converter = std::make_shared<
+                sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(
+                schema, num_columns, record_batch->num_rows(), lengthPtr, address,
+                arrow::default_memory_pool());
+        std::shared_ptr<arrow::RecordBatch> rb;
+        TIME_NANO_OR_THROW(init_time, row_to_columnar_converter->Init(&rb));
+
         TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
       }
     }
@@ -253,8 +291,6 @@ class GoogleBenchmarkColumnarToRow_IterateScan_Benchmark
         elapse_read, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
     state.counters["init_time"] = benchmark::Counter(
         init_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
-    state.counters["write_time"] = benchmark::Counter(
-        write_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
   }
 };
 
