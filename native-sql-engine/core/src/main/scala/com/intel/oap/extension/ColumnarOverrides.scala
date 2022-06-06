@@ -122,16 +122,32 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
         plan.resultExpressions,
         child)
     case plan: SortAggregateExec if (columnarConf.enableHashAggForStringType) =>
-      val child = replaceWithColumnarPlan(plan.child)
-      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      ColumnarHashAggregateExec(
-        plan.requiredChildDistributionExpressions,
-        plan.groupingExpressions,
-        plan.aggregateExpressions,
-        plan.aggregateAttributes,
-        plan.initialInputBufferOffset,
-        plan.resultExpressions,
-        child)
+      try {
+        val child = replaceWithColumnarPlan(plan.child)
+        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        ColumnarHashAggregateExec(
+          plan.requiredChildDistributionExpressions,
+          plan.groupingExpressions,
+          plan.aggregateExpressions,
+          plan.aggregateAttributes,
+          plan.initialInputBufferOffset,
+          plan.resultExpressions,
+          // If SortAggregateExec is forcibly replaced by ColumnarHashAggregateExec,
+          // Sort operator is useless. So just use its child to initialize.
+          child match {
+          case sort: ColumnarSortExec =>
+            sort.child
+          case sort: SortExec =>
+            sort.child
+          case other =>
+            other
+          })
+      } catch {
+        case _: Throwable =>
+          logInfo("Fallback to SortAggregateExec instead of forcibly" +
+            " using ColumnarHashAggregateExec!")
+          plan
+      }
     case plan: UnionExec =>
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
@@ -160,10 +176,6 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
         case p: ArrowCoalesceBatchesExec =>
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
-        // If SortAggregateExec is forcibly replaced by ColumnarHashAggregateExec,
-        // Sort is useless. So just return child.
-        case p: ColumnarHashAggregateExec =>
-          child
         case _ =>
           ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       }
