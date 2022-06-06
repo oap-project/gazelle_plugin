@@ -214,6 +214,7 @@ arrow::Result<std::shared_ptr<Splitter>> Splitter::Make(
 }
 
 arrow::Status Splitter::Init() {
+  support_avx512_ = __builtin_cpu_supports("avx512bw");
   // partition number should be less than 64k
   ARROW_CHECK_LE(num_partitions_, 64 * 1024);
   // split record batch size should be less than 32k
@@ -1249,23 +1250,19 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
                   << " strlen = " << strlength << std::endl;
       }
       auto value_src_ptr = src_addr + src_offset_addr[src_offset];
-//#if NATIVE_AVX512 == ON
-#ifdef AVX512SUPPORT
-      // write the variable value
-      T k;
-      for (k = 0; k + 32 < strlength; k += 32) {
-        __m256i v = _mm256_loadu_si256((const __m256i*)(value_src_ptr + k));
-        _mm256_storeu_si256((__m256i*)(dst_value_base + k), v);
+      if (ARROW_PREDICT_TRUE(support_avx512_)) {
+        // write the variable value
+        T k;
+        for (k = 0; k + 32 < strlength; k += 32) {
+          __m256i v = _mm256_loadu_si256((const __m256i*)(value_src_ptr + k));
+          _mm256_storeu_si256((__m256i*)(dst_value_base + k), v);
+        }
+        auto mask = (1L << (strlength - k)) - 1;
+        __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
+        _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
+      } else {
+        memcpy(dst_value_base, value_src_ptr, strlength);
       }
-      auto mask = (1L << (strlength - k)) - 1;
-      __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
-      _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
-#else
-      // std::cout << " x = " << x << " src_offset_offset = " << src_offset << " src
-      // offset = " << src_offset_addr[src_offset] << " strlength = " << strlength << "
-      // dst_offset = " << value_offset << std::endl;
-      memcpy(dst_value_base, value_src_ptr, strlength);
-#endif
       dst_value_base += strlength;
       _mm_prefetch(value_src_ptr + 64, _MM_HINT_T1);
       _mm_prefetch(src_offset_addr + src_offset + 64 / sizeof(T), _MM_HINT_T1);
