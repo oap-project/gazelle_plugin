@@ -157,7 +157,7 @@ class ColumnarRLike(left: Expression, right: Expression, original: Expression)
 
     val resultType = new ArrowType.Bool()
     val funcNode =
-      TreeBuilder.makeFunction("like", Lists.newArrayList(left_node, right_node), resultType)
+      TreeBuilder.makeFunction("rlike", Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
 }
