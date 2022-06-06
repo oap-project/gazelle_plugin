@@ -551,7 +551,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def columnarWholeStageEnabled = conf.getBoolean(
     "spark.oap.sql.columnar.wholestagecodegen", defaultValue = true) && !codegendisable
   def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
-  def enableArrowColumnarToRow =
+  def enableArrowColumnarToRow: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.columnartorow", defaultValue = true)
 
   var isSupportAdaptive: Boolean = true
@@ -613,19 +613,40 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
     plan.withNewChildren(plan.children.map(child =>
       child match {
         case plan: BatchScanExec =>
-          val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
-          val columnarBatchScan: SparkPlan =
-            new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters)
+          plan.scan match {
+            // For ArrowScan case. We must differentiate the handling for spark raw BatchScanExec
+            // and arrow initialized BatchScanExec.
+            case scan if scan.description().contains("ArrowScan") =>
+              val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
+              val columnarBatchScan: SparkPlan =
+                new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters)
+              if (enableArrowColumnarToRow) {
+                try {
+                  ArrowColumnarToRowExec(columnarBatchScan)
+                } catch {
+                  case _: Throwable =>
+                    logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
+                    ColumnarToRowExec(columnarBatchScan)
+                }
+              } else {
+                ColumnarToRowExec(columnarBatchScan)
+              }
+            case _ =>
+              plan
+          }
+        case plan: InMemoryTableScanExec =>
+          val newPlan =
+            new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
           if (enableArrowColumnarToRow) {
             try {
-              ArrowColumnarToRowExec(columnarBatchScan)
+              ArrowColumnarToRowExec(newPlan)
             } catch {
               case _: Throwable =>
                 logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
-                ColumnarToRowExec(columnarBatchScan)
+                ColumnarToRowExec(newPlan)
             }
           } else {
-            ColumnarToRowExec(columnarBatchScan)
+            ColumnarToRowExec(newPlan)
           }
         case p: BroadcastQueryStageExec =>
           p
@@ -635,7 +656,6 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
           p
         case other =>
           replaceBatchScan(other)
-//          other.withNewChildren(other.children.map(child => replaceBatchScan(child)))
       }
     ))
   }
