@@ -635,18 +635,23 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
               plan
           }
         case plan: InMemoryTableScanExec =>
-          val newPlan =
-            new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
-          if (enableArrowColumnarToRow) {
-            try {
-              ArrowColumnarToRowExec(newPlan)
-            } catch {
-              case _: Throwable =>
-                logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
-                ColumnarToRowExec(newPlan)
-            }
+          if (!plan.relation.cacheBuilder.
+            serializer.isInstanceOf[ArrowColumnarCachedBatchSerializer]) {
+            plan
           } else {
-            ColumnarToRowExec(newPlan)
+            val newPlan =
+              new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
+            if (enableArrowColumnarToRow) {
+              try {
+                ArrowColumnarToRowExec(newPlan)
+              } catch {
+                case _: Throwable =>
+                  logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
+                  ColumnarToRowExec(newPlan)
+              }
+            } else {
+              ColumnarToRowExec(newPlan)
+            }
           }
         case p: BroadcastQueryStageExec =>
           p
