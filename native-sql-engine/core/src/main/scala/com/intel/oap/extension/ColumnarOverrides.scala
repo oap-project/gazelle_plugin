@@ -602,73 +602,53 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def fallbackWholeStage(plan: SparkPlan): Boolean = {
     fallbacks = 0
     checkColumnarToRow(plan)
-    if (fallbacks > 2) {
+    if (fallbacks > 3) {
       true
     } else {
       false
     }
   }
 
-  def replaceBatchScan(plan: SparkPlan): SparkPlan = {
-    plan.withNewChildren(plan.children.map(child =>
-      child match {
-        case plan: BatchScanExec =>
-          plan.scan match {
-            // For ArrowScan case. We must differentiate the handling for spark raw BatchScanExec
-            // and arrow initialized BatchScanExec.
-            case scan if scan.description().contains("ArrowScan") =>
-              val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
-              val columnarBatchScan: SparkPlan =
-                new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters)
-              if (enableArrowColumnarToRow) {
-                try {
-                  ArrowColumnarToRowExec(columnarBatchScan)
-                } catch {
-                  case _: Throwable =>
-                    logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
-                    ColumnarToRowExec(columnarBatchScan)
-                }
-              } else {
-                ColumnarToRowExec(columnarBatchScan)
-              }
-            case _ =>
-              plan
-          }
-        case plan: InMemoryTableScanExec =>
-          if (!plan.relation.cacheBuilder.
-            serializer.isInstanceOf[ArrowColumnarCachedBatchSerializer]) {
-            plan
-          } else {
-            val newPlan =
-              new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
-            if (enableArrowColumnarToRow) {
-              try {
-                ArrowColumnarToRowExec(newPlan)
-              } catch {
-                case _: Throwable =>
-                  logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
-                  ColumnarToRowExec(newPlan)
-              }
-            } else {
-              ColumnarToRowExec(newPlan)
-            }
-          }
-        case p: BroadcastQueryStageExec =>
-          p
-        case p: ShuffleQueryStageExec =>
-          p
-        case p if (SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan)) =>
-          p
-        case other =>
-          replaceBatchScan(other)
-      }
-    ))
+  /**
+    * Ported from ApplyColumnarRulesAndInsertTransitions of Spark.
+    * Inserts an transition to columnar formatted data.
+    */
+  private def insertRowToColumnar(plan: SparkPlan): SparkPlan = {
+    if (!plan.supportsColumnar) {
+      // The tree feels kind of backwards
+      // Columnar Processing will start here, so transition from row to columnar
+      RowToColumnarExec(insertTransitions(plan, outputsColumnar = false))
+    } else if (!plan.isInstanceOf[RowToColumnarTransition]) {
+      plan.withNewChildren(plan.children.map(insertRowToColumnar))
+    } else {
+      plan
+    }
+  }
+
+  /**
+    * Ported from ApplyColumnarRulesAndInsertTransitions of Spark.
+    * Inserts RowToColumnarExecs and ColumnarToRowExecs where needed.
+    */
+  private def insertTransitions(plan: SparkPlan, outputsColumnar: Boolean): SparkPlan = {
+    if (outputsColumnar) {
+      insertRowToColumnar(plan)
+    } else if (plan.supportsColumnar) {
+      // `outputsColumnar` is false but the plan outputs columnar format, so add a
+      // to-row transition here.
+      ColumnarToRowExec(insertRowToColumnar(plan))
+    } else if (!plan.isInstanceOf[ColumnarToRowTransition]) {
+      plan.withNewChildren(plan.children.map(insertTransitions(_, outputsColumnar = false)))
+    } else {
+      plan
+    }
   }
 
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
       if (fallbackWholeStage(plan)) {
-        replaceBatchScan(originalPlan)
+        // BatchScan with ArrowScan initialized can still connect
+        // to ColumnarToRow for transition.
+        insertTransitions(originalPlan, false)
       } else {
         val rule = postOverrides
         rule.setAdaptiveSupport(isSupportAdaptive)

@@ -41,11 +41,6 @@ case class ArrowScan(
     dataFilters: Seq[Expression] = Seq.empty)
     extends FileScan {
 
-  override def description(): String = {
-    // Should keep "ArrowScan" contained. See ColumnarOverrideRules#replaceBatchScan.
-    "ArrowScan"
-  }
-
   override def isSplitable(path: Path): Boolean = {
     ArrowUtils.isOriginalFormatSplitable(
       new ArrowOptions(new CaseInsensitiveStringMap(options).asScala.toMap))
