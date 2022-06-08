@@ -646,7 +646,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      if (fallbackWholeStage(plan)) {
+      if (SQLConf.get.adaptiveExecutionEnabled && fallbackWholeStage(plan)) {
         // BatchScan with ArrowScan initialized can still connect
         // to ColumnarToRow for transition.
         insertTransitions(originalPlan, false)
