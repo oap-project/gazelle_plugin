@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql
 
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution.ColumnarHashAggregateExec
 
 import scala.util.Random
@@ -1042,6 +1043,7 @@ class DataFrameAggregateSuite extends QueryTest
   Seq(true, false).foreach { value =>
     test(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
       withSQLConf(
+        GazellePluginConfig.getSessionConf.ENABLE_HASH_AGG_FOR_STRING_TYPE_KEY -> "false",
         SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
         withTempView("t1", "t2") {
           sql("create temporary view t1 as select * from values (1, 2) as t1(a, b)")
@@ -1073,6 +1075,27 @@ class DataFrameAggregateSuite extends QueryTest
           assert(
             find(df.queryExecution.executedPlan)(_.isInstanceOf[ObjectHashAggregateExec]).isDefined)
           checkAnswer(df, Row(Array(4), 4) :: Nil)
+        }
+      }
+    }
+  }
+
+  Seq(true, false).foreach { value =>
+    test(s"Force to use hash agg for string type with (whole-stage-codegen = $value)") {
+      withSQLConf(
+        GazellePluginConfig.getSessionConf.ENABLE_HASH_AGG_FOR_STRING_TYPE_KEY -> "true",
+        SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
+        withTempView("t1") {
+          sql("create temporary view t1 as select * from values('A'), ('B'), ('C') as t1(col1)")
+          // test hashAggregateExec
+          var df = sql("select max(col1) from t1")
+          assert(find(df.queryExecution.executedPlan)(
+            _.isInstanceOf[ColumnarHashAggregateExec]).isDefined)
+          checkAnswer(df, Row("C") :: Nil)
+          df = sql("select first(col1) from t1")
+          assert(find(df.queryExecution.executedPlan)(
+            _.isInstanceOf[ColumnarHashAggregateExec]).isDefined)
+          checkAnswer(df, Row("A") :: Nil)
         }
       }
     }
