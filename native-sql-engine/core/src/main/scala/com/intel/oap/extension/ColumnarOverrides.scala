@@ -27,6 +27,7 @@ import com.intel.oap.sql.shims.SparkShimLoader
 
 import org.apache.spark.{MapOutputStatistics, SparkContext}
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.LocalWindowExec
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.optimizer.BuildLeft
