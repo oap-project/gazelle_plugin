@@ -315,7 +315,8 @@ class WindowRankKernel : public KernalBase {
  public:
   WindowRankKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, bool is_row_number = false);
+                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                   bool is_row_number = false);
   static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out, bool desc);

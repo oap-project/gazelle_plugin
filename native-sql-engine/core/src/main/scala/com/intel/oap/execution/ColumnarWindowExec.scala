@@ -61,7 +61,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
 
   override def output: Seq[Attribute] = child.output ++ windowExpression.map(_.toAttribute)
 
-  //buildCheck()
+  buildCheck()
 
   override def requiredChildDistribution: Seq[Distribution] = {
     if (isLocal) {
@@ -103,6 +103,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     try {
       breakable {
         for (func <- validateWindowFunctions()) {
+          if (func._1 == "row_number") {
+            allLiteral = false
+            break
+          }
           for (child <- func._2.children) {
             if (!child.isInstanceOf[Literal]) {
               allLiteral = false
@@ -216,9 +220,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         Iterator.empty
       } else {
         val prev1 = System.nanoTime()
-        val gWindowFunctions = windowFunctions.map { 
-          case ("row_number", fc) =>
-            val attr = ConverterUtils.getAttrFromExpr(fc, true)
+        val gWindowFunctions = windowFunctions.map {
+          case ("row_number", spec) =>
+            //TODO(): should get attr from orderSpec
+            val attr = ConverterUtils.getAttrFromExpr(orderSpec.head.child, true)
             TreeBuilder.makeFunction("row_number",
               List(TreeBuilder.makeField(
                     Field.nullable(attr.name,

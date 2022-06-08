@@ -302,7 +302,7 @@ arrow::Status WindowRankKernel::Make(
   } else {
     *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
   }
-  
+
   return arrow::Status::OK();
 }
 
@@ -534,7 +534,7 @@ arrow::Status WindowRankKernel::AreTheSameValue(const std::vector<ArrayList>& va
                                                 bool* out) {
   if (is_row_number_) {
     *out = false;
-    return arrow::Status::OK();  
+    return arrow::Status::OK();
   }
   auto typed_array_i =
       std::dynamic_pointer_cast<ArrayType>(values.at(i->array_id).at(column));

@@ -277,7 +277,7 @@ arrow::Status ExprVisitor::MakeWindow(
   for (const auto& child : node.children()) {
     auto child_function = std::dynamic_pointer_cast<gandiva::FunctionNode>(child);
     auto child_func_name = child_function->descriptor()->name();
-    std::cout << "window func name: " << child_func_name << std::endl;
+
     if (child_func_name == "sum" || child_func_name == "avg" ||
         child_func_name == "min" || child_func_name == "max" ||
         child_func_name == "count" || child_func_name == "count_literal" ||
