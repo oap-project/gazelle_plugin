@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -103,6 +103,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     try {
       breakable {
         for (func <- validateWindowFunctions()) {
+          if (func._1 == "row_number") {
+            allLiteral = false
+            break
+          }
           for (child <- func._2.children) {
             if (!child.isInstanceOf[Literal]) {
               allLiteral = false
@@ -191,9 +195,15 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case Some(false) => "rank_asc"
                   case None => "rank_asc"
                 }
+              case rw: RowNumber =>
+                "row_number"
               case f => throw new UnsupportedOperationException("unsupported window function: " + f)
             }
-            (name, func)
+            if (name == "row_number") {
+              (name, orderSpec.head.child)
+            } else {
+              (name, func)
+            }
         }
     if (windowFunctions.isEmpty) {
       throw new UnsupportedOperationException("zero window functions" +
@@ -210,7 +220,17 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         Iterator.empty
       } else {
         val prev1 = System.nanoTime()
-        val gWindowFunctions = windowFunctions.map { case (n, f) =>
+        val gWindowFunctions = windowFunctions.map {
+          case ("row_number", spec) =>
+            //TODO(): should get attr from orderSpec
+            val attr = ConverterUtils.getAttrFromExpr(orderSpec.head.child, true)
+            TreeBuilder.makeFunction("row_number",
+              List(TreeBuilder.makeField(
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
+             NoneType.NONE_TYPE 
+            )
+          case (n, f) =>
           TreeBuilder.makeFunction(n,
             f.children
               .flatMap {

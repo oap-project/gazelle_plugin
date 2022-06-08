@@ -243,11 +243,12 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
 WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
-    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc) {
+    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, bool is_row_number) {
   ctx_ = ctx;
   type_list_ = type_list;
   sorter_ = sorter;
   desc_ = desc;
+  is_row_number_ = is_row_number;
 }
 
 arrow::Status WindowRankKernel::Make(
@@ -296,7 +297,12 @@ arrow::Status WindowRankKernel::Make(
       throw JniPendingException("Window Sort codegen failed");
     }
   }
-  *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
+  if (function_name == "row_number") {
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, true);
+  } else {
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
+  }
+
   return arrow::Status::OK();
 }
 
@@ -526,6 +532,10 @@ arrow::Status WindowRankKernel::AreTheSameValue(const std::vector<ArrayList>& va
                                                 std::shared_ptr<ArrayItemIndex> i,
                                                 std::shared_ptr<ArrayItemIndex> j,
                                                 bool* out) {
+  if (is_row_number_) {
+    *out = false;
+    return arrow::Status::OK();
+  }
   auto typed_array_i =
       std::dynamic_pointer_cast<ArrayType>(values.at(i->array_id).at(column));
   auto typed_array_j =
