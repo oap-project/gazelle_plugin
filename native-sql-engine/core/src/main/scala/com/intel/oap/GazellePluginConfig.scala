@@ -61,6 +61,12 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf.getConfString(
       ENABLE_HASH_AGG_FOR_STRING_TYPE_KEY, "true").toBoolean && enableCpu
 
+  // If a stage has >= threshold fallbacks after replacing with columnar operators, just let
+  // the whole stage fallback. This feature will be turned off if -1 is specified.
+  val WHOLE_STAGE_FALLBACK_THRESHOLD_KEY = "spark.oap.sql.columnar.wholeStage.fallback.threshold"
+  val WHOLE_STAGE_FALLBACK_THRESHOLD: Int =
+    conf.getConfString(WHOLE_STAGE_FALLBACK_THRESHOLD_KEY, "4").toInt
+
   // enable or disable columnar project and filter
   val enableColumnarProjFilter: Boolean =
     conf.getConfString("spark.oap.sql.columnar.projfilter", "true").toBoolean && enableCpu

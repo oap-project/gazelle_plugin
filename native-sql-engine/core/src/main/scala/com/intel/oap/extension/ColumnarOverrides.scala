@@ -554,6 +554,8 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
   def enableArrowColumnarToRow: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.columnartorow", defaultValue = true)
+  def wholeStageFallbackThreshold: Int =
+    conf.getInt("spark.oap.sql.columnar.wholeStage.fallback.threshold", defaultValue = 4)
 
   var isSupportAdaptive: Boolean = true
 
@@ -601,9 +603,12 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   }
 
   def fallbackWholeStage(plan: SparkPlan): Boolean = {
+    if (wholeStageFallbackThreshold == -1) {
+      return false
+    }
     fallbacks = 0
     checkColumnarToRow(plan)
-    if (fallbacks > 3) {
+    if (fallbacks >= wholeStageFallbackThreshold) {
       true
     } else {
       false
