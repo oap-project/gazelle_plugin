@@ -146,7 +146,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               val rowLength = new ListBuffer[Long]()
               var rowCount = 0
               var offset = 0
-              val start = System.nanoTime()
 
               assert(firstRow.isInstanceOf[UnsafeRow])
               val unsafeRow = firstRow.asInstanceOf[UnsafeRow]
@@ -180,8 +179,10 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               if (schemaBytes == null) {
                 schemaBytes = ConverterUtils.getSchemaBytesBuf(arrowSchema)
               }
+              val start = System.nanoTime()
               val serializedRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
                 arrowBuf.memoryAddress(), SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+              elapse = System.nanoTime() - start
               numInputRows += rowCount
               numOutputBatches += 1
               val rb = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
@@ -190,8 +191,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               ConverterUtils.releaseArrowRecordBatch(rb)
               arrowBuf.close()
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
-              elapse = System.nanoTime() - start
-              processTime.set(NANOSECONDS.toMillis(elapse))
+              processTime += NANOSECONDS.toMillis(elapse)
               last_cb
             } else {
               logInfo("not unsaferow, fallback to java based r2c")
@@ -212,7 +212,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
                 rowCount += 1
               }
               vectors.foreach(v => v.asInstanceOf[ArrowWritableColumnVector].setValueCount(rowCount))
-              processTime.set(NANOSECONDS.toMillis(elapse))
+              processTime += NANOSECONDS.toMillis(elapse)
               numInputRows += rowCount
               numOutputBatches += 1
               last_cb = new ColumnarBatch(vectors.toArray, rowCount)

@@ -102,7 +102,6 @@ case class ArrowCoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
             val arrBufSizes = new ArrayBuffer[Array[Long]]()
             val numrows = ListBuffer[Int]()
 
-            val beforeConcat = System.nanoTime
             while (hasNext && rowCount < recordsPerBatch) {
               val delta: ColumnarBatch = iter.next()
               delta.retain()
@@ -134,16 +133,17 @@ case class ArrowCoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
             val schema = new Schema(expected_output_arrow_fields.asJava)
             val arrowSchema = ConverterUtils.getSchemaBytesBuf(schema)
 
+            val beforeConcat = System.nanoTime
             val serializedRecordBatch = jniWrapper.nativeCoalesceBatches(
               arrowSchema, rowCount, numrows.toArray, arrBufAddrs.toArray, arrBufSizes.toArray,
               SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+            concatTime += System.nanoTime - beforeConcat
             val rb = UnsafeRecordBatchSerializer.deserializeUnsafe(SparkMemoryUtils.contextAllocator(), serializedRecordBatch)
             val ColVecArr = ConverterUtils.fromArrowRecordBatch(schema, rb)
             val outputNumRows = rb.getLength
             ConverterUtils.releaseArrowRecordBatch(rb)
             val bigColBatch = new ColumnarBatch(ColVecArr.map(v => v.asInstanceOf[ColumnVector]).toArray, rowCount)
 
-            concatTime += System.nanoTime - beforeConcat
             numOutputRows += rowCount
             numInputBatches += batchesToAppend.length
             numOutputBatches += 1
