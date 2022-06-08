@@ -1,5 +1,7 @@
 # Columnar Expression Developer Guide
 
+This is a short guide on adding new columnar expressions in Gazelle.
+
 Currently, the columnar expressions in Gazelle are implemented based on Arrow/gandiva. Developer needs to
 implement a columnar expression class in Gazelle scala code and also add some logic to replace Spark expression
 with the implemented columnar expression. And the native code is implemented in Arrow/gandiva for expression's
