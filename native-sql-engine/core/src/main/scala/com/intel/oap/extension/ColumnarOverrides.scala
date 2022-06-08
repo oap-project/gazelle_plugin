@@ -190,12 +190,12 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
         } else {
           if (columnarConf.enableArrowCoalesceBatches) {
             ArrowCoalesceBatchesExec(
-              ColumnarShuffleExchangeExec(
+              ColumnarShuffleExchangeAdaptor(
                 plan.outputPartitioning,
                 child))
           } else {
             CoalesceBatchesExec(
-              ColumnarShuffleExchangeExec(
+              ColumnarShuffleExchangeAdaptor(
                 plan.outputPartitioning,
                 child))
           }
