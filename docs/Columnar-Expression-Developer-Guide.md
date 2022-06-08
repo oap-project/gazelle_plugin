@@ -2,11 +2,11 @@
 
 Currently, the columnar expressions in Gazelle are implemented based on Arrow/gandiva. Developer needs to
 implement a columnar expression class in Gazelle scala code and also add some logic to replace Spark expression
-with the implemented columnar expression. And the native code for expression's core functionality is implemented
-in Arrow/gandiva.
+with the implemented columnar expression. And the native code is implemented in Arrow/gandiva for expression's
+core functionality.
 
-We should check whether the desired function is already implemented in gandiva. For functions already implemented,
-we may still need to make a few code changes to meet the compatibility with Spark.
+Before native code development, we should check whether the desired function is already implemented
+in gandiva. If so, we can directly use it or just make a few code changes to meet the compatibility with Spark.
 
 Take `regexp_extract` as example.
 
@@ -21,13 +21,13 @@ In `extract_holder.h`, we need declare the below functions other than some other
 static Status Make(const FunctionNode &node, std::shared_ptr<ExtractHolder> *holder);
 ```
 This function is used to construct `ExtractHolder` and check the legality of input if needed. It will
-be called by `function_holder_registry.h` to register function holder.
+be called by `function_holder_registry.h` to register the function holder.
 
 In `gdv_function_stubs.cc`，we need to implement a function called `gdv_fn_regexp_extract_utf8_utf8_int32`,
 which will invoke overloaded `operator()` in `ExtractHolder`. The `operator()` is the core function to do
 the extract work.
 
-We need also register `regexp_extract` in `function_registry_string.cc` (for functions handling string).
+We need also register `regexp_extract` in `function_registry_string.cc` (for functions handling strings).
 This exposed function name will be used to create function tree in Gazelle scala code. In this case,
 function holder is required, so we should specify `NativeFunction::kNeedsFunctionHolder` in the registry.
 
@@ -47,9 +47,9 @@ See [gazelle_plugin/pull/847](https://github.com/oap-project/gazelle_plugin/pull
 
 In scala code, `ColumnarRegExpExtract` is created to replace Spark's `RegExpExtract`.
 
-We can add `buildCheck` to check the input types. For legal types currently not supported by Gazelle, we can throw
-an `UnsupportedOperationException` to let it fallback. If whole stage codegen is not supported, we should override
-`supportColumnarCodegen` to let it return false.
+We can add `buildCheck` to check the input types. For legal types currently not supported in this implementation,
+we can throw an `UnsupportedOperationException` to let the expression fallback. If whole stage codegen is not
+supported, we should override `supportColumnarCodegen` to let it return false.
 
 In `doColumnarCodeGen`, arrow function node is constructed with gandiva function name `regexp_extract` specified.
 
