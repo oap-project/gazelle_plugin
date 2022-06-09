@@ -203,6 +203,76 @@ class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expres
   }
 }
 
+class ColumnarStringLPad(str: Expression, len: Expression, pad: Expression,
+                            original: Expression) extends StringLPad(str: Expression,
+  len: Expression, pad: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(str.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+
+    if (!pad.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (len_node, _): (TreeNode, ArrowType) =
+      len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (pad_node, _): (TreeNode, ArrowType) =
+      pad.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("lpad",
+      Lists.newArrayList(str_node, len_node, pad_node), resultType), resultType)
+  }
+}
+
+class ColumnarStringRPad(str: Expression, len: Expression, pad: Expression,
+                            original: Expression) extends StringRPad(str: Expression,
+  len: Expression, pad: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(str.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+
+    if (!pad.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (len_node, _): (TreeNode, ArrowType) =
+      len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (pad_node, _): (TreeNode, ArrowType) =
+      pad.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("rpad",
+      Lists.newArrayList(str_node, len_node, pad_node), resultType), resultType)
+  }
+}
+
 class ColumnarSubstringIndex(strExpr: Expression, delimExpr: Expression,
                              countExpr: Expression, original: Expression)
   extends SubstringIndex(strExpr, delimExpr, countExpr) with ColumnarExpression {
@@ -310,6 +380,10 @@ object ColumnarTernaryOperator {
       new ColumnarStringLocate(src, arg1, arg2, sl)
     case re: RegExpExtract =>
       new ColumnarRegExpExtract(src, arg1, arg2, re)
+    case slpad: StringLPad =>
+      new ColumnarStringLPad(src, arg1, arg2, slpad)
+    case slpad: StringRPad =>
+      new ColumnarStringRPad(src, arg1, arg2, slpad)
     case substrIndex: SubstringIndex =>
       new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
     case _: StringReplace =>

@@ -323,6 +323,26 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
+      case slpad: StringLPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(slpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
+      case srpad: StringRPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(srpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
       case sr: StringReplace =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
