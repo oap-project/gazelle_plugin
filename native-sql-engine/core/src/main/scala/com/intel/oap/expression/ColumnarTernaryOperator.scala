@@ -278,7 +278,7 @@ class ColumnarConv(numExpr: Expression, fromBaseExpr: Expression, toBaseExpr: Ex
     }
   }
 
-  override def supportColumnarCodegen(args: java.lang.Object): (Boolean) = {
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
     false
   }
 
@@ -302,8 +302,7 @@ object ColumnarTernaryOperator {
              original: Expression): Expression = original match {
     case ss: Substring =>
       new ColumnarSubString(src, arg1, arg2, ss)
-      // Currently not supported.
-   case ssp: StringSplit =>
+    case ssp: StringSplit =>
      new ColumnarStringSplitPart(src, arg1, arg2, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)

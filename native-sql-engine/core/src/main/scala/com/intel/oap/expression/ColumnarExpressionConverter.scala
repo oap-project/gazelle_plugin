@@ -333,9 +333,11 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.searchExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.replaceExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case conv: Conv =>
@@ -346,9 +348,11 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             conv.fromBaseExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             conv.toBaseExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case u: UnaryExpression =>
