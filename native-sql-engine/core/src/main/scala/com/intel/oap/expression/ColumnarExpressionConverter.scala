@@ -551,6 +551,10 @@ object ColumnarExpressionConverter extends Logging {
           containsSubquery(sr.replaceExpr)
       case conv: Conv =>
         conv.children.map(containsSubquery).exists(_ == true)
+      case lpad: StringLPad =>
+        lpad.children.map(containsSubquery).exists(_ == true)
+      case rpad: StringRPad =>
+        rpad.children.map(containsSubquery).exists(_ == true)
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
           ColumnarUDF.isSupportedUDF(name)
