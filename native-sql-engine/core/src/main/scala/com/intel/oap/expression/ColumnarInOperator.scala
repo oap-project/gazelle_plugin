@@ -48,6 +48,11 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
       throw new UnsupportedOperationException(
         s"${value.dataType} is not supported in ColumnarIn.")
     }
+    if (list.map(_.isInstanceOf[Literal]).exists(_ ==  false)) {
+      throw new UnsupportedOperationException(
+        "Only Literal Type is supported for the input list!"
+      )
+    }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
