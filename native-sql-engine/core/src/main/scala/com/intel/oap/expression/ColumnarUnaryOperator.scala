@@ -380,7 +380,7 @@ class ColumnarUpper(child: Expression, original: Expression)
 }
 
 class ColumnarLower(child: Expression, original: Expression)
-  extends Upper(child: Expression)
+  extends Lower(child: Expression)
     with ColumnarExpression
     with Logging {
 
