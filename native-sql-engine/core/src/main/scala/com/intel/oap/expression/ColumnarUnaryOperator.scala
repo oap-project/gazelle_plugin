@@ -403,6 +403,10 @@ class ColumnarLower(child: Expression, original: Expression)
       TreeBuilder.makeFunction("lower", Lists.newArrayList(child_node), resultType)
     (funcNode, resultType)
   }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
 }
 
 class ColumnarBitwiseNot(child: Expression, original: Expression)
