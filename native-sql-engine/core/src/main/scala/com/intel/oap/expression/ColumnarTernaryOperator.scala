@@ -265,14 +265,44 @@ class ColumnarStringReplace(
   }
 }
 
+class ColumnarConv(numExpr: Expression, fromBaseExpr: Expression, toBaseExpr: Expression)
+  extends Conv(numExpr, fromBaseExpr, toBaseExpr) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(numExpr.dataType) == -1) {
+      throw new RuntimeException(s"${numExpr.dataType}" +
+        s" is not supported in ColumnarConv!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (num_node, _): (TreeNode, ArrowType) =
+      numExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (from_node, _): (TreeNode, ArrowType) =
+      fromBaseExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (to_node, _): (TreeNode, ArrowType) =
+      toBaseExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("conv",
+      Lists.newArrayList(num_node, from_node, to_node), resultType), resultType)
+  }
+
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
              original: Expression): Expression = original match {
     case ss: Substring =>
       new ColumnarSubString(src, arg1, arg2, ss)
-      // Currently not supported.
-   case ssp: StringSplit =>
+    case ssp: StringSplit =>
      new ColumnarStringSplitPart(src, arg1, arg2, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
@@ -284,6 +314,8 @@ object ColumnarTernaryOperator {
       new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
     case _: StringReplace =>
       new ColumnarStringReplace(src, arg1, arg2)
+    case _: Conv =>
+      new ColumnarConv(src, arg1, arg2)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }

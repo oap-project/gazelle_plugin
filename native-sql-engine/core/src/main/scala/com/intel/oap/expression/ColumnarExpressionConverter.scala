@@ -333,9 +333,26 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.searchExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.replaceExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr)
+      case conv: Conv =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            conv.numExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            conv.fromBaseExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            conv.toBaseExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case u: UnaryExpression =>
@@ -512,6 +529,8 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
+      case conv: Conv =>
+        conv.children.map(containsSubquery).exists(_ == true)
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
           ColumnarUDF.isSupportedUDF(name)
