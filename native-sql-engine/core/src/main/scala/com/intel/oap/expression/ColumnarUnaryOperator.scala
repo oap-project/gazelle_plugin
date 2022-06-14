@@ -953,6 +953,22 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
   }
 }
 
+class ColumnarHex(child: Expression) extends Hex(child: Expression)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("hex", Lists.newArrayList(child_node),
+      resultType), resultType)
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -1024,6 +1040,8 @@ object ColumnarUnaryOperator {
       new ColumnarRand(child)
     case len: Length =>
       new ColumnarLength(child)
+    case hex: Hex =>
+      new ColumnarHex(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
