@@ -348,7 +348,15 @@ case class ColumnarSortMergeJoinExec(
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {
-      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+      val columnarConditionExpr =
+        ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+      val supportCodegen =
+        columnarConditionExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      // Columnar SMJ only has codegen version of implementation.
+      if (!supportCodegen) {
+        throw new UnsupportedOperationException(
+          "Condition expression is not fully supporting codegen!")
+      }
     }
     // build check types
     for (attr <- left.output) {
@@ -372,12 +380,24 @@ case class ColumnarSortMergeJoinExec(
     // build check for expr
     if (leftKeys != null) {
       for (expr <- leftKeys) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        if (!supportCodegen) {
+          throw new UnsupportedOperationException(
+            "Condition expression is not fully supporting codegen!")
+        }
       }
     }
     if (rightKeys != null) {
       for (expr <- rightKeys) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        if (!supportCodegen) {
+          throw new UnsupportedOperationException(
+            "Condition expression is not fully supporting codegen!")
+        }
       }
     }
   }
