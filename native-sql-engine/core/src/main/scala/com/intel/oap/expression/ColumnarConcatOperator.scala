@@ -29,6 +29,65 @@ import org.apache.spark.sql.types._
 
 import scala.collection.mutable.ListBuffer
 
+class ColumnarConcatWs(exps: Seq[Expression], original: Expression)
+    extends ConcatWs(exps: Seq[Expression])
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    exps.foreach(expr =>
+      if (expr.dataType != StringType) {
+        throw new UnsupportedOperationException(
+          s"${expr.dataType} is not supported in ColumnarConcatWS")
+      })
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val iter: Iterator[Expression] = exps.iterator
+    val exp = iter.next() // spliter
+    val exp1 = iter.next()
+    val iterFaster: Iterator[Expression] = exps.iterator
+    iterFaster.next()
+    iterFaster.next()
+    iterFaster.next()
+
+    val (split_node, expType): (TreeNode, ArrowType) =
+      exp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (exp1_node, exp1Type): (TreeNode, ArrowType) =
+      exp1.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("concat",
+      Lists.newArrayList(exp1_node, split_node, rightNode(args, exps, split_node, iter, iterFaster)), resultType)
+    (funcNode, expType)
+  }
+
+  def rightNode(args: java.lang.Object, exps: Seq[Expression], split_node: TreeNode,
+                iter: Iterator[Expression], iterFaster: Iterator[Expression]): TreeNode = {
+    if (!iterFaster.hasNext) {
+      // When iter reaches the last but one expression
+      val (exp_node, expType): (TreeNode, ArrowType) =
+        exps.last.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      exp_node
+    } else {
+      val exp = iter.next()
+      iterFaster.next()
+      val (exp_node, expType): (TreeNode, ArrowType) =
+        exp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val resultType = new ArrowType.Utf8()
+      val funcNode = TreeBuilder.makeFunction("concat",
+        Lists.newArrayList(exp_node, split_node, rightNode(args, exps, split_node, iter, iterFaster)), resultType)
+      funcNode
+    }
+  }
+}
+
 class ColumnarConcat(exps: Seq[Expression], original: Expression)
     extends Concat(exps: Seq[Expression])
     with ColumnarExpression
@@ -42,6 +101,10 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
         throw new UnsupportedOperationException(
           s"${expr.dataType} is not supported in ColumnarConcat")
       })
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
@@ -85,6 +148,8 @@ object ColumnarConcatOperator {
   def create(exps: Seq[Expression], original: Expression): Expression = original match {
     case c: Concat =>
       new ColumnarConcat(exps, original)
+    case cws: ConcatWs =>
+      new ColumnarConcatWs(exps, original)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
