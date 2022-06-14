@@ -379,6 +379,36 @@ class ColumnarUpper(child: Expression, original: Expression)
   }
 }
 
+class ColumnarLower(child: Expression, original: Expression)
+  extends Lower(child: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarLower")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Utf8()
+    val funcNode =
+      TreeBuilder.makeFunction("lower", Lists.newArrayList(child_node), resultType)
+    (funcNode, resultType)
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+}
+
 class ColumnarBitwiseNot(child: Expression, original: Expression)
     extends BitwiseNot(child: Expression)
     with ColumnarExpression
@@ -958,6 +988,8 @@ object ColumnarUnaryOperator {
       new ColumnarCeil(child, c)
     case u: Upper =>
       new ColumnarUpper(child, u)
+    case l: Lower =>
+      new ColumnarLower(child, l)
     case c: Cast =>
       new ColumnarCast(child, c.dataType, c.timeZoneId, c)
     case u: UnscaledValue =>
