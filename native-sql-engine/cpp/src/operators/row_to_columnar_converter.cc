@@ -293,7 +293,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       using offset_type = typename arrow::StringType::offset_type;
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[1],
-                            AllocateBuffer(sizeof(offset_type) * num_rows, pool));
+                            AllocateBuffer(sizeof(offset_type) * (num_rows + 1), pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[2],
                             AllocateResizableBuffer(20 * num_rows, pool));
       auto validity_buffer = out_data.buffers[0]->mutable_data();
@@ -311,9 +311,8 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
           array_offset[position + 1] = array_offset[position];
           null_count++;
         } else {
-          int64_t offsetAndSize;
-          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                 sizeof(int64_t));
+          int64_t offsetAndSize =
+              *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           offset_type length = int32_t(offsetAndSize);
           int32_t wordoffset = int32_t(offsetAndSize >> 32);
           auto value_offset = array_offset[position + 1] =
@@ -327,6 +326,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
             auto value_buffer =
                 std::static_pointer_cast<arrow::ResizableBuffer>(out_data.buffers[2]);
             value_buffer->Reserve(capacity);
+            array_data = value_buffer->mutable_data();
           }
 
           auto dst_value_base = array_data + array_offset[position];
