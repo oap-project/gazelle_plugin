@@ -495,7 +495,7 @@ file(COPY codegen/common/hash_relation_number.h DESTINATION ${root_directory}/re
 
 add_definitions(-DNATIVESQL_SRC_PATH="${root_directory}/releases")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attributes")
-set(NATIVE_AVX512_FLAG "-march=icelake-server")
+set(NATIVE_AVX512_FLAG "-march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${NATIVE_AVX512_FLAG}")
 set(SPARK_COLUMNAR_PLUGIN_SRCS
         jni/jni_wrapper.cc

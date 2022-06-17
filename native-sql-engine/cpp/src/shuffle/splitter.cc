@@ -1250,6 +1250,7 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
                   << " strlen = " << strlength << std::endl;
       }
       auto value_src_ptr = src_addr + src_offset_addr[src_offset];
+#ifdef __AVX512BW__
       if (ARROW_PREDICT_TRUE(support_avx512_)) {
         // write the variable value
         T k;
@@ -1260,7 +1261,9 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
         auto mask = (1L << (strlength - k)) - 1;
         __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
         _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
-      } else {
+      } else
+#endif
+      {
         memcpy(dst_value_base, value_src_ptr, strlength);
       }
       dst_value_base += strlength;
@@ -1456,8 +1459,8 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
         "lea (%[num_partitions],%[pid],1),%[tmp]\n"
         "test %[pid],%[pid]\n"
         "cmovs %[tmp],%[pid]\n"
-        : [ pid ] "+r"(pid)
-        : [ num_partitions ] "r"(num_partitions_), [ tmp ] "r"(0));
+        : [pid] "+r"(pid)
+        : [num_partitions] "r"(num_partitions_), [tmp] "r"(0));
     partition_id_[i] = pid;
     partition_id_cnt_[pid]++;
   }
