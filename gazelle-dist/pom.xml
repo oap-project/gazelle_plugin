@@ -87,7 +87,7 @@
         <version>2.4</version>
         <executions>
           <execution>
-            <id>go-framework-assemby</id>
+            <id>main-code-assembly</id>
             <!-- create assembly in package phase-->
             <phase>package</phase>
             <goals>
@@ -98,6 +98,21 @@
                 <descriptor>src/main/assembly/assembly.xml</descriptor>
               </descriptors>
               <finalName>gazelle-plugin-${project.version}</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
+            </configuration>
+          </execution>
+          <execution>
+            <id>shim-code-assembly</id>
+            <!-- create assembly in package phase-->
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/main/assembly/assembly-shim.xml</descriptor>
+              </descriptors>
+              <finalName>gazelle-plugin-${project.version}-shim</finalName>
               <appendAssemblyId>false</appendAssemblyId>
             </configuration>
           </execution>

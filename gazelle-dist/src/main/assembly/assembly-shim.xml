@@ -13,8 +13,11 @@
       <useTransitiveFiltering>true</useTransitiveFiltering>
       <excludes>
         <!--Exclude jars by specifying groupID:ArtifactID-->
-        <exclude>com.intel.oap:spark-sql-columnar-shims-spark311</exclude>
-        <exclude>com.intel.oap:spark-sql-columnar-shims-spark321</exclude>
+        <exclude>com.intel.oap:spark-arrow-datasource-common</exclude>
+        <exclude>com.intel.oap:spark-arrow-datasource-parquet</exclude>
+        <exclude>com.intel.oap:spark-arrow-datasource-standard</exclude>
+        <exclude>com.intel.oap:spark-columnar-core</exclude>
+        <exclude>com.intel.oap:spark-sql-columnar-shims-common</exclude>
         <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
         <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
         <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
