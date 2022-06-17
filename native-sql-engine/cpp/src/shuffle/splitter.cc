@@ -854,7 +854,8 @@ Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
 
 arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // buffer is allocated less than 64K
-  ARROW_CHECK_LE(rb.num_rows(), 64 * 1024);
+  // Will uncomment ARROW_CHECK_LE here, after fix the max batch_size issue
+  // ARROW_CHECK_LE(rb.num_rows(), 64 * 1024);
 
   reducer_offsets_.resize(rb.num_rows());
 
