@@ -27,13 +27,14 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, Arr
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
+import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.Job
 import org.apache.hadoop.mapreduce.TaskAttemptContext
 import org.apache.parquet.hadoop.codec.CodecConfig
-
 import org.apache.spark.TaskContext
+
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
@@ -117,6 +118,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
     val sqlConf = sparkSession.sessionState.conf;
     val batchSize = sqlConf.parquetVectorizedReaderBatchSize
     val enableFilterPushDown = sqlConf.arrowFilterPushDown
+    val caseSensitive = sqlConf.caseSensitiveAnalysis
 
     (file: PartitionedFile) => {
       val factory = ArrowUtils.makeArrowDiscovery(
@@ -126,7 +128,19 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
             options.asJava).asScala.toMap))
 
       // todo predicate validation / pushdown
-      val dataset = factory.finish(ArrowUtils.toArrowSchema(requiredSchema));
+      val parquetFileFields = factory.inspect().getFields.asScala
+      val requiredFields = if (caseSensitive) {
+        new Schema(requiredSchema.map { field =>
+          parquetFileFields.find(_.getName.equals(field.name))
+            .getOrElse(ArrowUtils.toArrowField(field))
+        }.asJava)
+      } else {
+        new Schema(requiredSchema.map { field =>
+          parquetFileFields.find(_.getName.equalsIgnoreCase(field.name))
+            .getOrElse(ArrowUtils.toArrowField(field))
+        }.asJava)
+      }
+      val dataset = factory.finish(requiredFields);
 
       val filter = if (enableFilterPushDown) {
         ArrowFilters.translateFilters(filters)
@@ -134,8 +148,10 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }
 
-      val scanOptions = new ScanOptions(requiredSchema.map(f => f.name).toArray,
-        filter, batchSize)
+      val scanOptions = new ScanOptions(
+        requiredFields.getFields.asScala.map(f => f.getName).toArray,
+        filter,
+        batchSize)
       val scanner = dataset.newScan(scanOptions)
 
       val taskList = scanner
