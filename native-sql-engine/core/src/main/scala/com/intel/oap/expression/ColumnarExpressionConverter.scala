@@ -323,6 +323,26 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
+      case slpad: StringLPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(slpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
+      case srpad: StringRPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(srpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
       case sr: StringReplace =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -386,6 +406,16 @@ object ColumnarExpressionConverter extends Logging {
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         val exps = c.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarConcatOperator.create(exps, expr)
+      case cws: ConcatWs =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        val exps = cws.children.map { expr =>
           replaceWithColumnarExpression(
             expr,
             attributeSeq,
@@ -531,6 +561,10 @@ object ColumnarExpressionConverter extends Logging {
           containsSubquery(sr.replaceExpr)
       case conv: Conv =>
         conv.children.map(containsSubquery).exists(_ == true)
+      case lpad: StringLPad =>
+        lpad.children.map(containsSubquery).exists(_ == true)
+      case rpad: StringRPad =>
+        rpad.children.map(containsSubquery).exists(_ == true)
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
           ColumnarUDF.isSupportedUDF(name)

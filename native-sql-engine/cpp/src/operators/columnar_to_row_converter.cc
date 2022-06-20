@@ -144,6 +144,7 @@ arrow::Status ColumnarToRowConverter::Init(
       int32_t j = 0;
       int32_t* length_data = lengths_.data();
 
+#ifdef __AVX512BW__
       if (ARROW_PREDICT_TRUE(support_avx512_)) {
         __m256i x7_8x = _mm256_load_si256((__m256i*)x_7);
         __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
@@ -172,6 +173,7 @@ arrow::Status ColumnarToRowConverter::Init(
           _mm_prefetch(&offsetarray[j + (128 + 128) / sizeof(offset_type)], _MM_HINT_T0);
         }
       }
+#endif
 
       for (j; j < num_rows_; j++) {
         offset_type length = offsetarray[j + 1] - offsetarray[j];
@@ -192,10 +194,13 @@ arrow::Status ColumnarToRowConverter::Init(
   // allocate one more cache line to ease avx operations
   if (buffer_ == nullptr || buffer_->capacity() < total_memory_size + 64) {
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size + 64, memory_pool_));
+#ifdef __AVX512BW__
     if (ARROW_PREDICT_TRUE(support_avx512_)) {
       memset(buffer_->mutable_data() + total_memory_size, 0,
              buffer_->capacity() - total_memory_size);
-    } else {
+    } else
+#endif
+    {
       memset(buffer_->mutable_data(), 0, buffer_->capacity());
     }
   }
@@ -384,6 +389,7 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
                                 std::vector<uint8_t>& typewidth,
                                 std::vector<std::shared_ptr<arrow::Array>>& arrays,
                                 bool support_avx512) {
+#ifdef __AVX512BW__
   if (ARROW_PREDICT_TRUE(support_avx512)) {
     __m256i fill_0_8x;
     fill_0_8x = _mm256_xor_si256(fill_0_8x, fill_0_8x);
@@ -395,6 +401,7 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
       }
     }
   }
+#endif
 
   for (auto col_index = 0; col_index < num_cols; col_index++) {
     auto& array = arrays[col_index];
@@ -427,6 +434,7 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
             offset_type length = BinaryOffsets[j + 1] - BinaryOffsets[j];
             auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
 
+#ifdef __AVX512BW__
             if (ARROW_PREDICT_TRUE(support_avx512)) {
               // write the variable value
               offset_type k;
@@ -440,7 +448,9 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
               __m256i v = _mm256_maskz_loadu_epi8(mask, value + k);
               _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j] + k,
                                       mask, v);
-            } else {
+            } else
+#endif
+            {
               // write the variable value
               memcpy(buffer_address + offsets[j] + buffer_cursor[j], value, length);
             }
@@ -508,11 +518,14 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
           for (auto j = row_start; j < row_start + batch_rows; j++) {
             if (nullvec[col_index] || (!array->IsNull(j))) {
               const uint8_t* srcptr = dataptr + (j << shift);
+#ifdef __AVX512BW__
               if (ARROW_PREDICT_TRUE(support_avx512)) {
                 __m256i v = _mm256_maskz_loadu_epi8(mask, srcptr);
                 _mm256_mask_storeu_epi8(buffer_address_tmp + offsets[j], mask, v);
                 _mm_prefetch(srcptr + 64, _MM_HINT_T0);
-              } else {
+              } else
+#endif
+              {
                 memcpy(buffer_address_tmp + offsets[j], srcptr, typewidth[col_index]);
               }
             } else {

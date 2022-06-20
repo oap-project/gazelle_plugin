@@ -379,6 +379,36 @@ class ColumnarUpper(child: Expression, original: Expression)
   }
 }
 
+class ColumnarLower(child: Expression, original: Expression)
+  extends Lower(child: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarLower")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Utf8()
+    val funcNode =
+      TreeBuilder.makeFunction("lower", Lists.newArrayList(child_node), resultType)
+    (funcNode, resultType)
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+}
+
 class ColumnarBitwiseNot(child: Expression, original: Expression)
     extends BitwiseNot(child: Expression)
     with ColumnarExpression
@@ -923,6 +953,22 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
   }
 }
 
+class ColumnarHex(child: Expression) extends Hex(child: Expression)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("hex", Lists.newArrayList(child_node),
+      resultType), resultType)
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -958,6 +1004,8 @@ object ColumnarUnaryOperator {
       new ColumnarCeil(child, c)
     case u: Upper =>
       new ColumnarUpper(child, u)
+    case l: Lower =>
+      new ColumnarLower(child, l)
     case c: Cast =>
       new ColumnarCast(child, c.dataType, c.timeZoneId, c)
     case u: UnscaledValue =>
@@ -992,6 +1040,8 @@ object ColumnarUnaryOperator {
       new ColumnarRand(child)
     case len: Length =>
       new ColumnarLength(child)
+    case hex: Hex =>
+      new ColumnarHex(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
