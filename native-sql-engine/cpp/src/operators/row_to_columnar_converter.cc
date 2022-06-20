@@ -331,6 +331,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
 
           auto dst_value_base = array_data + array_offset[position];
           auto value_src_ptr = memory_address_ + offsets[position] + wordoffset;
+#ifdef __AVX512BW__
           if (ARROW_PREDICT_TRUE(support_avx512)) {
             // write the variable value
             uint32_t k;
@@ -341,7 +342,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
             auto mask = (1L << (length - k)) - 1;
             __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
             _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
-          } else {
+          } else
+#endif
+          {
             memcpy(dst_value_base, value_src_ptr, length);
           }
         }
