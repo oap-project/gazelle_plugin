@@ -25,6 +25,7 @@
 #include <arrow/util/bit_util.h>
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
+#include <arrow/array/concatenate.h>
 
 #include <chrono>
 #include <cstring>
@@ -349,6 +350,7 @@ class ConditionedProbeKernel::Impl {
           left_field_list_(left_field_list),
           right_field_list_(right_field_list) {
       result_schema_ = arrow::schema(result_schema);
+      batch_size_ = GetBatchSize();
 
       auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
       for (auto expr : right_key_project_list[1]) {
@@ -514,7 +516,37 @@ class ConditionedProbeKernel::Impl {
         }
         RETURN_NOT_OK(appender->Reset());
       }
-      *out = arrow::RecordBatch::Make(result_schema_, out_length, out_arr_list);
+      *out = record_batch_holder_= arrow::RecordBatch::Make(result_schema_, out_length, out_arr_list);
+      // Initialize for iterator
+      record_batch_holder_length_ = out_length;
+      record_batch_holder_offset_ = 0;
+      return arrow::Status::OK();
+    }
+
+    bool HasNext() {
+      if (record_batch_holder_offset_ >= record_batch_holder_length_) {
+        return false;
+      }
+      return true;
+    }
+
+    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+      if (record_batch_holder_length_ <= batch_size_) {
+        *out = record_batch_holder_;
+        record_batch_holder_offset_ = record_batch_holder_length_;
+        return arrow::Status::OK();
+      }
+      auto length =
+          (record_batch_holder_length_ - record_batch_holder_offset_) > batch_size_ ? batch_size_ : (record_batch_holder_length_ - record_batch_holder_offset_);
+      std::vector<std::shared_ptr<arrow::Array>> out_arrs;
+      for (auto arr : record_batch_holder_->columns()) {
+        std::shared_ptr<arrow::Array> copied;
+        auto sliced = arr->Slice(record_batch_holder_offset_, length);
+        RETURN_NOT_OK(arrow::Concatenate({sliced}, ctx_->memory_pool(), &copied));
+        out_arrs.push_back(copied);
+      }
+      *out = arrow::RecordBatch::Make(result_schema_, length, out_arrs);
+      record_batch_holder_offset_ += length;
       return arrow::Status::OK();
     }
 
@@ -1339,6 +1371,11 @@ class ConditionedProbeKernel::Impl {
     gandiva::FieldVector right_field_list_;
     gandiva::FieldVector right_projected_field_list_;
     std::shared_ptr<ProbeFunctionBase> probe_func_;
+
+    std::shared_ptr<arrow::RecordBatch> record_batch_holder_;
+    uint64_t batch_size_;
+    uint64_t record_batch_holder_length_ = 0;
+    uint64_t record_batch_holder_offset_ = 0;
   };
 
   arrow::Status GetInnerJoin(bool cond_check, std::string index_name,
