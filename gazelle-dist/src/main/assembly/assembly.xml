@@ -19,6 +19,14 @@
         <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
         <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
       </excludes>
+      <unpackOptions>
+        <excludes>
+          <exclude>META-INF/maven/com.fasterxml.jackson.core/</exclude>
+          <exclude>META-INF/maven/com.fasterxml.jackson.dataformat/</exclude>
+          <exclude>META-INF/services/com.fasterxml.jackson.core.ObjectCodec</exclude>
+          <exclude>META-INF/services/com.fasterxml.jackson.core.JsonFactory</exclude>
+        </excludes>
+      </unpackOptions>
     </dependencySet>
   </dependencySets>
 </assembly>
