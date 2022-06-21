@@ -93,6 +93,10 @@ class ColumnarStringSplitPart(child: Expression, regex: Expression,
   }
   override def dataType: DataType = StringType
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object)
   : (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =

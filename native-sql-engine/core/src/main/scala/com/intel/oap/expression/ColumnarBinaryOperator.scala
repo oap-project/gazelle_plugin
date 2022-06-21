@@ -71,6 +71,11 @@ class ColumnarEndsWith(left: Expression, right: Expression, original: Expression
     extends EndsWith(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -147,6 +152,10 @@ class ColumnarRLike(left: Expression, right: Expression, original: Expression)
       throw new UnsupportedOperationException(
         s"Gandiva 'like' function requires a literal as the second parameter.")
     }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
