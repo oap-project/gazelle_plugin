@@ -20,6 +20,7 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 import org.apache.arrow.dataset.DatasetTypes
 import org.apache.arrow.dataset.DatasetTypes.TreeNode
 import org.apache.arrow.dataset.filter.FilterImpl
+import org.apache.arrow.vector.types.pojo.Field
 
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
@@ -56,9 +57,11 @@ object ArrowFilters {
     false
   }
 
-  def translateFilters(pushedFilters: Seq[Filter]): org.apache.arrow.dataset.filter.Filter = {
+  def translateFilters(
+      pushedFilters: Seq[Filter],
+      caseInsensitiveFieldMap: Map[String, String]): org.apache.arrow.dataset.filter.Filter = {
     val node = pushedFilters
-      .flatMap(translateFilter)
+      .flatMap(filter => translateFilter(filter, caseInsensitiveFieldMap))
       .reduceOption((t1: TreeNode, t2: TreeNode) => {
         DatasetTypes.TreeNode.newBuilder.setAndNode(
           DatasetTypes.AndNode.newBuilder()
@@ -100,18 +103,25 @@ object ArrowFilters {
     }
   }
 
-  private def translateFilter(pushedFilter: Filter): Option[TreeNode] = {
+  private def translateFilter(
+      pushedFilter: Filter,
+      caseInsensitiveFieldMap: Map[String, String]): Option[TreeNode] = {
     pushedFilter match {
       case EqualTo(attribute, value) =>
-        createComparisonNode("equal", attribute, value)
+        createComparisonNode(
+          "equal", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case GreaterThan(attribute, value) =>
-        createComparisonNode("greater", attribute, value)
+        createComparisonNode(
+          "greater", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case GreaterThanOrEqual(attribute, value) =>
-        createComparisonNode("greater_equal", attribute, value)
+        createComparisonNode(
+          "greater_equal", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case LessThan(attribute, value) =>
-        createComparisonNode("less", attribute, value)
+        createComparisonNode(
+          "less", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case LessThanOrEqual(attribute, value) =>
-        createComparisonNode("less_equal", attribute, value)
+        createComparisonNode(
+          "less_equal", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case Not(child) =>
         createNotNode(child)
       case And(left, right) =>

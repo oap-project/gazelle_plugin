@@ -20,6 +20,7 @@ package com.intel.oap.spark.sql.execution.datasources.arrow
 import java.net.URLDecoder
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
@@ -129,21 +130,25 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
       // todo predicate validation / pushdown
       val parquetFileFields = factory.inspect().getFields.asScala
-      val requiredFields = if (caseSensitive) {
+      val caseInsensitiveFieldMap = mutable.Map[String, String]()
+      val requiredFields = if (sqlConf.caseSensitiveAnalysis) {
         new Schema(requiredSchema.map { field =>
           parquetFileFields.find(_.getName.equals(field.name))
             .getOrElse(ArrowUtils.toArrowField(field))
         }.asJava)
       } else {
-        new Schema(requiredSchema.map { field =>
-          parquetFileFields.find(_.getName.equalsIgnoreCase(field.name))
-            .getOrElse(ArrowUtils.toArrowField(field))
+        new Schema(requiredSchema.map { readField =>
+          parquetFileFields.find(_.getName.equalsIgnoreCase(readField.name))
+            .map{ field =>
+              caseInsensitiveFieldMap += (readField.name -> field.getName)
+              field
+            }.getOrElse(ArrowUtils.toArrowField(readField))
         }.asJava)
       }
-      val dataset = factory.finish(requiredFields);
+      val dataset = factory.finish(requiredFields)
 
       val filter = if (enableFilterPushDown) {
-        ArrowFilters.translateFilters(filters)
+        ArrowFilters.translateFilters(filters, caseInsensitiveFieldMap.toMap)
       } else {
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }
