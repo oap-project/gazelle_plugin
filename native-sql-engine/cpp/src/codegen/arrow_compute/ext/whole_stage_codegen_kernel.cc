@@ -352,7 +352,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     WholeStageCodeGenResultIterator(arrow::compute::ExecContext* ctx,
                                     std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
                                     const std::shared_ptr<arrow::Schema>& result_schema)
-        : ctx_(ctx), result_schema_(result_schema), gandiva_projector_list_(gandiva_projector_list) {)";
+        : ctx_(ctx), result_schema_(result_schema), gandiva_projector_list_(gandiva_projector_list) {
+          execution_context_.reset(new gandiva::ExecutionContext());)";
     if (!is_aggr_) {
       codes_ss << GetBuilderInitializeCodes(output_field_list) << std::endl;
     } else {
@@ -536,6 +537,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     codes_ss << R"(
     private:
     arrow::compute::ExecContext* ctx_;
+    std::unique_ptr<gandiva::ExecutionContext> execution_context_;
     bool should_stop_ = false;
     std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list_;
     std::shared_ptr<arrow::Schema> result_schema_;)"

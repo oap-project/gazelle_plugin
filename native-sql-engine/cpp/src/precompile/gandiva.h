@@ -20,6 +20,7 @@
 #include <arrow/json/api.h>
 #include <arrow/json/parser.h>
 #include <arrow/util/decimal.h>
+#include <gandiva/execution_context.h>
 #include <math.h>
 #include <re2/re2.h>
 
@@ -31,8 +32,9 @@
 #include "third_party/gandiva/decimal_ops.h"
 #include "third_party/gandiva/types.h"
 
-int32_t castDATE32(int32_t in) { return castDATE_int32(in); }
-int64_t castDATE64(int32_t in) { return castDATE_date32(in); }
+int32_t castDATE32(int32_t in, int64_t ctx = 0) { return castDATE_int32(in); }
+int64_t castDATE64(int32_t in, int64_t ctx = 0) { return castDATE_date32(in); }
+int64_t castDATE64(const std::string in, int64_t ctx = 0) { return castDATE_utf8(ctx, in.c_str(), in.length()); }
 int64_t extractYear(int64_t millis) { return extractYear_timestamp(millis); }
 template <typename T>
 T round2(T val, int precision = 2) {

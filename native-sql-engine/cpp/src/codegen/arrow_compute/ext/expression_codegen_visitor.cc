@@ -472,6 +472,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_str_ += prepare_ss.str();
   } else if (func_name.find("cast") != std::string::npos &&
              func_name.compare("castDATE") != 0 &&
+             func_name.compare("castDATE_nullsafe") != 0 &&
              func_name.compare("castDECIMAL") != 0 &&
              func_name.compare("castDECIMALNullOnOverflow") != 0 &&
              func_name.compare("castINTOrNull") != 0 &&
@@ -503,8 +504,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
           fix_ss << " * 1.0 ";
         }
         prepare_ss << codes_str_ << " = static_cast<"
-                   << GetCTypeString(node.return_type()) << ">("
-                   << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+                   << GetCTypeString(node.return_type()) << ">(castDATE32("
+                   << child_visitor_list[0]->GetResult() << fix_ss.str() << "));"
                    << std::endl;
       }
     } else {
@@ -557,13 +558,13 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     real_codes_str_ = codes_str_;
     real_validity_str_ = check_str_;
     header_list_.push_back(R"(#include "third_party/murmurhash/murmurhash32.h")");
-  } else if (func_name.compare("castDATE") == 0) {
+  } else if (func_name.compare("castDATE") == 0 || func_name.compare("castDATE_nullsafe") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     real_codes_str_ = codes_str_;
     real_validity_str_ = validity;
     std::stringstream prepare_ss;
-    auto typed_func_name = func_name;
+    auto typed_func_name = std::string("castDATE");
     if (node.return_type()->id() == arrow::Type::INT32 ||
         node.return_type()->id() == arrow::Type::DATE32) {
       typed_func_name += "32";
@@ -580,7 +581,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = " << typed_func_name << "("
-               << child_visitor_list[0]->GetResult() << ");" << std::endl;
+               << child_visitor_list[0]->GetResult() << ", reinterpret_cast<int64_t>(execution_context_.get()));" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
