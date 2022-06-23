@@ -1399,6 +1399,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     if (nulls_total_ == 0) {
       // if all batches have no null value,
       // we do not need to check whether the value is null
+      ARROW_CHECK_LE(num_batches_, 64 * 1024);
       for (int array_id = 0; array_id < num_batches_; array_id++) {
         ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
         for (int64_t i = 0; i < length_list_[array_id]; i++) {
@@ -1409,6 +1410,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       }
     } else {
       // we should support nulls first and nulls last here
+      ARROW_CHECK_LE(num_batches_, 64 * 1024);
       for (int array_id = 0; array_id < num_batches_; array_id++) {
         ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
         if (cached_key_[array_id]->null_count() == 0) {
@@ -1458,6 +1460,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     int64_t indices_i = 0;
     int64_t indices_nan = 0;
 
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
       ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
@@ -2027,6 +2030,7 @@ class TypedSorterImpl : public CodeGenBase {
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
 
     int64_t indices_i = 0;
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
       ARROW_CHECK_LE(length_list_[array_id], 64*1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
@@ -2586,6 +2590,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   void Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
       ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
