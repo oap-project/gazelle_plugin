@@ -123,15 +123,15 @@ object ArrowFilters {
         createComparisonNode(
           "less_equal", caseInsensitiveFieldMap.getOrElse(attribute, attribute), value)
       case Not(child) =>
-        createNotNode(child)
+        createNotNode(child, caseInsensitiveFieldMap)
       case And(left, right) =>
-        createAndNode(left, right)
+        createAndNode(left, right, caseInsensitiveFieldMap)
       case Or(left, right) =>
-        createOrNode(left, right)
+        createOrNode(left, right, caseInsensitiveFieldMap)
       case IsNotNull(attribute) =>
-        createIsNotNullNode(attribute)
+        createIsNotNullNode(caseInsensitiveFieldMap.getOrElse(attribute, attribute))
       case IsNull(attribute) =>
-        createIsNullNode(attribute)
+        createIsNullNode(caseInsensitiveFieldMap.getOrElse(attribute, attribute))
       case _ => None // fixme complete this
     }
   }
@@ -155,8 +155,10 @@ object ArrowFilters {
     }
   }
 
-  def createNotNode(child: Filter): Option[TreeNode] = {
-    val translatedChild = translateFilter(child)
+  def createNotNode(
+      child: Filter,
+      caseInsensitiveFieldMap: Map[String, String]): Option[TreeNode] = {
+    val translatedChild = translateFilter(child, caseInsensitiveFieldMap)
     if (translatedChild.isEmpty) {
       return None
     }
@@ -186,9 +188,12 @@ object ArrowFilters {
                 .build()).build()).build()).build())
   }
 
-  def createAndNode(left: Filter, right: Filter): Option[TreeNode] = {
-    val translatedLeft = translateFilter(left)
-    val translatedRight = translateFilter(right)
+  def createAndNode(
+      left: Filter,
+      right: Filter,
+      caseInsensitiveFieldMap: Map[String, String]): Option[TreeNode] = {
+    val translatedLeft = translateFilter(left, caseInsensitiveFieldMap)
+    val translatedRight = translateFilter(right, caseInsensitiveFieldMap)
     if (translatedLeft.isEmpty || translatedRight.isEmpty) {
       return None
     }
@@ -200,9 +205,12 @@ object ArrowFilters {
       .build())
   }
 
-  def createOrNode(left: Filter, right: Filter): Option[TreeNode] = {
-    val translatedLeft = translateFilter(left)
-    val translatedRight = translateFilter(right)
+  def createOrNode(
+      left: Filter,
+      right: Filter,
+      caseInsensitiveFieldMap: Map[String, String]): Option[TreeNode] = {
+    val translatedLeft = translateFilter(left, caseInsensitiveFieldMap)
+    val translatedRight = translateFilter(right, caseInsensitiveFieldMap)
     if (translatedLeft.isEmpty || translatedRight.isEmpty) {
       return None
     }
