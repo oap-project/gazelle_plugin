@@ -705,6 +705,20 @@ case class ColumnarHashAggregateExec(
           return false
         }
       }
+      for (expr <- groupingExpressions) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
+          return false
+        }
+      }
+      for (expr <- resultExpressions) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
+          return false
+        }
+      }
     }
     return true
   }
