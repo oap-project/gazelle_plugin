@@ -141,12 +141,31 @@ case class ColumnarBroadcastHashJoinExec(
     // build check for expr
     if (buildKeyExprs != null) {
       for (expr <- buildKeyExprs) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarBuildKeyExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        // Only do the check for the join having condition.
+        if (condition.isDefined) {
+          val supportCodegen =
+            columnarBuildKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+          if (!supportCodegen) {
+            throw new UnsupportedOperationException("Fall back due to codegen is" +
+              " not supported for  " + columnarBuildKeyExpr)
+          }
+        }
       }
     }
     if (streamedKeyExprs != null) {
       for (expr <- streamedKeyExprs) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarStreamedKeyExpr =
+          ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        // Only do the below check for the join having condition.
+        if (condition.isDefined) {
+          val supportCodegen =
+            columnarStreamedKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+          if (!supportCodegen) {
+            throw new UnsupportedOperationException("Fall back due to codegen is" +
+              " not supported for  " + columnarStreamedKeyExpr)
+          }
+        }
       }
     }
   }
