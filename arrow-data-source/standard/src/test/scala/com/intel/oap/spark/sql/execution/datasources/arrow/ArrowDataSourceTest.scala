@@ -306,7 +306,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
               "id"
             }
             val df = spark.read
-              .schema(s"$selectColName long")
               .arrow(tempPath.getPath)
               .filter(s"$selectColName <= 2")
             checkAnswer(df, Row(0) :: Row(1) :: Row(2) :: Nil)
