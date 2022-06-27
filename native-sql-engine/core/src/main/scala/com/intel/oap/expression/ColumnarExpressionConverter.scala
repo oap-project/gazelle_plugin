@@ -531,6 +531,8 @@ object ColumnarExpressionConverter extends Logging {
         return true
       case c: Concat =>
         c.children.map(containsSubquery).exists(_ == true)
+      case c: ConcatWs =>
+        c.children.map(containsSubquery).exists(_ == true)
       case getArrayItem: GetArrayItem =>
         getArrayItem.child match {
           case strSplit: StringSplit =>

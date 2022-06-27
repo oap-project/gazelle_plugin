@@ -149,7 +149,12 @@ object ColumnarConcatOperator {
     case c: Concat =>
       new ColumnarConcat(exps, original)
     case cws: ConcatWs =>
-      new ColumnarConcatWs(exps, original)
+      if (cws.children.size < 3) {
+        // if there are only two params, should fallback to concat
+        new ColumnarConcat(exps, original)
+      } else {
+        new ColumnarConcatWs(exps, original)
+      }
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
