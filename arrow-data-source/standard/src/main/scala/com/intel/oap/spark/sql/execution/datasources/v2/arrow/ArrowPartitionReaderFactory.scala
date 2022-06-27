@@ -48,6 +48,7 @@ case class ArrowPartitionReaderFactory(
 
   private val batchSize = sqlConf.parquetVectorizedReaderBatchSize
   private val enableFilterPushDown: Boolean = sqlConf.arrowFilterPushDown
+  private val caseSensitive: Boolean = sqlConf.caseSensitiveAnalysis
 
   override def supportColumnarReads(partition: InputPartition): Boolean = true
 
@@ -63,7 +64,7 @@ case class ArrowPartitionReaderFactory(
       partitionedFile.start, partitionedFile.length, options)
     val parquetFileFields = factory.inspect().getFields.asScala
     val caseInsensitiveFieldMap = mutable.Map[String, String]()
-    val requiredFields = if (sqlConf.caseSensitiveAnalysis) {
+    val requiredFields = if (caseSensitive) {
       new Schema(readDataSchema.map { field =>
         parquetFileFields.find(_.getName.equals(field.name))
           .getOrElse(ArrowUtils.toArrowField(field))
