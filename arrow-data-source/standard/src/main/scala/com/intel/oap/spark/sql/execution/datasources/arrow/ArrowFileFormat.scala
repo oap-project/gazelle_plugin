@@ -131,7 +131,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       // todo predicate validation / pushdown
       val parquetFileFields = factory.inspect().getFields.asScala
       val caseInsensitiveFieldMap = mutable.Map[String, String]()
-      val requiredFields = if (sqlConf.caseSensitiveAnalysis) {
+      val requiredFields = if (caseSensitive) {
         new Schema(requiredSchema.map { field =>
           parquetFileFields.find(_.getName.equals(field.name))
             .getOrElse(ArrowUtils.toArrowField(field))
