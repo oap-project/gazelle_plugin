@@ -699,6 +699,10 @@ case class ColumnarHashAggregateExec(
       }
       val internalExpressionList = expr.aggregateFunction.children
       for (expr <- internalExpressionList) {
+        if (expr.isInstanceOf[Literal]) {
+          // TODO: disable codegen with Sum(1)
+          return false
+        }
         val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
         if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
           Lists.newArrayList())) {
