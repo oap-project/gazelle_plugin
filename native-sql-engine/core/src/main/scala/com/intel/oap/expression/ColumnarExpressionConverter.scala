@@ -466,6 +466,15 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case hash: Murmur3Hash =>
+        val exps = hash.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarHashExpression.create(exps, hash)
+
       // Scala UDF.
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
