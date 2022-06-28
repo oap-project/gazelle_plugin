@@ -80,6 +80,8 @@ case class ColumnarShuffledHashJoinExec(
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build hash map"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
+  var supportCodegen = true
+
   buildCheck()
 
   // For spark 3.2.
@@ -133,6 +135,7 @@ case class ColumnarShuffledHashJoinExec(
         ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
       val supportCodegen =
         columnarConditionExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      this.supportCodegen = this.supportCodegen && supportCodegen
       if (!supportCodegen) {
         throw new UnsupportedOperationException(
           "Condition expression is not fully supporting codegen!")
@@ -161,14 +164,13 @@ case class ColumnarShuffledHashJoinExec(
     if (buildKeyExprs != null) {
       for (expr <- buildKeyExprs) {
         val columnarBuildKeyExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-        // Only do the check for the join having condition.
-        if (condition.isDefined) {
-          val supportCodegen =
-            columnarBuildKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
-          if (!supportCodegen) {
-            throw new UnsupportedOperationException("Fall back due to codegen is" +
-              " not supported for  " + columnarBuildKeyExpr)
-          }
+        val supportCodegen =
+          columnarBuildKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        this.supportCodegen = this.supportCodegen && supportCodegen
+        // Fall back the join who has join condition, but does not support codegen.
+        if (condition.isDefined && !supportCodegen) {
+          throw new UnsupportedOperationException("Fall back due to codegen is" +
+            " not supported for  " + columnarBuildKeyExpr)
         }
       }
     }
@@ -176,14 +178,13 @@ case class ColumnarShuffledHashJoinExec(
       for (expr <- streamedKeyExprs) {
         val columnarStreamedKeyExpr =
           ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-        // Only do the below check for the join having condition.
-        if (condition.isDefined) {
-          val supportCodegen =
-            columnarStreamedKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
-          if (!supportCodegen) {
-            throw new UnsupportedOperationException("Fall back due to codegen is" +
-              " not supported for  " + columnarStreamedKeyExpr)
-          }
+        val supportCodegen =
+          columnarStreamedKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        this.supportCodegen = this.supportCodegen && supportCodegen
+        // Fall back the join who has join condition, but does not support codegen.
+        if (condition.isDefined && !supportCodegen) {
+          throw new UnsupportedOperationException("Fall back due to codegen is" +
+            " not supported for  " + columnarStreamedKeyExpr)
         }
       }
     }
@@ -260,7 +261,9 @@ case class ColumnarShuffledHashJoinExec(
         .prepareHashBuildFunction(buildKeyExprs, buildPlan.output, builder_type))
   }
 
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = {
+    this.supportCodegen
+  }
 
   val output_skip_alias =
     if (projectList == null || projectList.isEmpty) super.output
