@@ -49,6 +49,16 @@ class ColumnarConcatWs(exps: Seq[Expression], original: Expression)
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    if (exps.size == 2) {
+      // return 2nd param, ignore spliter
+      val (exp_node, expType): (TreeNode, ArrowType) =
+        exps.last.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      return (exp_node, expType)
+    } else if (exps.size == 1) {
+      // Corner case, only spliter provided
+      return (TreeBuilder.makeNull(ArrowType.Utf8.INSTANCE), ArrowType.Utf8.INSTANCE)
+    }
+
     val iter: Iterator[Expression] = exps.iterator
     val exp = iter.next() // spliter
     val exp1 = iter.next()
