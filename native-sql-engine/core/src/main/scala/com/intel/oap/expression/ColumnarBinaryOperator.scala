@@ -39,6 +39,11 @@ class ColumnarAnd(left: Expression, right: Expression, original: Expression)
     extends And(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -55,6 +60,11 @@ class ColumnarOr(left: Expression, right: Expression, original: Expression)
     extends Or(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

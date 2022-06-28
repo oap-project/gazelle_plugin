@@ -255,6 +255,10 @@ class ColumnarNot(child: Expression, original: Expression)
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
