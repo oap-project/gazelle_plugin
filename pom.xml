@@ -59,6 +59,7 @@
         <spark.version>${spark321.version}</spark.version>
         <scala.version>2.12.15</scala.version>
         <jackson.version>2.12.0</jackson.version>
+        <maven.test.skip>true</maven.test.skip>
       </properties>
     </profile>
     <profile>
