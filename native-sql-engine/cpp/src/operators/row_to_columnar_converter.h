@@ -45,6 +45,8 @@ class RowToColumnarConverter {
   arrow::Status Init(std::shared_ptr<arrow::RecordBatch>* batch);
 
  protected:
+  // Check whether support AVX512 instructions
+  bool support_avx512_;
   std::shared_ptr<arrow::Schema> schema_;
   int64_t num_cols_;
   int64_t num_rows_;
