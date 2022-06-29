@@ -103,11 +103,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     try {
       breakable {
         for (func <- validateWindowFunctions()) {
-          // TODO(): disable row_number() for stability issue
-          // if (func._1 == "row_number") {
-          //   allLiteral = false
-          //   break
-          // }
+          if (func._1 == "row_number") {
+            allLiteral = false
+            break
+          }
           for (child <- func._2.children) {
             if (!child.isInstanceOf[Literal]) {
               allLiteral = false
