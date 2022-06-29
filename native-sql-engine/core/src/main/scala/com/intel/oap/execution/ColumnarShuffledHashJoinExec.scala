@@ -359,7 +359,7 @@ case class ColumnarShuffledHashJoinExec(
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = {
-          nativeIterator.hasNext | iter.hasNext
+          nativeIterator.hasNext || iter.hasNext
         }
 
         override def next(): ColumnarBatch = {
@@ -380,27 +380,18 @@ case class ColumnarShuffledHashJoinExec(
               return createEmptyBatch()
             }
             val output_rb = nativeIterator.process(probe_input_schema, input_rb)
-            if (output_rb == null) {
+            if (output_rb == null || output_rb.getLength == 0) {
               ConverterUtils.releaseArrowRecordBatch(input_rb)
               eval_elapse += System.nanoTime() - beforeEval
               return createEmptyBatch()
             }
-            val outputNumRows = output_rb.getLength
-            if (outputNumRows < batch_size) {
-              ConverterUtils.releaseArrowRecordBatch(input_rb)
-              val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
-              ConverterUtils.releaseArrowRecordBatch(output_rb)
-              eval_elapse += System.nanoTime() - beforeEval
-              numOutputRows += outputNumRows
-              val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
-              return out_cb
-            } else {
-              val out_batch = nativeIterator.next
-              val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
-              val outputNumRows = out_batch.getLength
-              val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
-              return out_cb
-            }
+
+            val out_batch = nativeIterator.next
+            val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            val outputNumRows = out_batch.getLength
+            numOutputRows += outputNumRows
+            val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            out_cb
           }
 
 
