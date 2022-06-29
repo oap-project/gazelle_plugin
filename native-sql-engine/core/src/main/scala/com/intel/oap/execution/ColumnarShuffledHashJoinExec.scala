@@ -362,9 +362,12 @@ case class ColumnarShuffledHashJoinExec(
 
         override def next(): ColumnarBatch = {
           if (nativeIterator.hasNext) {
+            val beforeEval = System.nanoTime()
             val out_batch = nativeIterator.next
             val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            eval_elapse += System.nanoTime() - beforeEval
             val outputNumRows = out_batch.getLength
+            numOutputRows += outputNumRows
             val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
             return out_cb
           } else {
@@ -387,6 +390,7 @@ case class ColumnarShuffledHashJoinExec(
             val out_batch = nativeIterator.next
             val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
             val outputNumRows = out_batch.getLength
+            eval_elapse += System.nanoTime() - beforeEval
             numOutputRows += outputNumRows
             val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
             out_cb
