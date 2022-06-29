@@ -82,8 +82,6 @@ case class ColumnarShuffledHashJoinExec(
 
   buildCheck()
 
-  val batch_size = GazellePluginConfig.getBatchSize
-
   // For spark 3.2.
   def isSkewJoin: Boolean = false
 
@@ -393,30 +391,6 @@ case class ColumnarShuffledHashJoinExec(
             val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
             out_cb
           }
-
-
-//          val cb = iter.next()
-//          val beforeEval = System.nanoTime()
-//          val input_rb =
-//            ConverterUtils.createArrowRecordBatch(cb)
-//          if (input_rb.getLength == 0) {
-//            ConverterUtils.releaseArrowRecordBatch(input_rb)
-//            eval_elapse += System.nanoTime() - beforeEval
-//            return createEmptyBatch()
-//          }
-//          val output_rb = nativeIterator.process(probe_input_schema, input_rb)
-//          if (output_rb == null) {
-//            ConverterUtils.releaseArrowRecordBatch(input_rb)
-//            eval_elapse += System.nanoTime() - beforeEval
-//            return createEmptyBatch()
-//          }
-//          val outputNumRows = output_rb.getLength
-//          ConverterUtils.releaseArrowRecordBatch(input_rb)
-//          val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
-//          ConverterUtils.releaseArrowRecordBatch(output_rb)
-//          eval_elapse += System.nanoTime() - beforeEval
-//          numOutputRows += outputNumRows
-//          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
         }
 
         private def createEmptyBatch() = {
