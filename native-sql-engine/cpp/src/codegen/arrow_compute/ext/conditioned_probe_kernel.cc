@@ -16,6 +16,7 @@
  */
 
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
@@ -25,7 +26,6 @@
 #include <arrow/util/bit_util.h>
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
-#include <arrow/array/concatenate.h>
 
 #include <chrono>
 #include <cstring>
@@ -516,7 +516,8 @@ class ConditionedProbeKernel::Impl {
         }
         RETURN_NOT_OK(appender->Reset());
       }
-      *out = record_batch_holder_= arrow::RecordBatch::Make(result_schema_, out_length, out_arr_list);
+      *out = record_batch_holder_ =
+          arrow::RecordBatch::Make(result_schema_, out_length, out_arr_list);
       // Initialize for iterator
       record_batch_holder_length_ = out_length;
       record_batch_holder_offset_ = 0;
@@ -537,7 +538,9 @@ class ConditionedProbeKernel::Impl {
         return arrow::Status::OK();
       }
       auto length =
-          (record_batch_holder_length_ - record_batch_holder_offset_) > batch_size_ ? batch_size_ : (record_batch_holder_length_ - record_batch_holder_offset_);
+          (record_batch_holder_length_ - record_batch_holder_offset_) > batch_size_
+              ? batch_size_
+              : (record_batch_holder_length_ - record_batch_holder_offset_);
       std::vector<std::shared_ptr<arrow::Array>> out_arrs;
       for (auto arr : record_batch_holder_->columns()) {
         std::shared_ptr<arrow::Array> copied;
