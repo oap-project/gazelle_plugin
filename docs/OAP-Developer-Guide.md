@@ -4,8 +4,8 @@ This document contains the instructions & scripts on installing necessary depend
 You can get more detailed information from OAP each module below.
 
 
-* [OAP MLlib](https://github.com/oap-project/oap-mllib/tree/v1.3.1)
-* [Gazelle Plugin](https://github.com/oap-project/gazelle_plugin/tree/v1.3.1)
+* [OAP MLlib](https://github.com/oap-project/oap-mllib/tree/v1.4.0)
+* [Gazelle Plugin](https://github.com/oap-project/gazelle_plugin/tree/v1.4.0)
 
 ## Building OAP
 
@@ -18,14 +18,14 @@ We provide scripts to help automatically install dependencies required, please c
 # cd oap-tools
 # sh dev/install-compile-time-dependencies.sh
 ```
-*Note*: oap-tools tag version `v1.3.1` corresponds to  all OAP modules' tag version `v1.3.1`.
+*Note*: oap-tools tag version `v1.4.0` corresponds to  all OAP modules' tag version `v1.4.0`.
 
 Then the dependencies below will be installed:
 
 * [Cmake](https://cmake.org/install/)
 * [GCC > 7](https://gcc.gnu.org/wiki/InstallingGCC)
 * [OneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html)
-* [Arrow](https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.3.1)
+* [Arrow](https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.4.0)
 * [LLVM](https://llvm.org/) 
 
 
