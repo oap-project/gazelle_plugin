@@ -317,13 +317,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.2.0</version>
-        <configuration>
-          <archive>
-            <!-- transient jar, writing compressed can take several x time -->
-            <compress>false</compress>
-          </archive>
-          <classifier>${spark.version}</classifier>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

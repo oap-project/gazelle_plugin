@@ -36,7 +36,6 @@
           <exclude>META-INF/services/com.fasterxml.jackson.core.JsonFactory</exclude>
         </excludes>
       </unpackOptions>
-      <!--<outputDirectory>ABC</outputDirectory>-->
     </dependencySet>
   </dependencySets>
 </assembly>
