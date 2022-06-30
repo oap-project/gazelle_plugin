@@ -20,13 +20,13 @@
   <parent>
     <groupId>com.intel.oap</groupId>
     <artifactId>spark-sql-columnar-shims</artifactId>
-    <version>1.4.0-SNAPSHOT</version>
+    <version>1.4.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>spark-sql-columnar-shims-common</artifactId>
   <name>${project.name.prefix} Shims Common</name>
-  <version>1.4.0-SNAPSHOT</version>
+  <version>1.4.0</version>
   <packaging>jar</packaging>
   
   <build>
