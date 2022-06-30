@@ -50,7 +50,7 @@ There are three ways to use OAP: Gazelle Plugin,
 
 ### Use precompiled jars
 
-#### Before 1.4.0
+#### Before 1.4.0 release
 
 Please go to [OAP's Maven Central Repository](https://repo1.maven.org/maven2/com/intel/oap/) to find Gazelle Plugin jars.
 For usage, you will require below two jar files:
@@ -64,7 +64,7 @@ And for spark 3.2.x, the jar whose `<spark-version>` is `spark321` should be use
 
 4. `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
 
-#### After 1.4.0 (inclusively)
+#### Start from 1.4.0 release
 
 Since 1.4.0 release, we consolidate 4 jars into one single jar. And the supported spark version is contained in the jar name. User can pick one jar according to your spark version.
 
