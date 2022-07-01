@@ -22,6 +22,7 @@
       <unpack>true</unpack> <!-- unpack , then repack the jars -->
       <useTransitiveDependencies>true</useTransitiveDependencies>
       <useTransitiveFiltering>true</useTransitiveFiltering>
+      <useProjectArtifact>false</useProjectArtifact>
       <excludes>
         <!--Exclude jars by specifying groupID:ArtifactID-->
         <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
