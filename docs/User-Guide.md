@@ -50,6 +50,8 @@ There are three ways to use OAP: Gazelle Plugin,
 
 ### Use precompiled jars
 
+#### Before 1.4.0 release
+
 Please go to [OAP's Maven Central Repository](https://repo1.maven.org/maven2/com/intel/oap/) to find Gazelle Plugin jars.
 For usage, you will require below two jar files:
 1. `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
@@ -62,11 +64,20 @@ And for spark 3.2.x, the jar whose `<spark-version>` is `spark321` should be use
 
 4. `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
 
-Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. 
+#### Start from 1.4.0 release
+
+Since 1.4.0 release, we consolidate 4 jars into one single jar. And the supported spark version is contained in the jar name. User can pick one jar according to your spark version.
+
+`gazelle-plugin-1.4.0-spark-3.1.1.jar`
+
+`gazelle-plugin-1.4.0-spark-3.2.1.jar`
+
+
+Please note the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage.
 
 ### Building by Conda
 
-If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./OAP-Installation-Guide.md), you can find built `spark-columnar-core-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
+If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./OAP-Installation-Guide.md), you can find built `gazelle-plugin-<version>-<spark-version>.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
 Then you can just skip below steps and jump to [Get Started](#get-started).
 
 ### Building by yourself
@@ -86,7 +97,9 @@ Please check the document [Installation Guide](./Installation.md)
 ## Get started
 
 To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` and `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` should be added to Spark configuration. As of 1.3.1 release, a new shim layer was introduced to work with Spark minor releases. The shim layer also have two jars`spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar` and `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
-We will demonstrate an example with Spark 3.2.1 by here.
+And after 1.4.0 release, only one single jar is required: `gazelle-plugin-1.4.0-spark-3.1.1.jar` or `gazelle-plugin-1.4.0-spark-3.2.1.jar`.
+
+We will demonstrate how to deploy Gazelle (since 1.4.0 release) on Spark 3.2.1.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -107,10 +120,8 @@ ${SPARK_HOME}/bin/spark-shell \
         --master yarn \
         --driver-memory 10G \
         --conf spark.plugins=com.intel.oap.GazellePlugin \
-        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar:$PATH_TO_JAR/
-        spark-sql-columnar-shims-spark321-<version>-SNAPSHOT.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar:$PATH_TO_JAR/
-        spark-sql-columnar-shims-spark321-<version>-SNAPSHOT.jar \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
