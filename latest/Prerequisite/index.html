@@ -54,7 +54,7 @@
                 <ul class="current">
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">Prerequisite</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#gcc-installation">gcc installation</a>
+    <li class="toctree-l2"><a class="reference internal" href="#gcc-installation">GCC installation</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#llvm-70-installation">LLVM 7.0 installation</a>
     </li>
@@ -93,6 +93,18 @@
                 </ul>
                 <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
                     </li>
                 </ul>
                 <ul>
@@ -143,7 +155,7 @@
 <p>There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.</p>
 <ol>
-<li>GCC 7.0 or higher version</li>
+<li>GCC 9.0 or higher version</li>
 <li>LLVM 7.0 or higher version</li>
 <li>java8 OpenJDK -&gt; yum install java-1.8.0-openjdk</li>
 <li>cmake 3.16 or higher version</li>
@@ -152,28 +164,26 @@ Please make sure you have already installed the software in your system.</p>
 <li>Spark 3.1.x or Spark 3.2.x</li>
 <li>Intel Optimized Arrow 4.0.0</li>
 </ol>
-<h2 id="gcc-installation">gcc installation</h2>
-<p>// installing GCC 7.0 or higher version</p>
-<p>Please notes for better performance support, GCC 7.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
+<h2 id="gcc-installation">GCC installation</h2>
+<p>Please install GCC 9.0 or higher version.</p>
+<p>Please note for better performance support, GCC 9.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
 https://gcc.gnu.org/install/index.html</p>
-<p>Follow the above website to download gcc.
-C++ library may ask a certain version, if you are using GCC 7.0 the version would be libstdc++.so.6.0.28.
-You may have to launch ./contrib/download_prerequisites command to install all the prerequisites for gcc.
+<p>Follow the above website to download GCC.
 If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.</p>
-<p>//Follow the steps to configure gcc
+<p>Follow the steps to configure GCC
 https://gcc.gnu.org/install/configure.html</p>
 <p>If you are facing a multilib issue, you can try to add --disable-multilib parameter in ../configure</p>
-<p>//Follow the steps to build gc
+<p>Follow the steps to build GCC
 https://gcc.gnu.org/install/build.html</p>
-<p>//Follow the steps to install gcc
+<p>Follow the steps to install GCC
 https://gcc.gnu.org/install/finalinstall.html</p>
-<p>//Set up Environment for new gcc</p>
+<p>Set up environment for new GCC</p>
 <pre><code>export PATH=$YOUR_GCC_INSTALLATION_DIR/bin:$PATH
 export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
 </code></pre>
 <p>Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc</p>
-<p>//Verify if gcc has been installation
-Use <code>gcc -v</code> command to verify if your gcc version is correct.(Must larger than 7.0)</p>
+<p>Verify if GCC has been installed.
+Use <code>gcc -v</code> command to verify if your gcc version is correct.(Must larger than 9)</p>
 <h2 id="llvm-70-installation">LLVM 7.0 installation</h2>
 <p>Arrow Gandiva depends on LLVM, and I noticed current version strictly depends on llvm7.0 if you installed any other version rather than 7.0, it will fail.</p>
 <pre><code class="language-shell">wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz

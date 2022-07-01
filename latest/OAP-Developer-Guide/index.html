@@ -76,6 +76,18 @@
                     </li>
                 </ul>
                 <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
                     </li>
                 </ul>
@@ -139,8 +151,8 @@
 <p>This document contains the instructions &amp; scripts on installing necessary dependencies and building OAP modules. 
 You can get more detailed information from OAP each module below.</p>
 <ul>
-<li><a href="https://github.com/oap-project/oap-mllib/tree/v1.3.1">OAP MLlib</a></li>
-<li><a href="https://github.com/oap-project/gazelle_plugin/tree/v1.3.1">Gazelle Plugin</a></li>
+<li><a href="https://github.com/oap-project/oap-mllib/tree/v1.4.0">OAP MLlib</a></li>
+<li><a href="https://github.com/oap-project/gazelle_plugin/tree/v1.4.0">Gazelle Plugin</a></li>
 </ul>
 <h2 id="building-oap">Building OAP</h2>
 <h3 id="prerequisites">Prerequisites</h3>
@@ -149,13 +161,13 @@ You can get more detailed information from OAP each module below.</p>
 # cd oap-tools
 # sh dev/install-compile-time-dependencies.sh
 </code></pre>
-<p><em>Note</em>: oap-tools tag version <code>v1.3.1</code> corresponds to  all OAP modules' tag version <code>v1.3.1</code>.</p>
+<p><em>Note</em>: oap-tools tag version <code>v1.4.0</code> corresponds to  all OAP modules' tag version <code>v1.4.0</code>.</p>
 <p>Then the dependencies below will be installed:</p>
 <ul>
 <li><a href="https://cmake.org/install/">Cmake</a></li>
-<li><a href="https://gcc.gnu.org/wiki/InstallingGCC">GCC &gt; 7</a></li>
+<li><a href="https://gcc.gnu.org/wiki/InstallingGCC">GCC &gt; 9</a></li>
 <li><a href="https://software.intel.com/content/www/us/en/develop/tools/oneapi.html">OneAPI</a></li>
-<li><a href="https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.3.1">Arrow</a></li>
+<li><a href="https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.4.0">Arrow</a></li>
 <li><a href="https://llvm.org/">LLVM</a> </li>
 </ul>
 <h3 id="building">Building</h3>
