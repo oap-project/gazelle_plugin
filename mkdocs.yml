@@ -6,16 +6,19 @@ edit_uri: ""
 
 
 nav:
-- User Guide: User-Guide.md
-- Prerequisite: Prerequisite.md
-- Installation: Installation.md
-- InstallationNotes: InstallationNotes.md
-- Configuration: Configuration.md
-- SparkInstallation: SparkInstallation.md
-- ApacheArrowInstallation: ApacheArrowInstallation.md
-- OAP Installation Guide: OAP-Installation-Guide.md
-- OAP Developer Guide: OAP-Developer-Guide.md
-- Version Selector: "../"
+  - User Guide: User-Guide.md
+  - Prerequisite: Prerequisite.md
+  - Installation: Installation.md
+  - InstallationNotes: InstallationNotes.md
+  - Configuration: Configuration.md
+  - SparkInstallation: SparkInstallation.md
+  - ApacheArrowInstallation: ApacheArrowInstallation.md
+  - Columnar UDF Development: Columnar-UDF-Development-Guide.md
+  - Memory Allocation in Gazelle Plugin: memory.md
+  - Performance Tuning for Gazelle Plugin: performance.md
+  - OAP Installation Guide: OAP-Installation-Guide.md
+  - OAP Developer Guide: OAP-Developer-Guide.md
+  - Version Selector: "../"
 
 
 
