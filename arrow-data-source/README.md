@@ -13,7 +13,7 @@ The development of this library is still in progress. As a result some of the fu
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. GCC 7.0 or higher version
+1. GCC 9.0 or higher version
 2. java8 OpenJDK -> yum install java-1.8.0-openjdk
 3. cmake 3.16 or higher version
 4. maven 3.6 or higher version
@@ -117,7 +117,7 @@ You have to use a customized Arrow to support for our datasets Java API.
 
 ```
 // build arrow-cpp
-git clone -b arrow-4.0.0-oap https://github.com/oap-project/arrow.git
+git clone -b arrow-4.0.0-oap-1.4 https://github.com/oap-project/arrow.git
 cd arrow/cpp
 mkdir build
 cd build
