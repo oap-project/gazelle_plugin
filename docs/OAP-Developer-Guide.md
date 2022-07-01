@@ -23,7 +23,7 @@ We provide scripts to help automatically install dependencies required, please c
 Then the dependencies below will be installed:
 
 * [Cmake](https://cmake.org/install/)
-* [GCC > 7](https://gcc.gnu.org/wiki/InstallingGCC)
+* [GCC > 9](https://gcc.gnu.org/wiki/InstallingGCC)
 * [OneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html)
 * [Arrow](https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.4.0)
 * [LLVM](https://llvm.org/) 

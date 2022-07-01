@@ -21,6 +21,7 @@ Generated on 2022-06-30
 |[#818](https://github.com/oap-project/gazelle_plugin/issues/818)|Support length, char_length, locate, regexp_extract|
 |[#864](https://github.com/oap-project/gazelle_plugin/issues/864)|Enable native parquet write by default|
 |[#828](https://github.com/oap-project/gazelle_plugin/issues/828)|CoalesceBatches native implementation|
+| [#800](https://github.com/oap-project/gazelle_plugin/issues/800) |Combine datasource and columnar core jar|
 
 #### Performance
 |||
@@ -51,9 +52,10 @@ Generated on 2022-06-30
 #### PRs
 |||
 |:---|:---|
+| [#1002](https://github.com/oap-project/gazelle_plugin/pull/1002) |[NSE-800] Pack the classes into one single jar|
 |[#988](https://github.com/oap-project/gazelle_plugin/pull/988)|[NSE-987] fix string date|
 |[#977](https://github.com/oap-project/gazelle_plugin/pull/977)|[NSE-126] set default codegen opt to O1|
-|[#975](https://github.com/oap-project/gazelle_plugin/pull/975)|[NSE-927] Add macro __AVX512BW__ check for different CPU architecture|
+|[#975](https://github.com/oap-project/gazelle_plugin/pull/975)|[NSE-927] Add macro AVX512BW check for different CPU architecture|
 |[#962](https://github.com/oap-project/gazelle_plugin/pull/962)|[NSE-359] disable unit tests on spark32 package|
 |[#966](https://github.com/oap-project/gazelle_plugin/pull/966)|[NSE-913] Add support for Hadoop 3.3.1 when packaging|
 |[#936](https://github.com/oap-project/gazelle_plugin/pull/936)|[NSE-943] Optimize IsNULL() function for Row2Columnar|
