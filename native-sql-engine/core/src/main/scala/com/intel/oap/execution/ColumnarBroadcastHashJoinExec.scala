@@ -91,6 +91,8 @@ case class ColumnarBroadcastHashJoinExec(
     }
   }
 
+  var supportCodegen = true
+
   buildCheck()
 
   // A method in ShuffledJoin of spark3.2.
@@ -111,6 +113,7 @@ case class ColumnarBroadcastHashJoinExec(
         ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
       val supportCodegen =
         columnarConditionExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      this.supportCodegen = this.supportCodegen && supportCodegen
       // Columnar BHJ with condition only has codegen version of implementation.
       if (!supportCodegen) {
         throw new UnsupportedOperationException(
@@ -141,12 +144,30 @@ case class ColumnarBroadcastHashJoinExec(
     // build check for expr
     if (buildKeyExprs != null) {
       for (expr <- buildKeyExprs) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarBuildKeyExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarBuildKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        this.supportCodegen = this.supportCodegen && supportCodegen
+        // Fall back the join who has join condition, but does not support codegen.
+        if (condition.isDefined && !supportCodegen) {
+          throw new UnsupportedOperationException("Fall back due to codegen is" +
+            " not supported for  " + columnarBuildKeyExpr)
+        }
+
       }
     }
     if (streamedKeyExprs != null) {
       for (expr <- streamedKeyExprs) {
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val columnarStreamedKeyExpr =
+          ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarStreamedKeyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        this.supportCodegen = this.supportCodegen && supportCodegen
+        // Fall back the join who has join condition, but does not support codegen.
+        if (condition.isDefined && !supportCodegen) {
+          throw new UnsupportedOperationException("Fall back due to codegen is" +
+            " not supported for  " + columnarStreamedKeyExpr)
+        }
       }
     }
   }
@@ -273,7 +294,9 @@ case class ColumnarBroadcastHashJoinExec(
 
   override def getChild: SparkPlan = streamedPlan
 
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = {
+    this.supportCodegen
+  }
 
   val output_skip_alias =
     if (projectList == null || projectList.isEmpty) super.output

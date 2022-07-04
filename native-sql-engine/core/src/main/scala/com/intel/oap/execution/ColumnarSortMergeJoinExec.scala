@@ -235,6 +235,7 @@ case class ColumnarSortMergeJoinExec(
       Seq(streamedPlan.executeColumnar())
   }
 
+  // Only has codegen implementation.
   override def supportColumnarCodegen: Boolean = true
 
   val output_skip_alias =
