@@ -34,7 +34,7 @@ int64_t GetFieldOffset(int64_t nullBitsetWidthInBytes, int32_t index) {
   return nullBitsetWidthInBytes + 8L * index;
 }
 
-bool IsNull(uint8_t* buffer_address, int32_t index) {
+inline bool IsNull(uint8_t* buffer_address, int32_t index) {
   int64_t mask = 1L << (index & 0x3f);  // mod 64 and shift
   int64_t wordOffset = (index >> 6) * 8;
   int64_t value = *((int64_t*)(buffer_address + wordOffset));
@@ -52,10 +52,10 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
                               arrow::MemoryPool* pool, bool support_avx512,
                               std::vector<arrow::Type::type>& typevec,
                               std::vector<uint8_t>& typewidth) {
-  auto field = schema->field(columnar_id);
-  auto type = field->type();
+  // auto field = schema->field(columnar_id);
+  // auto type = field->type();
 
-  switch (type->id()) {
+  switch (typevec[columnar_id]) {
     case arrow::BooleanType::type_id: {
       // arrow::ArrayData out_data;
       // (*array)->length = num_rows;
@@ -158,64 +158,6 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
       // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       break;
     }
-    case arrow::Decimal128Type::type_id: {
-      auto dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
-      int32_t precision = dtype->precision();
-      int32_t scale = dtype->scale();
-
-      // arrow::ArrayData out_data;
-      // (*array)->length = num_rows;
-      // (*array)->buffers.resize(2);
-      // (*array)->type = arrow::decimal128(precision, scale);
-      // ARROW_ASSIGN_OR_RAISE((*array)->buffers[1], AllocateBuffer(16 * num_rows, pool));
-      // ARROW_ASSIGN_OR_RAISE((*array)->buffers[0], AllocateBitmap(num_rows, pool));
-      auto array_data = (*array)->GetMutableValues<arrow::Decimal128>(1);
-
-      int64_t position = row_start;
-      int64_t null_count = 0;
-      auto out_is_valid = (*array)->buffers[0]->mutable_data();
-      while (position < row_start+batch_rows) {
-        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
-        if (is_null) {
-          null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
-          array_data[position] = arrow::Decimal128{};
-        } else {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-          if (precision <= 18) {
-            int64_t low_value;
-            memcpy(&low_value, memory_address_ + offsets[position] + fieldOffset, 8);
-            arrow::Decimal128 value =
-                arrow::Decimal128(arrow::BasicDecimal128(low_value));
-            array_data[position] = value;
-          } else {
-            int64_t offsetAndSize;
-            memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                   sizeof(int64_t));
-            int32_t length = int32_t(offsetAndSize);
-            int32_t wordoffset = int32_t(offsetAndSize >> 32);
-            uint8_t bytesValue[length];
-            memcpy(bytesValue, memory_address_ + offsets[position] + wordoffset, length);
-            uint8_t bytesValue2[16]{};
-            for (int k = length - 1; k >= 0; k--) {
-              bytesValue2[length - 1 - k] = bytesValue[k];
-            }
-            if (int8_t(bytesValue[0]) < 0) {
-              for (int k = length; k < 16; k++) {
-                bytesValue2[k] = 255;
-              }
-            }
-            arrow::Decimal128 value =
-                arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
-            array_data[position] = value;
-          }
-        }
-        position++;
-      }
-      (*array)->null_count += null_count;
-      // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
-      break;
-    }
     default: {
         // arrow::ArrayData out_data;
         // (*array)->length = num_rows;
@@ -294,10 +236,13 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
 
   std::vector<arrow::Type::type> typevec;
   std::vector<uint8_t> typewidth;
+  std::vector<int64_t> field_offset_vec;
   typevec.resize(num_fields);
   // Store bytes for different fixed width types
   typewidth.resize(num_fields);
+  field_offset_vec.resize(num_fields);
 
+ 
   std::vector<std::shared_ptr<arrow::ArrayData>> columns;
   columns.resize(num_fields);
 
@@ -305,6 +250,7 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
     auto field = schema_->field(i);
     typevec[i] = field->type()->id();
     typewidth[i] = arrow::bit_width(typevec[i]) >> 3;
+    field_offset_vec[i] = GetFieldOffset(nullBitsetWidthInBytes, i);
 
     switch (typevec[i]) {
     case arrow::BooleanType::type_id: {
@@ -376,18 +322,18 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
   int row = 0;
   for (row; row + BATCH_ROW_NUM < num_rows_; row += BATCH_ROW_NUM) {
     for (auto i = 0; i < num_fields; i++) {
-    auto field = schema_->field(i);
-    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, i, field_offset, offsets_,
+    // auto field = schema_->field(i);
+    // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
+    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, i, field_offset_vec[i], offsets_,
                                   memory_address_, &(columns[i]), m_pool_,
                                   support_avx512_, typevec, typewidth));
     }
   }
   for (row; row < num_rows_; row++) {
     for (auto i = 0; i < num_fields; i++) {
-    auto field = schema_->field(i);
-    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, i, field_offset, offsets_,
+    // auto field = schema_->field(i);
+    // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
+    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, i, field_offset_vec[i], offsets_,
                                   memory_address_, &(columns[i]), m_pool_,
                                   support_avx512_, typevec, typewidth));
     }
