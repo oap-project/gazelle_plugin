@@ -17,26 +17,46 @@
 
 package com.intel.oap.expression
 
-import org.apache.spark.sql.catalyst.expressions._
+import com.google.common.collect.Lists
+import org.apache.arrow.gandiva.expression.{TreeBuilder, TreeNode}
+import org.apache.arrow.vector.types.pojo.ArrowType
+
+import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.Murmur3Hash
 
 
-class ColumnarMurmur3Hash(children: Seq[Expression])
-  extends Murmur3Hash(children: Seq[Expression]) with ColumnarExpression {
+class ColumnarMurmur3Hash(children: Seq[Expression], seed: Int)
+  extends Murmur3Hash(children: Seq[Expression], seed: Int) with ColumnarExpression {
 
-  def buildCheck(): Unit = {
-    for (expr <- children) {
-      if (expr.)
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+
+    val resultType = new ArrowType.Int(32, true)
+    var hashNode = TreeBuilder.makeLiteral(new Integer(seed))
+    var funcNode: TreeNode = null
+    for (child: Expression <- children) {
+      val (childNode, _): (TreeNode, ArrowType) =
+        child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      funcNode =
+        TreeBuilder.makeFunction(
+          "hash32_spark",
+          Lists.newArrayList(childNode, hashNode),
+          resultType)
+      hashNode = funcNode
     }
+    (funcNode, resultType)
   }
 }
 
-
 object ColumnarHashExpression {
 
-  def create(children: Seq[Expression], original: Expression): Expression = {
+  def create(children: Seq[Expression], seed: Int, original: Expression): Expression = {
     original match {
       case _: Murmur3Hash =>
-        new ColumnarMurmur3Hash(children)
+        new ColumnarMurmur3Hash(children, seed)
     }
   }
 }
