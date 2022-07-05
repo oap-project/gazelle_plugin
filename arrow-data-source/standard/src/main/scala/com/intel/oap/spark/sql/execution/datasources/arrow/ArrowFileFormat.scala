@@ -38,6 +38,7 @@ import org.apache.parquet.hadoop.codec.CodecConfig
 import org.apache.parquet.hadoop.util.ContextUtil
 
 import org.apache.spark.TaskContext
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
@@ -50,7 +51,7 @@ import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
-class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializable {
+class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging with Serializable {
 
 
   override def isSplitable(sparkSession: SparkSession,
