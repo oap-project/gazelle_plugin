@@ -3,7 +3,7 @@
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. GCC 7.0 or higher version
+1. GCC 9.0 or higher version
 2. LLVM 7.0 or higher version
 3. java8 OpenJDK -> yum install java-1.8.0-openjdk
 4. cmake 3.16 or higher version
@@ -12,38 +12,36 @@ Please make sure you have already installed the software in your system.
 7. Spark 3.1.x or Spark 3.2.x
 8. Intel Optimized Arrow 4.0.0
 
-## gcc installation
+## GCC installation
 
-// installing GCC 7.0 or higher version
+Please install GCC 9.0 or higher version.
 
-Please notes for better performance support, GCC 7.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
+Please note for better performance support, GCC 9.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
 https://gcc.gnu.org/install/index.html
 
-Follow the above website to download gcc.
-C++ library may ask a certain version, if you are using GCC 7.0 the version would be libstdc++.so.6.0.28.
-You may have to launch ./contrib/download_prerequisites command to install all the prerequisites for gcc.
+Follow the above website to download GCC.
 If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.
 
-//Follow the steps to configure gcc
+Follow the steps to configure GCC
 https://gcc.gnu.org/install/configure.html
 
 If you are facing a multilib issue, you can try to add --disable-multilib parameter in ../configure
 
-//Follow the steps to build gc
+Follow the steps to build GCC
 https://gcc.gnu.org/install/build.html
 
-//Follow the steps to install gcc
+Follow the steps to install GCC
 https://gcc.gnu.org/install/finalinstall.html
 
-//Set up Environment for new gcc
+Set up environment for new GCC
 ```
 export PATH=$YOUR_GCC_INSTALLATION_DIR/bin:$PATH
 export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
 ```
 Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc
 
-//Verify if gcc has been installation
-Use `gcc -v` command to verify if your gcc version is correct.(Must larger than 7.0)
+Verify if GCC has been installed.
+Use `gcc -v` command to verify if your gcc version is correct.(Must larger than 9)
 
 ## LLVM 7.0 installation
 
