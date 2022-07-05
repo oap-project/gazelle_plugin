@@ -75,6 +75,18 @@
                     <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
                     </li>
                 </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                    </li>
+                </ul>
                 <ul class="current">
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">OAP Installation Guide</a>
     <ul class="current">
@@ -144,7 +156,7 @@ Follow steps below on <strong><em>every node</em></strong> of your cluster to se
 <ul>
 <li>
 <p><strong>OS Requirements</strong><br />
-We have tested OAP on Fedora 29 and CentOS 7.6 (kernel-4.18.16). We recommend you use <strong>Fedora 29 CentOS 7.6 or above</strong>. Besides, for <a href="https://github.com/memkind/memkind/tree/v1.10.1-rc2">Memkind</a> we recommend you use <strong>kernel above 3.10</strong>.</p>
+We have tested OAP on Fedora 29, CentOS 7.6 (kernel 4.18.16) and Ubuntu 20.04 (kernel 5.4.0-65-generic).  </p>
 </li>
 <li>
 <p><strong>Conda Requirements</strong> <br />
@@ -159,7 +171,7 @@ $ bash Miniconda2-latest-Linux-x86_64.sh
 To test your installation,  run the command <code>conda list</code> in your terminal window. A list of installed packages appears if it has been installed correctly.</p>
 <h3 id="installing-oap">Installing OAP</h3>
 <p>Create a Conda environment and install OAP Conda package.</p>
-<pre><code class="language-bash">$ conda create -n oapenv -c conda-forge -c intel -y oap=1.3.1
+<pre><code class="language-bash">$ conda create -n oapenv -c conda-forge -c intel -y oap=1.4.0.spark32
 </code></pre>
 <p>Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code></p>
 <h3 id="configuration">Configuration</h3>
@@ -182,7 +194,7 @@ spark.driver.extraClassPath         $HOME/miniconda2/envs/oapenv/oap_jars/$OAP_F
         <a href="../OAP-Developer-Guide/" class="btn btn-neutral float-right" title="OAP Developer Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href="../ApacheArrowInstallation/" class="btn btn-neutral" title="ApacheArrowInstallation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../performance/" class="btn btn-neutral" title="Performance Tuning for Gazelle Plugin"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -208,7 +220,7 @@ spark.driver.extraClassPath         $HOME/miniconda2/envs/oapenv/oap_jars/$OAP_F
     <span class="rst-current-version" data-toggle="rst-current-version">
       
       
-        <span><a href="../ApacheArrowInstallation/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+        <span><a href="../performance/" style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
         <span style="margin-left: 15px"><a href="../OAP-Developer-Guide/" style="color: #fcfcfc">Next &raquo;</a></span>

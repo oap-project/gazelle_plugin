@@ -78,6 +78,18 @@
                     </li>
                 </ul>
                 <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
                     </li>
                 </ul>
@@ -148,7 +160,7 @@ make install
 <p>Please make sure your cmake version is qualified based on the prerequisite.</p>
 <h1 id="arrow">Arrow</h1>
 <pre><code class="language-shell">git clone https://github.com/oap-project/arrow.git
-cd arrow &amp;&amp; git checkout arrow-4.0.0-oap-1.3.1
+cd arrow &amp;&amp; git checkout arrow-4.0.0-oap-1.4
 mkdir -p arrow/cpp/release-build
 cd arrow/cpp/release-build
 cmake -DARROW_DEPENDENCY_SOURCE=BUNDLED -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_ORC=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JNI=ON -DARROW_DATASET=ON -DARROW_WITH_PROTOBUF=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_LZ4=ON -DARROW_FILESYSTEM=ON -DARROW_JSON=ON ..
@@ -174,7 +186,7 @@ mvn test -pl gandiva -P arrow-jni
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../OAP-Installation-Guide/" class="btn btn-neutral float-right" title="OAP Installation Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../Columnar-UDF-Development-Guide/" class="btn btn-neutral float-right" title="Columnar UDF Development">Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
         <a href="../SparkInstallation/" class="btn btn-neutral" title="SparkInstallation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
@@ -206,7 +218,7 @@ mvn test -pl gandiva -P arrow-jni
         <span><a href="../SparkInstallation/" style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
-        <span style="margin-left: 15px"><a href="../OAP-Installation-Guide/" style="color: #fcfcfc">Next &raquo;</a></span>
+        <span style="margin-left: 15px"><a href="../Columnar-UDF-Development-Guide/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>

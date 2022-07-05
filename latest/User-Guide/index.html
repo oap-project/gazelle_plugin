@@ -67,6 +67,12 @@
     <li class="toctree-l2"><a class="reference internal" href="#how-to-use-oap-gazelle-plugin">How to use OAP: Gazelle Plugin</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#use-precompiled-jars">Use precompiled jars</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#before-140-release">Before 1.4.0 release</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#start-from-140-release">Start from 1.4.0 release</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#building-by-conda">Building by Conda</a>
     </li>
@@ -128,6 +134,18 @@
                     </li>
                 </ul>
                 <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                    </li>
+                </ul>
+                <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
                     </li>
                 </ul>
@@ -184,8 +202,8 @@ and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimiz
 <p>With <a href="https://issues.apache.org/jira/browse/SPARK-27396">Spark 27396</a> its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.</p>
 <h3 id="apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</h3>
 <p><img alt="Overview" src="../image/dataset.png" /></p>
-<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source">Arrow Data Source</a>
-Note both data source V1 and V2 are supported. Please check the <a href="../arrow-data-source/#run-a-query-with-arrowdatasource-scala">example section</a> for arrow data source</p>
+<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/gazelle_plugin/tree/main/arrow-data-source">Arrow Data Source</a>
+Note both data source V1 and V2 are supported. Please check the <a href="https://github.com/oap-project/gazelle_plugin/tree/main/arrow-data-source#run-a-query-with-arrowdatasource-scala">example section</a> for arrow data source</p>
 <h3 id="apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</h3>
 <p><img alt="Overview" src="../image/kernel.png" /></p>
 <p>We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.</p>
@@ -199,6 +217,7 @@ Note both data source V1 and V2 are supported. Please check the <a href="../arro
 2. Building by Conda Environment
 3. Building by Yourself</p>
 <h3 id="use-precompiled-jars">Use precompiled jars</h3>
+<h4 id="before-140-release">Before 1.4.0 release</h4>
 <p>Please go to <a href="https://repo1.maven.org/maven2/com/intel/oap/">OAP's Maven Central Repository</a> to find Gazelle Plugin jars.
 For usage, you will require below two jar files:
 1. <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code> is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
@@ -213,20 +232,26 @@ And for spark 3.2.x, the jar whose <code>&lt;spark-version&gt;</code> is <code>s
 <p><code>spark-sql-columnar-shims-&lt;spark-version&gt;-&lt;version&gt;-SNAPSHOT.jar</code></p>
 </li>
 </ol>
-<p>Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. </p>
+<h4 id="start-from-140-release">Start from 1.4.0 release</h4>
+<p>Since 1.4.0 release, we consolidate 4 jars into one single jar. And the supported spark version is contained in the jar name. User can pick one jar according to your spark version.</p>
+<p><code>gazelle-plugin-1.4.0-spark-3.1.1.jar</code></p>
+<p><code>gazelle-plugin-1.4.0-spark-3.2.1.jar</code></p>
+<p>Please note the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage.</p>
 <h3 id="building-by-conda">Building by Conda</h3>
-<p>If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a> for more information. Once finished <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a>, you can find built <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code>.
+<p>If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a> for more information. Once finished <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a>, you can find built <code>gazelle-plugin-&lt;version&gt;-&lt;spark-version&gt;.jar</code> under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code>.
 Then you can just skip below steps and jump to <a href="#get-started">Get Started</a>.</p>
 <h3 id="building-by-yourself">Building by yourself</h3>
 <p>If you prefer to build from the source code on your hand, please follow below steps to set up your environment.</p>
 <h4 id="prerequisite">Prerequisite</h4>
 <p>There are some requirements before you build the project.
-Please check the document <a href="../Prerequisite/">Prerequisite</a> and make sure you have already installed the software in your system.
+Please check the document <a href="../Prerequisite/">Prerequisite</a> and make sure you have already installed the software in your system. A <a href="../conda/gazelle_dev.yml">conda env</a> was also provided to help to setup the building env quickly.
 If you are running a SPARK Cluster, please make sure all the software are installed in every single node.</p>
 <h4 id="installation">Installation</h4>
 <p>Please check the document <a href="../Installation/">Installation Guide</a> </p>
 <h2 id="get-started">Get started</h2>
-<p>To enable Gazelle Plugin, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
+<p>To enable Gazelle Plugin, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> and <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. As of 1.3.1 release, a new shim layer was introduced to work with Spark minor releases. The shim layer also have two jars<code>spark-sql-columnar-shims-common-&lt;version&gt;-SNAPSHOT.jar</code> and <code>spark-sql-columnar-shims-&lt;spark-version&gt;-&lt;version&gt;-SNAPSHOT.jar</code>
+And after 1.4.0 release, only one single jar is required: <code>gazelle-plugin-1.4.0-spark-3.1.1.jar</code> or <code>gazelle-plugin-1.4.0-spark-3.2.1.jar</code>.</p>
+<p>We will demonstrate how to deploy Gazelle (since 1.4.0 release) on Spark 3.2.1.
 SPARK related options are:</p>
 <ul>
 <li><code>spark.driver.extraClassPath</code> : Set to load jar file to driver.</li>
@@ -244,8 +269,8 @@ For Spark Yarn Cluster Mode, please set the above value as absolute path to the 
         --master yarn \
         --driver-memory 10G \
         --conf spark.plugins=com.intel.oap.GazellePlugin \
-        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
