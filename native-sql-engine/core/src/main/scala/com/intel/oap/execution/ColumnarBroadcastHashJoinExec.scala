@@ -424,16 +424,14 @@ case class ColumnarBroadcastHashJoinExec(
       val resultStructType = ArrowUtils.fromArrowSchema(probe_out_schema)
       val res = new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = {
-          iter.hasNext
+          nativeIterator.hasNext || iter.hasNext
         }
 
         override def next(): ColumnarBatch = {
           val cb = iter.next()
           val beforeEval = System.nanoTime()
           if (cb.numRows == 0) {
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            return createEmptyBatch()
           }
           val input_rb =
             ConverterUtils.createArrowRecordBatch(cb)
@@ -441,9 +439,7 @@ case class ColumnarBroadcastHashJoinExec(
           if (output_rb == null) {
             ConverterUtils.releaseArrowRecordBatch(input_rb)
             eval_elapse += System.nanoTime() - beforeEval
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            return createEmptyBatch()
           }
           val outputNumRows = output_rb.getLength
           ConverterUtils.releaseArrowRecordBatch(input_rb)
@@ -463,6 +459,11 @@ case class ColumnarBroadcastHashJoinExec(
           }
           numOutputRows += outputNumRows
           resBatch
+        }
+        private def createEmptyBatch() = {
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
         }
       }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
