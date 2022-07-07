@@ -424,6 +424,9 @@ case class ColumnarBroadcastHashJoinExec(
       val resultStructType = ArrowUtils.fromArrowSchema(probe_out_schema)
       val res = new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = {
+          if (probe_out_schema.getFields.size() == 0) {
+            return false
+          }
           iter.hasNext
         }
 
