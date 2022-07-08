@@ -26,11 +26,11 @@
 namespace sparkcolumnarplugin {
 namespace rowtocolumnar {
 
-int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
+inline int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
   return ((numFields + 63) / 64) * 8;
 }
 
-int64_t GetFieldOffset(int64_t nullBitsetWidthInBytes, int32_t index) {
+inline int64_t GetFieldOffset(int64_t nullBitsetWidthInBytes, int32_t index) {
   return nullBitsetWidthInBytes + 8L * index;
 }
 
@@ -41,20 +41,27 @@ inline bool IsNull(uint8_t* buffer_address, int32_t index) {
   return (value & mask) != 0;
 }
 
-int32_t CalculateHeaderPortionInBytes(int32_t num_elements) {
+inline int32_t CalculateHeaderPortionInBytes(int32_t num_elements) {
   return 8 + ((num_elements + 63) / 64) * 8;
 }
 
 arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> schema, int32_t  batch_rows,
-                              int32_t columnar_id, int64_t fieldOffset,
+                              int32_t dummy_columnar_id, int64_t dummy_fieldOffset,
                               std::vector<int64_t>& offsets, uint8_t* memory_address_,
-                              std::shared_ptr<arrow::ArrayData>* array,
+                              std::shared_ptr<arrow::ArrayData>* dummyarray,
                               arrow::MemoryPool* pool, bool support_avx512,
                               std::vector<arrow::Type::type>& typevec,
-                              std::vector<uint8_t>& typewidth) {
+                              std::vector<uint8_t>& typewidth,
+                              std::vector<std::shared_ptr<arrow::ArrayData>>& columns,
+                              int num_fields, std::vector<int64_t> &field_offset_vec) {
   // auto field = schema->field(columnar_id);
   // auto type = field->type();
+// printf("num_fields:%d \n",  num_fields);
+for (auto columnar_id = 0; columnar_id < num_fields; columnar_id++) {
+  auto& array = (columns[columnar_id]);
+  int64_t fieldOffset = field_offset_vec[columnar_id];
 
+  // printf("typevec[%d]:%d \n",columnar_id,  typevec[columnar_id]);
   switch (typevec[columnar_id]) {
     case arrow::BooleanType::type_id: {
       // arrow::ArrayData out_data;
@@ -64,11 +71,11 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
 
       // ARROW_ASSIGN_OR_RAISE((*array)->buffers[1], AllocateBitmap(num_rows, pool));
       // ARROW_ASSIGN_OR_RAISE((*array)->buffers[0], AllocateBitmap(num_rows, pool));
-      auto array_data = (*array)->buffers[1]->mutable_data();
+      auto array_data = array->buffers[1]->mutable_data();
       int64_t position = row_start;
       int64_t null_count = 0;
 
-      auto out_is_valid = (*array)->buffers[0]->mutable_data();
+      auto out_is_valid = array->buffers[0]->mutable_data();
       while (position < row_start + batch_rows) {
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
@@ -81,9 +88,68 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
         }
         position++;
       }
-      (*array)->null_count += null_count;
+      array->null_count += null_count;
       // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
-      return arrow::Status::OK();
+      break;
+    }
+    case arrow::Decimal128Type::type_id: {
+      auto field = schema->field(columnar_id);
+      auto type = field->type();
+      auto dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
+      int32_t precision = dtype->precision();
+      int32_t scale = dtype->scale();
+
+      // arrow::ArrayData out_data;
+      // (*array)->length = num_rows;
+      // (*array)->buffers.resize(2);
+      // (*array)->type = arrow::decimal128(precision, scale);
+      // ARROW_ASSIGN_OR_RAISE((*array)->buffers[1], AllocateBuffer(16 * num_rows, pool));
+      // ARROW_ASSIGN_OR_RAISE((*array)->buffers[0], AllocateBitmap(num_rows, pool));
+      auto array_data = array->GetMutableValues<arrow::Decimal128>(1);
+
+      int64_t position = row_start;
+      int64_t null_count = 0;
+      auto out_is_valid = array->buffers[0]->mutable_data();
+      while (position < row_start+batch_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::Decimal128{};
+        } else {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          if (precision <= 18) {
+            int64_t low_value;
+            memcpy(&low_value, memory_address_ + offsets[position] + fieldOffset, 8);
+            arrow::Decimal128 value =
+                arrow::Decimal128(arrow::BasicDecimal128(low_value));
+            array_data[position] = value;
+          } else {
+            int64_t offsetAndSize;
+            memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
+                   sizeof(int64_t));
+            int32_t length = int32_t(offsetAndSize);
+            int32_t wordoffset = int32_t(offsetAndSize >> 32);
+            uint8_t bytesValue[length];
+            memcpy(bytesValue, memory_address_ + offsets[position] + wordoffset, length);
+            uint8_t bytesValue2[16]{};
+            for (int k = length - 1; k >= 0; k--) {
+              bytesValue2[length - 1 - k] = bytesValue[k];
+            }
+            if (int8_t(bytesValue[0]) < 0) {
+              for (int k = length; k < 16; k++) {
+                bytesValue2[k] = 255;
+              }
+            }
+            arrow::Decimal128 value =
+                arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
+            array_data[position] = value;
+          }
+        }
+        position++;
+      }
+      array->null_count += null_count;
+      // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       break;
     }
     case arrow::BinaryType::type_id:
@@ -98,35 +164,34 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
       //                       AllocateBuffer(sizeof(offset_type) * (num_rows + 1), pool));
       // ARROW_ASSIGN_OR_RAISE((*array)->buffers[2],
       //                       AllocateResizableBuffer(20 * num_rows, pool));
-      auto validity_buffer = (*array)->buffers[0]->mutable_data();
+      auto validity_buffer = array->buffers[0]->mutable_data();
       // // initialize all true once allocated
       // memset(validity_buffer, 0xff, (*array)->buffers[0]->capacity());
-      auto array_offset = (*array)->GetMutableValues<offset_type>(1);
-      auto array_data = (*array)->buffers[2]->mutable_data();
+      auto array_offset = array->GetMutableValues<offset_type>(1);
+      auto array_data = array->buffers[2]->mutable_data();
       int64_t null_count = 0;
 
       array_offset[0] = 0;
       for (int64_t position = row_start; position < row_start+batch_rows; position++) {
+	// _mm_prefetch(memory_address_, _MM_HINT_T2);
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
-        if (is_null) {
-          arrow::BitUtil::SetBitTo(validity_buffer, position, false);
-          array_offset[position + 1] = array_offset[position];
-          null_count++;
-        } else {
+        if(ARROW_PREDICT_TRUE(!is_null)) {
           int64_t offsetAndSize =
               *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           offset_type length = int32_t(offsetAndSize);
           int32_t wordoffset = int32_t(offsetAndSize >> 32);
           auto value_offset = array_offset[position + 1] =
               array_offset[position] + length;
-          uint64_t capacity = (*array)->buffers[2]->capacity();
+          uint64_t capacity = array->buffers[2]->capacity();
+          // printf("length:%d \n", length);
+          // printf("wordoffset:%d \n", wordoffset);
 
           if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
             // allocate value buffer again
             // enlarge the buffer by 1.5x
             capacity = capacity + std::max((capacity >> 1), (uint64_t)length);
             auto value_buffer =
-                std::static_pointer_cast<arrow::ResizableBuffer>((*array)->buffers[2]);
+                std::static_pointer_cast<arrow::ResizableBuffer>(array->buffers[2]);
             value_buffer->Reserve(capacity);
             array_data = value_buffer->mutable_data();
           }
@@ -150,10 +215,16 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
             memcpy(dst_value_base, value_src_ptr, length);
           }
         }
+        else {
+          arrow::BitUtil::SetBitTo(validity_buffer, position, false);
+          array_offset[position + 1] = array_offset[position];
+          null_count++;
+        }
+        _mm_prefetch(memory_address_ + offsets[position+1], _MM_HINT_T0);
       }
-      (*array)->null_count += null_count;
+      array->null_count += null_count;
       if (null_count == 0) {
-        (*array)->buffers[0] == nullptr;
+        array->buffers[0] == nullptr;
       }
       // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       break;
@@ -168,20 +239,21 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
         //     AllocateBuffer(typewidth[columnar_id] * num_rows,
         //                   pool));
         // ARROW_ASSIGN_OR_RAISE((*array)->buffers[0], AllocateBitmap(num_rows, pool));
-        auto array_data = (*array)->buffers[1]->mutable_data();
+        auto array_data = array->buffers[1]->mutable_data();
         // auto array_data =
         //     (*array)->GetMutableValues<arrow::TypeTraits<arrow::Int64Type>::CType>(1);
         int64_t position = row_start;
         int64_t null_count = 0;
-        auto out_is_valid = (*array)->buffers[0]->mutable_data();
+        auto out_is_valid = array->buffers[0]->mutable_data();
 
 
-
+        // printf("typevec[%d]:%d \n",columnar_id,  typewidth[columnar_id]);
         if (typewidth[columnar_id] > 0) {
           while (position < row_start+batch_rows) {
+	  // _mm_prefetch(memory_address_, _MM_HINT_T2);
           const uint8_t* srcptr = (memory_address_ + offsets[position] + fieldOffset);
           bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
-
+          // std::cout << "is_null:" << is_null << std::endl;
           // auto dataptr = dataptrs[col_index][1];
           auto mask = (1L << (typewidth[columnar_id])) - 1;
           auto shift = _tzcnt_u32(typewidth[columnar_id]);
@@ -189,7 +261,7 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
           // for (auto j = row_start; j < row_start + batch_rows; j++) {
             // if (nullvec[col_index] || (!array->IsNull(j))) {
               uint8_t* destptr = array_data + (position << shift);
-              if(!is_null) {
+              if(ARROW_PREDICT_TRUE(!is_null)) {
               // const uint8_t* srcptr = dataptr + (j << shift);
               
               
@@ -210,8 +282,10 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
               memset(destptr, 0, typewidth[columnar_id]);
             }
             position++;
+            // _mm_prefetch(srcptr + 64, _MM_HINT_T0);
+            // _mm_prefetch(memory_address_ + offsets[position], _MM_HINT_T0);
           }
-          (*array)->null_count += null_count;
+          array->null_count += null_count;
           // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
           break;
         } else {
@@ -219,6 +293,7 @@ arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> 
         }
       }
   }
+}
   return arrow::Status::OK();
 }
 
@@ -262,6 +337,9 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
 
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBitmap(num_rows_, m_pool_));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
+      auto validity_buffer = out_data.buffers[0]->mutable_data();
+      // initialize all true once allocated
+      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
       columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
       break;
     }
@@ -296,6 +374,9 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
       out_data.null_count = 0;
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBuffer(16 * num_rows_, m_pool_));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
+      auto validity_buffer = out_data.buffers[0]->mutable_data();
+      // initialize all true once allocated
+      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
       columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
       break;
     }
@@ -310,6 +391,9 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
             AllocateBuffer(typewidth[i] * num_rows_,
                           m_pool_));
         ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
+        auto validity_buffer = out_data.buffers[0]->mutable_data();
+        // initialize all true once allocated
+        memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
         columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
         break;
     }
@@ -321,22 +405,24 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
   #define BATCH_ROW_NUM 16
   int row = 0;
   for (row; row + BATCH_ROW_NUM < num_rows_; row += BATCH_ROW_NUM) {
-    for (auto i = 0; i < num_fields; i++) {
+    // for (auto i = 0; i < num_fields; i++) {
     // auto field = schema_->field(i);
     // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, i, field_offset_vec[i], offsets_,
-                                  memory_address_, &(columns[i]), m_pool_,
-                                  support_avx512_, typevec, typewidth));
-    }
+    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, 100, field_offset_vec[0], offsets_,
+                                  memory_address_, &(columns[0]), m_pool_,
+                                  support_avx512_, typevec, typewidth, columns,
+                                  num_fields, field_offset_vec));
+    // }
   }
   for (row; row < num_rows_; row++) {
-    for (auto i = 0; i < num_fields; i++) {
+    // for (auto i = 0; i < num_fields; i++) {
     // auto field = schema_->field(i);
     // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, i, field_offset_vec[i], offsets_,
-                                  memory_address_, &(columns[i]), m_pool_,
-                                  support_avx512_, typevec, typewidth));
-    }
+    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, 100, field_offset_vec[0], offsets_,
+                                  memory_address_, &(columns[0]), m_pool_,
+                                  support_avx512_, typevec, typewidth, columns,
+                                  num_fields, field_offset_vec));
+    // }
   }
 
   // for (auto i = 0; i < num_fields; i++) {
