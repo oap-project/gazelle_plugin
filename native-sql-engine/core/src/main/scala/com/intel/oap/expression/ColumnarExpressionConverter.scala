@@ -466,6 +466,15 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case hash: Murmur3Hash =>
+        val exps = hash.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarHashExpression.create(exps, hash.seed, hash)
+
       // Scala UDF.
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
@@ -567,6 +576,8 @@ object ColumnarExpressionConverter extends Logging {
         lpad.children.map(containsSubquery).exists(_ == true)
       case rpad: StringRPad =>
         rpad.children.map(containsSubquery).exists(_ == true)
+      case hash: Murmur3Hash =>
+        hash.children.map(containsSubquery).exists(_ == true)
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
           ColumnarUDF.isSupportedUDF(name)
