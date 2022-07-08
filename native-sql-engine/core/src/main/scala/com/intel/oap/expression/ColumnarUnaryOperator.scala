@@ -218,6 +218,14 @@ class ColumnarYear(child: Expression, original: Expression)
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    if (child.dataType == StringType) {
+      //STRING Date type is not supported in codegen
+      return false
+    }
+    true && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -253,6 +261,10 @@ class ColumnarNot(child: Expression, original: Expression)
       throw new UnsupportedOperationException(
         s"${child.dataType} is not supported in ColumnarNot.")
     }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

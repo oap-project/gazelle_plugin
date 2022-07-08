@@ -11,7 +11,7 @@ Follow steps below on ***every node*** of your cluster to set right environment 
 ### Prerequisites 
 
 - **OS Requirements**  
-We have tested OAP on Fedora 29 and CentOS 7.6 (kernel-4.18.16). We recommend you use **Fedora 29 CentOS 7.6 or above**. Besides, for [Memkind](https://github.com/memkind/memkind/tree/v1.10.1-rc2) we recommend you use **kernel above 3.10**.
+We have tested OAP on Fedora 29, CentOS 7.6 (kernel 4.18.16) and Ubuntu 20.04 (kernel 5.4.0-65-generic).  
 
 - **Conda Requirements**   
 Install Conda on your cluster nodes with below commands and follow the prompts on the installer screens.:
@@ -28,7 +28,7 @@ To test your installation,  run the command `conda list` in your terminal window
 Create a Conda environment and install OAP Conda package.
 
 ```bash
-$ conda create -n oapenv -c conda-forge -c intel -y oap=1.3.1
+$ conda create -n oapenv -c conda-forge -c intel -y oap=1.4.0.spark32
 ```
 
 Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under `$HOME/miniconda2/envs/oapenv/oap_jars`

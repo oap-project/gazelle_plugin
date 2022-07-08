@@ -48,18 +48,10 @@ inline int32_t CalculateHeaderPortionInBytes(int32_t num_elements) {
 arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> schema, int32_t  batch_rows,
                               int32_t dummy_columnar_id, int64_t dummy_fieldOffset,
                               std::vector<int64_t>& offsets, uint8_t* memory_address_,
-                              std::shared_ptr<arrow::ArrayData>* dummyarray,
-                              arrow::MemoryPool* pool, bool support_avx512,
-                              std::vector<arrow::Type::type>& typevec,
-                              std::vector<uint8_t>& typewidth,
-                              std::vector<std::shared_ptr<arrow::ArrayData>>& columns,
-                              int num_fields, std::vector<int64_t> &field_offset_vec) {
-  // auto field = schema->field(columnar_id);
-  // auto type = field->type();
-// printf("num_fields:%d \n",  num_fields);
-for (auto columnar_id = 0; columnar_id < num_fields; columnar_id++) {
-  auto& array = (columns[columnar_id]);
-  int64_t fieldOffset = field_offset_vec[columnar_id];
+                              std::shared_ptr<arrow::Array>* array,
+                              arrow::MemoryPool* pool, bool support_avx512) {
+  auto field = schema->field(columnar_id);
+  auto type = field->type();
 
   // printf("typevec[%d]:%d \n",columnar_id,  typevec[columnar_id]);
   switch (typevec[columnar_id]) {
@@ -88,8 +80,281 @@ for (auto columnar_id = 0; columnar_id < num_fields; columnar_id++) {
         }
         position++;
       }
-      array->null_count += null_count;
-      // *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      return arrow::Status::OK();
+      break;
+    }
+    case arrow::Int8Type::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::Int8Type>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int8Type>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::Int8Type>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::Int8Type>::CType{};
+        } else {
+          auto value = *(int8_t*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      return arrow::Status::OK();
+      break;
+    }
+    case arrow::Int16Type::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::Int16Type>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int16Type>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::Int16Type>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::Int16Type>::CType{};
+        } else {
+          auto value = *(int16_t*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      return arrow::Status::OK();
+      break;
+    }
+    case arrow::Int32Type::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int32Type>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::Int32Type>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::Int16Type>::CType{};
+        } else {
+          auto value = *(int32_t*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      break;
+    }
+    case arrow::Int64Type::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::Int64Type>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int64Type>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::Int64Type>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::Int64Type>::CType{};
+        } else {
+          auto value = *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      break;
+    }
+    case arrow::FloatType::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::FloatType>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::FloatType>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::FloatType>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::FloatType>::CType{};
+        } else {
+          auto value = *(float*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      break;
+    }
+    case arrow::DoubleType::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(2);
+      out_data.type = arrow::TypeTraits<arrow::DoubleType>::type_singleton();
+      ARROW_ASSIGN_OR_RAISE(
+          out_data.buffers[1],
+          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::DoubleType>::CType) * num_rows,
+                         pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      // auto array_data = out_data.buffers[1]->mutable_data();
+      auto array_data =
+          out_data.GetMutableValues<arrow::TypeTraits<arrow::DoubleType>::CType>(1);
+      int64_t position = 0;
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < num_rows) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = arrow::TypeTraits<arrow::DoubleType>::CType{};
+        } else {
+          auto value = *(double*)(memory_address_ + offsets[position] + fieldOffset);
+          array_data[position] = value;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
+      break;
+    }
+    case arrow::BinaryType::type_id:
+    case arrow::StringType::type_id: {
+      arrow::ArrayData out_data;
+      out_data.length = num_rows;
+      out_data.buffers.resize(3);
+      out_data.type = field->type();
+      using offset_type = typename arrow::StringType::offset_type;
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1],
+                            AllocateBuffer(sizeof(offset_type) * (num_rows + 1), pool));
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[2],
+                            AllocateResizableBuffer(20 * num_rows, pool));
+      auto validity_buffer = out_data.buffers[0]->mutable_data();
+      // initialize all true once allocated
+      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
+      auto array_offset = out_data.GetMutableValues<offset_type>(1);
+      auto array_data = out_data.buffers[2]->mutable_data();
+      int64_t null_count = 0;
+
+      array_offset[0] = 0;
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          arrow::BitUtil::SetBitTo(validity_buffer, position, false);
+          array_offset[position + 1] = array_offset[position];
+          null_count++;
+        } else {
+          int64_t offsetAndSize =
+              *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
+          offset_type length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          auto value_offset = array_offset[position + 1] =
+              array_offset[position] + length;
+          uint64_t capacity = out_data.buffers[2]->capacity();
+
+          if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
+            // allocate value buffer again
+            // enlarge the buffer by 1.5x
+            capacity = capacity + std::max((capacity >> 1), (uint64_t)length);
+            auto value_buffer =
+                std::static_pointer_cast<arrow::ResizableBuffer>(out_data.buffers[2]);
+            value_buffer->Reserve(capacity);
+            array_data = value_buffer->mutable_data();
+          }
+
+          auto dst_value_base = array_data + array_offset[position];
+          auto value_src_ptr = memory_address_ + offsets[position] + wordoffset;
+#ifdef __AVX512BW__
+          if (ARROW_PREDICT_TRUE(support_avx512)) {
+            // write the variable value
+            uint32_t k;
+            for (k = 0; k + 32 < length; k += 32) {
+              __m256i v = _mm256_loadu_si256((const __m256i*)(value_src_ptr + k));
+              _mm256_storeu_si256((__m256i*)(dst_value_base + k), v);
+            }
+            auto mask = (1L << (length - k)) - 1;
+            __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
+            _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
+          } else
+#endif
+          {
+            memcpy(dst_value_base, value_src_ptr, length);
+          }
+        }
+      }
+      out_data.null_count = null_count;
+      if (null_count == 0) {
+        out_data.buffers[0] == nullptr;
+      }
+      *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       break;
     }
     case arrow::Decimal128Type::type_id: {
@@ -323,106 +588,12 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
 
   for (auto i = 0; i < num_fields; i++) {
     auto field = schema_->field(i);
-    typevec[i] = field->type()->id();
-    typewidth[i] = arrow::bit_width(typevec[i]) >> 3;
-    field_offset_vec[i] = GetFieldOffset(nullBitsetWidthInBytes, i);
-
-    switch (typevec[i]) {
-    case arrow::BooleanType::type_id: {
-      arrow::ArrayData out_data;
-      out_data.length = num_rows_;
-      out_data.buffers.resize(2);
-      out_data.type = arrow::TypeTraits<arrow::BooleanType>::type_singleton();
-      out_data.null_count = 0;
-
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBitmap(num_rows_, m_pool_));
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
-      auto validity_buffer = out_data.buffers[0]->mutable_data();
-      // initialize all true once allocated
-      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
-      columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
-      break;
-    }
-    case arrow::BinaryType::type_id:
-    case arrow::StringType::type_id: {
-      arrow::ArrayData out_data;
-      out_data.length = num_rows_;
-      out_data.buffers.resize(3);
-      out_data.type = field->type();
-      out_data.null_count = 0;
-      using offset_type = typename arrow::StringType::offset_type;
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1],
-                            AllocateBuffer(sizeof(offset_type) * (num_rows_ + 1), m_pool_));
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[2],
-                            AllocateResizableBuffer(20 * num_rows_, m_pool_));
-      auto validity_buffer = out_data.buffers[0]->mutable_data();
-      // initialize all true once allocated
-      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
-      columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
-      break;
-    }
-    case arrow::Decimal128Type::type_id: {
-      auto dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(field->type());
-      int32_t precision = dtype->precision();
-      int32_t scale = dtype->scale();
-
-      arrow::ArrayData out_data;
-      out_data.length = num_rows_;
-      out_data.buffers.resize(2);
-      out_data.type = arrow::decimal128(precision, scale);
-      out_data.null_count = 0;
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBuffer(16 * num_rows_, m_pool_));
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
-      auto validity_buffer = out_data.buffers[0]->mutable_data();
-      // initialize all true once allocated
-      memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
-      columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
-      break;
-    }
-    default: {
-        arrow::ArrayData out_data;
-        out_data.length = num_rows_;
-        out_data.buffers.resize(2);
-        out_data.type = field->type();
-        out_data.null_count = 0;
-        ARROW_ASSIGN_OR_RAISE(
-            out_data.buffers[1],
-            AllocateBuffer(typewidth[i] * num_rows_,
-                          m_pool_));
-        ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows_, m_pool_));
-        auto validity_buffer = out_data.buffers[0]->mutable_data();
-        // initialize all true once allocated
-        memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
-        columns[i] = std::make_shared<arrow::ArrayData>(std::move(out_data));
-        break;
-    }
-    }
-
-  }
-
-  
-  #define BATCH_ROW_NUM 16
-  int row = 0;
-  for (row; row + BATCH_ROW_NUM < num_rows_; row += BATCH_ROW_NUM) {
-    // for (auto i = 0; i < num_fields; i++) {
-    // auto field = schema_->field(i);
-    // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, 100, field_offset_vec[0], offsets_,
-                                  memory_address_, &(columns[0]), m_pool_,
-                                  support_avx512_, typevec, typewidth, columns,
-                                  num_fields, field_offset_vec));
-    // }
-  }
-  for (row; row < num_rows_; row++) {
-    // for (auto i = 0; i < num_fields; i++) {
-    // auto field = schema_->field(i);
-    // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, 100, field_offset_vec[0], offsets_,
-                                  memory_address_, &(columns[0]), m_pool_,
-                                  support_avx512_, typevec, typewidth, columns,
-                                  num_fields, field_offset_vec));
-    // }
+    std::shared_ptr<arrow::Array> array_data;
+    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
+    RETURN_NOT_OK(CreateArrayData(schema_, num_rows_, i, field_offset, offsets_,
+                                  memory_address_, &array_data, m_pool_,
+                                  support_avx512_));
+    arrays.push_back(array_data);
   }
 
   // for (auto i = 0; i < num_fields; i++) {
