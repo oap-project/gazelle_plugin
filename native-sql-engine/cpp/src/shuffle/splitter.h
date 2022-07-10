@@ -230,6 +230,7 @@ class Splitter {
   // slice the buffer for each reducer's column, in this way we can combine into large
   // page
   std::shared_ptr<arrow::ResizableBuffer> combine_buffer_;
+  uint64_t combine_buffer_size_;
 
   // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
