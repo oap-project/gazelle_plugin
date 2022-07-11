@@ -450,6 +450,11 @@ object ColumnarDateTimeExpressions {
       extends UnixTimestamp(left, right) with
       ColumnarExpression {
 
+    val yearMonthDayFormat = "yyyy-MM-dd"
+    val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
+    val yearMonthDayTimeNoSepFormat = "yyyyMMddHHmmss"
+    var format: String
+
     buildCheck()
 
     def buildCheck(): Unit = {
@@ -458,15 +463,21 @@ object ColumnarDateTimeExpressions {
         throw new UnsupportedOperationException(
           s"${left.dataType} is not supported in ColumnarUnixTimestamp.")
       }
+      // The format is only applicable for StringType left input.
       if (left.dataType == StringType) {
         right match {
           case literal: ColumnarLiteral =>
-            val format = literal.value.toString.trim
-            if (format.length > 10) {
+            this.format = literal.value.toString.trim
+            // Only support yyyy-MM-dd or yyyy-MM-dd HH:mm:ss.
+            if (!this.format.equals(yearMonthDayFormat) &&
+              !this.format.equals(yearMonthDayTimeFormat) &&
+              !this.format.equals(yearMonthDayTimeNoSepFormat)) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarUnixTimestamp.")
             }
           case _ =>
+            throw new UnsupportedOperationException("Only literal format is" +
+              " supported for ColumnarUnixTimestamp!")
         }
       }
     }
@@ -481,14 +492,24 @@ object ColumnarDateTimeExpressions {
         TreeBuilder.makeFunction(
           "unix_seconds", Lists.newArrayList(milliNode), CodeGeneration.getResultType(dataType))
       } else if (left.dataType == StringType) {
-        // Convert from UTF8 to Date[Millis].
-        val dateNode = TreeBuilder.makeFunction(
-          "castDATE_nullsafe", Lists.newArrayList(leftNode), milliType)
-        val intNode = TreeBuilder.makeFunction("castBIGINT",
-          Lists.newArrayList(dateNode), outType)
-        // Convert from milliseconds to seconds.
-        TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
-          TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
+        if (format.equals(yearMonthDayFormat)) {
+          // Convert from UTF8 to Date[Millis].
+          val dateNode = TreeBuilder.makeFunction(
+            "castDATE_nullsafe", Lists.newArrayList(leftNode), milliType)
+          val intNode = TreeBuilder.makeFunction("castBIGINT",
+            Lists.newArrayList(dateNode), outType)
+          // Convert from milliseconds to seconds.
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
+        } else if (format.equals(yearMonthDayTimeFormat)) {
+          TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
+            Lists.newArrayList(leftNode), outType)
+        } else if (format.equals(yearMonthDayTimeNoSepFormat)) {
+          TreeBuilder.makeFunction("castTIMESTAMP_withCarrying_withoutSep",
+            Lists.newArrayList(leftNode), outType)
+        } else {
+          throw new RuntimeException("Unexpected format for ColumnarUnixTimestamp!")
+        }
       } else {
         // Convert from Date[Day] to seconds.
         TreeBuilder.makeFunction(
