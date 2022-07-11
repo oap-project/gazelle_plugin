@@ -64,7 +64,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
         case d: DecimalType =>
         case d: TimestampType =>
         case d: BinaryType =>
-        case d: ArrayType => ConverterUtils.checkIfTypeSupported(d.elementType)
         case _ =>
           throw new UnsupportedOperationException(s"${field.dataType} " +
             s"is not supported in ArrowRowToColumnarExec.")
