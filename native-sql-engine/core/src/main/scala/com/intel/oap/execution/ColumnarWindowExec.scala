@@ -103,11 +103,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     try {
       breakable {
         for (func <- validateWindowFunctions()) {
-          // TODO(): disable row_number() for stability issue
-          // if (func._1 == "row_number") {
-          //   allLiteral = false
-          //   break
-          // }
+          if (func._1.startsWith("row_number")) {
+            allLiteral = false
+            break
+          }
           for (child <- func._2.children) {
             if (!child.isInstanceOf[Literal]) {
               allLiteral = false
@@ -197,10 +196,29 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case None => "rank_asc"
                 }
               case rw: RowNumber =>
-                "row_number"
+                val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                  (desc, s) =>
+                    val currentDesc = s.direction match {
+                      case Ascending => false
+                      case Descending => true
+                      case _ => throw new IllegalStateException
+                    }
+                    if (desc.isEmpty) {
+                      Some(currentDesc)
+                    } else if (currentDesc == desc.get) {
+                      Some(currentDesc)
+                    } else {
+                      throw new UnsupportedOperationException("row_number: clashed rank order found")
+                    }
+                }
+                desc match {
+                  case Some(true) => "row_number_desc"
+                  case Some(false) => "row_number_asc"
+                  case None => "row_number_asc"
+                }
               case f => throw new UnsupportedOperationException("unsupported window function: " + f)
             }
-            if (name == "row_number") {
+            if (name.startsWith("row_number")) {
               (name, orderSpec.head.child)
             } else {
               (name, func)
@@ -222,10 +240,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
       } else {
         val prev1 = System.nanoTime()
         val gWindowFunctions = windowFunctions.map {
-          case ("row_number", spec) =>
+          case (row_number_func, spec) if row_number_func.startsWith("row_number") =>
             //TODO(): should get attr from orderSpec
             val attr = ConverterUtils.getAttrFromExpr(orderSpec.head.child, true)
-            TreeBuilder.makeFunction("row_number",
+            TreeBuilder.makeFunction(row_number_func,
               List(TreeBuilder.makeField(
                     Field.nullable(attr.name,
                       CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
@@ -263,8 +281,12 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         val returnType = ArrowType.Binary.INSTANCE
         val fieldType = new FieldType(false, returnType, null)
         val resultField = new Field("window_res", fieldType,
-          windowFunctions.map { case (_, f) =>
-            CodeGeneration.getResultType(f.dataType)
+          windowFunctions.map {
+            case (row_number_func, f) if row_number_func.startsWith("row_number")=>
+              // row_number will return int32 based indicies
+              new ArrowType.Int(32, true)
+            case (_, f) =>
+              CodeGeneration.getResultType(f.dataType)
           }.zipWithIndex.map { case (t, i) =>
             Field.nullable(s"window_res_" + i, t)
           }.asJava)
