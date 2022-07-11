@@ -453,7 +453,7 @@ object ColumnarDateTimeExpressions {
     val yearMonthDayFormat = "yyyy-MM-dd"
     val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
     val yearMonthDayTimeNoSepFormat = "yyyyMMddHHmmss"
-    var format: String
+    var formatLiteral: String = null
 
     buildCheck()
 
@@ -467,13 +467,13 @@ object ColumnarDateTimeExpressions {
       if (left.dataType == StringType) {
         right match {
           case literal: ColumnarLiteral =>
-            this.format = literal.value.toString.trim
+            this.formatLiteral = literal.value.toString.trim
             // Only support yyyy-MM-dd or yyyy-MM-dd HH:mm:ss.
-            if (!this.format.equals(yearMonthDayFormat) &&
-              !this.format.equals(yearMonthDayTimeFormat) &&
-              !this.format.equals(yearMonthDayTimeNoSepFormat)) {
+            if (!this.formatLiteral.equals(yearMonthDayFormat) &&
+              !this.formatLiteral.equals(yearMonthDayTimeFormat) &&
+              !this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
               throw new UnsupportedOperationException(
-                s"$format is not supported in ColumnarUnixTimestamp.")
+                s"$formatLiteral is not supported in ColumnarUnixTimestamp.")
             }
           case _ =>
             throw new UnsupportedOperationException("Only literal format is" +
@@ -492,7 +492,7 @@ object ColumnarDateTimeExpressions {
         TreeBuilder.makeFunction(
           "unix_seconds", Lists.newArrayList(milliNode), CodeGeneration.getResultType(dataType))
       } else if (left.dataType == StringType) {
-        if (format.equals(yearMonthDayFormat)) {
+        if (this.formatLiteral.equals(yearMonthDayFormat)) {
           // Convert from UTF8 to Date[Millis].
           val dateNode = TreeBuilder.makeFunction(
             "castDATE_nullsafe", Lists.newArrayList(leftNode), milliType)
@@ -501,10 +501,10 @@ object ColumnarDateTimeExpressions {
           // Convert from milliseconds to seconds.
           TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
-        } else if (format.equals(yearMonthDayTimeFormat)) {
+        } else if (this.formatLiteral.equals(yearMonthDayTimeFormat)) {
           TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
             Lists.newArrayList(leftNode), outType)
-        } else if (format.equals(yearMonthDayTimeNoSepFormat)) {
+        } else if (this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
           TreeBuilder.makeFunction("castTIMESTAMP_withCarrying_withoutSep",
             Lists.newArrayList(leftNode), outType)
         } else {
