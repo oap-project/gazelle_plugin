@@ -461,7 +461,7 @@ object ColumnarDateTimeExpressions {
       if (left.dataType == StringType) {
         right match {
           case literal: ColumnarLiteral =>
-            val format = literal.value.toString
+            val format = literal.value.toString.trim
             if (format.length > 10) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarUnixTimestamp.")
@@ -533,7 +533,7 @@ object ColumnarDateTimeExpressions {
       if (left.dataType == StringType) {
         right match {
           case literal: ColumnarLiteral =>
-            val format = literal.value.toString
+            val format = literal.value.toString.trim
             // TODO: support other format.
             if (!format.equals("yyyy-MM-dd")) {
               throw new UnsupportedOperationException(
@@ -553,7 +553,7 @@ object ColumnarDateTimeExpressions {
 
       right match {
         case literal: ColumnarLiteral =>
-          val format = literal.value.toString
+          val format = literal.value.toString.trim
           if (format.equals("yyyy-MM-dd")) {
             val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_with_validation_check",
               Lists.newArrayList(leftNode), intermediateType)
@@ -587,7 +587,7 @@ object ColumnarDateTimeExpressions {
       if (left.dataType == LongType) {
         right match {
           case literal: ColumnarLiteral =>
-            val format = literal.value.toString
+            val format = literal.value.toString.trim
             if (!format.equals("yyyy-MM-dd") && !format.equals("yyyyMMdd")) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarFromUnixTime.")
@@ -615,7 +615,7 @@ object ColumnarDateTimeExpressions {
       var formatLength = 0L
       right match {
         case literal: ColumnarLiteral =>
-          val format = literal.value.toString
+          val format = literal.value.toString.trim
           if (format.equals("yyyy-MM-dd")) {
             formatLength = 10L
           } else if (format.equals("yyyyMMdd")) {
@@ -678,7 +678,8 @@ object ColumnarDateTimeExpressions {
     }
 
     override def supportColumnarCodegen(args: Object): Boolean = {
-      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+        right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
     }
   }
 
