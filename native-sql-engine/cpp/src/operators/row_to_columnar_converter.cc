@@ -45,10 +45,8 @@ inline int32_t CalculateHeaderPortionInBytes(int32_t num_elements) {
   return 8 + ((num_elements + 63) / 64) * 8;
 }
 
-arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> schema, int32_t  batch_rows,
-                              int32_t dummy_columnar_id, int64_t dummy_fieldOffset,
+arrow::Status CreateArrayData(int32_t row_start, std::shared_ptr<arrow::Schema> schema, int32_t  batch_rows,  
                               std::vector<int64_t>& offsets, uint8_t* memory_address_,
-                              std::shared_ptr<arrow::ArrayData>* dummyarray,
                               arrow::MemoryPool* pool, bool support_avx512,
                               std::vector<arrow::Type::type>& typevec,
                               std::vector<uint8_t>& typewidth,
@@ -408,8 +406,8 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
     // for (auto i = 0; i < num_fields; i++) {
     // auto field = schema_->field(i);
     // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, 100, field_offset_vec[0], offsets_,
-                                  memory_address_, &(columns[0]), m_pool_,
+    RETURN_NOT_OK(CreateArrayData(row, schema_, BATCH_ROW_NUM, offsets_,
+                                  memory_address_, m_pool_,
                                   support_avx512_, typevec, typewidth, columns,
                                   num_fields, field_offset_vec));
     // }
@@ -418,8 +416,8 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
     // for (auto i = 0; i < num_fields; i++) {
     // auto field = schema_->field(i);
     // int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
-    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, 100, field_offset_vec[0], offsets_,
-                                  memory_address_, &(columns[0]), m_pool_,
+    RETURN_NOT_OK(CreateArrayData(row, schema_, 1, offsets_,
+                                  memory_address_, m_pool_,
                                   support_avx512_, typevec, typewidth, columns,
                                   num_fields, field_offset_vec));
     // }
