@@ -608,6 +608,11 @@ object ColumnarDateTimeExpressions {
       extends FromUnixTime(left, right) with
       ColumnarExpression {
 
+    var formatLiteral: String = null
+    val yearMonthDayFormat = "yyyy-MM-dd"
+    val yearMonthDayNoSepFormat = "yyyyMMdd"
+    val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
+
     buildCheck()
 
     def buildCheck(): Unit = {
@@ -619,45 +624,67 @@ object ColumnarDateTimeExpressions {
       if (left.dataType == LongType) {
         right match {
           case literal: ColumnarLiteral =>
-            val format = literal.value.toString.trim
-            if (!format.equals("yyyy-MM-dd") && !format.equals("yyyyMMdd")) {
+            this.formatLiteral = literal.value.toString.trim
+            if (!formatLiteral.equals(yearMonthDayFormat) &&
+              !formatLiteral.equals(yearMonthDayNoSepFormat) &&
+              !formatLiteral.equals(yearMonthDayTimeFormat)) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarFromUnixTime.")
             }
           case _ =>
+            throw new UnsupportedOperationException("Only literal format is supported!")
         }
       }
     }
 
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      //val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val (leftNode, _) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
-      val date32LeftNode = if (left.dataType == LongType) {
-        // cast unix seconds to date64()
-        val milliNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(leftNode,
-          TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), new ArrowType.Int(8 * 8, true))
-        val date64Node = TreeBuilder.makeFunction("castDATE",
-          Lists.newArrayList(milliNode), new ArrowType.Date(DateUnit.MILLISECOND))
-        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(date64Node), new ArrowType.Date(DateUnit.DAY))
+      if (this.formatLiteral.equals(yearMonthDayFormat) ||
+        this.formatLiteral.equals(yearMonthDayNoSepFormat)) {
+        val date32LeftNode = if (left.dataType == LongType) {
+          // cast unix seconds to date64()
+          val milliNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(leftNode,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), new ArrowType.Int(8 * 8, true))
+          val date64Node = TreeBuilder.makeFunction("castDATE",
+            Lists.newArrayList(milliNode), new ArrowType.Date(DateUnit.MILLISECOND))
+          TreeBuilder.makeFunction("castDATE", Lists.newArrayList(date64Node),
+            new ArrowType.Date(DateUnit.DAY))
+        } else {
+          throw new UnsupportedOperationException(
+            s"${left.dataType} is not supported in ColumnarFromUnixTime.")
+        }
+        var formatLength = 0L
+        right match {
+          case literal: ColumnarLiteral =>
+            val format = literal.value.toString.trim
+            if (format.equals("yyyy-MM-dd")) {
+              formatLength = 10L
+            } else if (format.equals("yyyyMMdd")) {
+              formatLength = 8L
+            }
+        }
+        val dateNode = TreeBuilder.makeFunction(
+          "castVARCHAR", Lists.newArrayList(date32LeftNode,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(formatLength))), outType)
+        (dateNode, outType)
+      } else if (this.formatLiteral.equals(yearMonthDayTimeFormat)) {
+        // Only millisecond based input is expected in following functions, but the raw input
+        // is second based. So we make the below conversion.
+        val timestampInMilliSecNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(
+          leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))),
+          new ArrowType.Int(64, true))
+        val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
+        val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
+          Lists.newArrayList(timestampInMilliSecNode), timestampType)
+        // The longest length for yyyy-MM-dd HH:mm:ss.
+        val lenNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(19L))
+        val resultNode = TreeBuilder.makeFunction("castVARCHAR",
+          Lists.newArrayList(timestampNode, lenNode), outType)
+        (resultNode, outType)
       } else {
-        throw new UnsupportedOperationException(
-          s"${left.dataType} is not supported in ColumnarFromUnixTime.")
+        throw new RuntimeException("Unexpected format is used!")
       }
-      var formatLength = 0L
-      right match {
-        case literal: ColumnarLiteral =>
-          val format = literal.value.toString.trim
-          if (format.equals("yyyy-MM-dd")) {
-            formatLength = 10L
-          } else if (format.equals("yyyyMMdd")) {
-            formatLength = 8L
-          }
-      }
-      val dateNode = TreeBuilder.makeFunction(
-        "castVARCHAR", Lists.newArrayList(date32LeftNode,
-          TreeBuilder.makeLiteral(java.lang.Long.valueOf(formatLength))), outType)
-      (dateNode, outType)
     }
   }
 
