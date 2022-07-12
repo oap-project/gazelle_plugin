@@ -484,7 +484,6 @@ object ColumnarDateTimeExpressions {
 
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
       val milliType = new ArrowType.Date(DateUnit.MILLISECOND)
       val dateNode = if (left.dataType == TimestampType) {
@@ -502,11 +501,23 @@ object ColumnarDateTimeExpressions {
           TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else if (this.formatLiteral.equals(yearMonthDayTimeFormat)) {
-          TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
-            Lists.newArrayList(leftNode), outType)
+          val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
+          val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
+            Lists.newArrayList(leftNode), timestampType)
+          val castNode = TreeBuilder.makeFunction("castBIGINT",
+            Lists.newArrayList(timestampNode), outType)
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(castNode,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else if (this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
-          TreeBuilder.makeFunction("castTIMESTAMP_withCarrying_withoutSep",
-            Lists.newArrayList(leftNode), outType)
+          val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
+          val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP_withCarrying_withoutSep",
+            Lists.newArrayList(leftNode), timestampType)
+          // The result is in milliseconds.
+          val castNode = TreeBuilder.makeFunction("castBIGINT",
+            Lists.newArrayList(timestampNode), outType)
+          // Convert to the timestamp in seconds.
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(castNode,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else {
           throw new RuntimeException("Unexpected format for ColumnarUnixTimestamp!")
         }
