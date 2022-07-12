@@ -365,6 +365,7 @@ case class ColumnarShuffledHashJoinExec(
             val beforeEval = System.nanoTime()
             val out_batch = nativeIterator.next
             val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            ConverterUtils.releaseArrowRecordBatch(out_batch)
             eval_elapse += System.nanoTime() - beforeEval
             val outputNumRows = out_batch.getLength
             numOutputRows += outputNumRows
@@ -389,6 +390,7 @@ case class ColumnarShuffledHashJoinExec(
 
             val out_batch = nativeIterator.next
             val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            ConverterUtils.releaseArrowRecordBatch(out_batch)
             val outputNumRows = out_batch.getLength
             eval_elapse += System.nanoTime() - beforeEval
             numOutputRows += outputNumRows
