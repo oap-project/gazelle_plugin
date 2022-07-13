@@ -459,13 +459,13 @@ class ColumnarRemainder(left: Expression, right: Expression, original: Expressio
   }
 
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-    val (left_node, input_type): (TreeNode, ArrowType) =
+    val (leftNode, leftInputType): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    val (right_node, _): (TreeNode, ArrowType) =
+    val (rightNode, _): (TreeNode, ArrowType) =
       right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    val output_type = input_type
+    val outputType = leftInputType
     (TreeBuilder.makeFunction("mod",
-      Lists.newArrayList(left_node, right_node), output_type), output_type)
+      Lists.newArrayList(leftNode, rightNode), outputType), outputType)
   }
 }
 
