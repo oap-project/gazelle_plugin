@@ -441,8 +441,10 @@ object ColumnarDateTimeExpressions {
   }
 
   /**
-   * Converts time string with given pattern to Unix time stamp (in seconds), returns null if fail.
-   */
+    * Converts time string with given pattern to Unix timestamp (in seconds), returns null if fail.
+    * The input is the date/time for local timezone (can be configured in spark) and the result is
+    * the timestamp for UTC. So we need consider timezone difference.
+    * */
   class ColumnarUnixTimestamp(left: Expression, right: Expression)
       extends UnixTimestamp(left, right) with
       ColumnarExpression {
@@ -604,6 +606,10 @@ object ColumnarDateTimeExpressions {
       copy(leftChild = newLeft, rightChild = newRight)
   }
 
+  /**
+    * The result is the date/time for local timezone (can be configured in spark). The input is
+    * the timestamp for UTC. So we need consider timezone difference.
+    */
   class ColumnarFromUnixTime(left: Expression, right: Expression)
       extends FromUnixTime(left, right) with
       ColumnarExpression {
@@ -659,9 +665,9 @@ object ColumnarDateTimeExpressions {
         right match {
           case literal: ColumnarLiteral =>
             val format = literal.value.toString.trim
-            if (format.equals("yyyy-MM-dd")) {
+            if (format.equals(yearMonthDayFormat)) {
               formatLength = 10L
-            } else if (format.equals("yyyyMMdd")) {
+            } else if (format.equals(yearMonthDayNoSepFormat)) {
               formatLength = 8L
             }
         }
@@ -678,7 +684,7 @@ object ColumnarDateTimeExpressions {
         val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
         val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
           Lists.newArrayList(ConverterUtils.addTimestampOffset(tsInMilliSecNode)), timestampType)
-        // The longest length for yyyy-MM-dd HH:mm:ss.
+        // The largest length for yyyy-MM-dd HH:mm:ss.
         val lenNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(19L))
         val resultNode = TreeBuilder.makeFunction("castVARCHAR",
           Lists.newArrayList(timestampNode, lenNode), outType)
