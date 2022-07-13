@@ -701,11 +701,11 @@ object ConverterUtils extends Logging {
   }
 
   /**
-    * Add offset in millisecond for given timestamp node for timezone awareness.
-    * Used to convert timestamp counted from unix epoch (UTC) to local date/time.
+    * Add an offset (can be negative) in millisecond for given timestamp node to
+    * align with spark's timezone awareness. It can be used in converting timestamp
+    * counted from unix epoch (UTC) to local date/time.
     */
   def addTimestampOffset(timestampNode: TreeNode): TreeNode = {
-    // the offset in millisecond needs to be added for local timestamp configured in spark sql.
     val offset = DateTimeUtils.getTimeZone(SparkSchemaUtils.getLocalTimezoneID()).getOffset(0)
     val offsetNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(offset))
     TreeBuilder.makeFunction("add", Lists.newArrayList(timestampNode, offsetNode),
@@ -713,11 +713,11 @@ object ConverterUtils extends Logging {
   }
 
   /**
-    * Subtract offset in millisecond for given timestamp node. Used to get timestamp
-    * counted from unix epoch (UTC) for a local date/time.
+    * Subtract an offset (can be negative) in millisecond for given timestamp node.
+    * It can be used in getting timestamp counted from unix epoch (UTC) for a given
+    * local date/time.
     */
   def subtractTimestampOffset(timestampNode: TreeNode): TreeNode = {
-    // the offset in millisecond needs to be added for local timestamp configured in spark sql.
     val offset = DateTimeUtils.getTimeZone(SparkSchemaUtils.getLocalTimezoneID()).getOffset(0)
     val offsetNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(offset))
     TreeBuilder.makeFunction("subtract", Lists.newArrayList(timestampNode, offsetNode),

@@ -20,13 +20,11 @@ package com.intel.oap.expression
 import java.util.Collections
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.ColumnarDateTimeExpressions.castDateFromTimestamp
-import com.intel.oap.expression.ColumnarDateTimeExpressions.unimplemented
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
 import org.apache.arrow.vector.types.{DateUnit, TimeUnit}
 import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.spark.sql.catalyst.expressions.CheckOverflow
+
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
 import org.apache.spark.sql.catalyst.expressions.DateDiff
@@ -54,8 +52,6 @@ import org.apache.spark.sql.catalyst.expressions.UnixMillis
 import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.Year
-import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{ByteType, DataType, DateType, IntegerType, LongType, ShortType, StringType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
@@ -679,8 +675,7 @@ object ColumnarDateTimeExpressions {
         val tsInMilliSecNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(
           leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))),
           new ArrowType.Int(64, true))
-        val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-          SparkSchemaUtils.getLocalTimezoneID())
+        val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
         val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
           Lists.newArrayList(ConverterUtils.addTimestampOffset(tsInMilliSecNode)), timestampType)
         // The longest length for yyyy-MM-dd HH:mm:ss.
