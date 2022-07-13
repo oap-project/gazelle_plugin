@@ -424,44 +424,67 @@ case class ColumnarBroadcastHashJoinExec(
       val resultStructType = ArrowUtils.fromArrowSchema(probe_out_schema)
       val res = new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = {
-          if (probe_out_schema.getFields.size() == 0) {
-            return false
-          }
-          iter.hasNext
+          nativeIterator.hasNext || iter.hasNext
         }
 
         override def next(): ColumnarBatch = {
-          val cb = iter.next()
-          val beforeEval = System.nanoTime()
-          if (cb.numRows == 0) {
-            return createEmptyBatch()
-          }
-          val input_rb =
-            ConverterUtils.createArrowRecordBatch(cb)
-          val output_rb = nativeIterator.process(probe_input_schema, input_rb)
-          if (output_rb == null) {
-            ConverterUtils.releaseArrowRecordBatch(input_rb)
-            eval_elapse += System.nanoTime() - beforeEval
-            return createEmptyBatch()
-          }
-          val outputNumRows = output_rb.getLength
-          ConverterUtils.releaseArrowRecordBatch(input_rb)
-          val resBatch = if (probe_out_schema.getFields.size() == 0) {
-            // If no col is selected by Projection, empty batch will be returned.
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType)
-            ConverterUtils.releaseArrowRecordBatch(output_rb)
-            eval_elapse += System.nanoTime() - beforeEval
-            new ColumnarBatch(
-              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), outputNumRows)
+          if (nativeIterator.hasNext) {
+            val beforeEval = System.nanoTime()
+            val out_batch = nativeIterator.next
+            val outputNumRows = out_batch.getLength
+
+            val out_cb = if (probe_out_schema.getFields.size() == 0) {
+              // If no col is selected by Projection, empty batch will be returned.
+              val resultColumnVectors =
+                ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+              ConverterUtils.releaseArrowRecordBatch(out_batch)
+              eval_elapse += System.nanoTime() - beforeEval
+              new ColumnarBatch(
+                resultColumnVectors.map(_.asInstanceOf[ColumnVector]), outputNumRows)
+            } else {
+              val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+              ConverterUtils.releaseArrowRecordBatch(out_batch)
+              eval_elapse += System.nanoTime() - beforeEval
+              new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            }
+            numOutputRows += outputNumRows
+            return out_cb
           } else {
-            val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
-            ConverterUtils.releaseArrowRecordBatch(output_rb)
-            eval_elapse += System.nanoTime() - beforeEval
-            new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            val cb = iter.next()
+            val beforeEval = System.nanoTime()
+            if (cb.numRows == 0) {
+              return createEmptyBatch()
+            }
+            val input_rb =
+              ConverterUtils.createArrowRecordBatch(cb)
+            val output_rb = nativeIterator.process(probe_input_schema, input_rb)
+            if (output_rb == null || output_rb.getLength == 0) {
+              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              return createEmptyBatch()
+            }
+            ConverterUtils.releaseArrowRecordBatch(input_rb)
+
+            val out_batch = nativeIterator.next
+            val outputNumRows = out_batch.getLength
+
+            val out_cb = if (probe_out_schema.getFields.size() == 0) {
+              // If no col is selected by Projection, empty batch will be returned.
+              val resultColumnVectors =
+                ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+              ConverterUtils.releaseArrowRecordBatch(out_batch)
+              eval_elapse += System.nanoTime() - beforeEval
+              new ColumnarBatch(
+                resultColumnVectors.map(_.asInstanceOf[ColumnVector]), outputNumRows)
+            } else {
+              val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+              ConverterUtils.releaseArrowRecordBatch(out_batch)
+              eval_elapse += System.nanoTime() - beforeEval
+              new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            }
+            numOutputRows += outputNumRows
+            out_cb
           }
-          numOutputRows += outputNumRows
-          resBatch
         }
         private def createEmptyBatch() = {
           val resultColumnVectors =
