@@ -26,7 +26,6 @@ import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
 import org.apache.arrow.vector.types.{DateUnit, TimeUnit}
 import org.apache.arrow.vector.types.pojo.ArrowType
-
 import org.apache.spark.sql.catalyst.expressions.CheckOverflow
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
@@ -55,6 +54,8 @@ import org.apache.spark.sql.catalyst.expressions.UnixMillis
 import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.Year
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{ByteType, DataType, DateType, IntegerType, LongType, ShortType, StringType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
@@ -498,7 +499,8 @@ object ColumnarDateTimeExpressions {
           val intNode = TreeBuilder.makeFunction("castBIGINT",
             Lists.newArrayList(dateNode), outType)
           // Convert from milliseconds to seconds.
-          TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(
+            ConverterUtils.subtractTimestampOffset(intNode),
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else if (this.formatLiteral.equals(yearMonthDayTimeFormat)) {
           val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
@@ -506,7 +508,8 @@ object ColumnarDateTimeExpressions {
             Lists.newArrayList(leftNode), timestampType)
           val castNode = TreeBuilder.makeFunction("castBIGINT",
             Lists.newArrayList(timestampNode), outType)
-          TreeBuilder.makeFunction("divide", Lists.newArrayList(castNode,
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(
+            ConverterUtils.subtractTimestampOffset(castNode),
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else if (this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
           val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
@@ -516,7 +519,8 @@ object ColumnarDateTimeExpressions {
           val castNode = TreeBuilder.makeFunction("castBIGINT",
             Lists.newArrayList(timestampNode), outType)
           // Convert to the timestamp in seconds.
-          TreeBuilder.makeFunction("divide", Lists.newArrayList(castNode,
+          TreeBuilder.makeFunction("divide", Lists.newArrayList(
+            ConverterUtils.subtractTimestampOffset(castNode),
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
         } else {
           throw new RuntimeException("Unexpected format for ColumnarUnixTimestamp!")
@@ -647,7 +651,8 @@ object ColumnarDateTimeExpressions {
           val milliNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(leftNode,
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), new ArrowType.Int(8 * 8, true))
           val date64Node = TreeBuilder.makeFunction("castDATE",
-            Lists.newArrayList(milliNode), new ArrowType.Date(DateUnit.MILLISECOND))
+            Lists.newArrayList(ConverterUtils.addTimestampOffset(milliNode)),
+              new ArrowType.Date(DateUnit.MILLISECOND))
           TreeBuilder.makeFunction("castDATE", Lists.newArrayList(date64Node),
             new ArrowType.Date(DateUnit.DAY))
         } else {
@@ -671,12 +676,13 @@ object ColumnarDateTimeExpressions {
       } else if (this.formatLiteral.equals(yearMonthDayTimeFormat)) {
         // Only millisecond based input is expected in following functions, but the raw input
         // is second based. So we make the below conversion.
-        val timestampInMilliSecNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(
+        val tsInMilliSecNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(
           leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))),
           new ArrowType.Int(64, true))
-        val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
+        val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND,
+          SparkSchemaUtils.getLocalTimezoneID())
         val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
-          Lists.newArrayList(timestampInMilliSecNode), timestampType)
+          Lists.newArrayList(ConverterUtils.addTimestampOffset(tsInMilliSecNode)), timestampType)
         // The longest length for yyyy-MM-dd HH:mm:ss.
         val lenNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(19L))
         val resultNode = TreeBuilder.makeFunction("castVARCHAR",
