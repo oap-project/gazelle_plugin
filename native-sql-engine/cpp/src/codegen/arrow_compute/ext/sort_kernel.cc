@@ -1567,10 +1567,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       };
       if (nulls_first_) {
         gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+                     comp);
       } else {
         gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+                     comp);
       }
     }
   }
@@ -1611,10 +1611,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       };
       if (nulls_first_) {
         gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
-                  comp);
+                     comp);
       } else {
         gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
-                  comp);
+                     comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1623,10 +1623,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       };
       if (nulls_first_) {
         gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+                     comp);
       } else {
         gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+                     comp);
       }
     }
   }
