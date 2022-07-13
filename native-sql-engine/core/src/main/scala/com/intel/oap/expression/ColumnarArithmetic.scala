@@ -437,6 +437,38 @@ class ColumnarPmod(left: Expression, right: Expression, original: Expression)
   }
 }
 
+class ColumnarRemainder(left: Expression, right: Expression, original: Expression)
+  extends Remainder(left, right) with ColumnarExpression with Logging {
+
+  buildCheck
+
+  def buildCheck(): Unit = {
+    val supportTypes = List(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
+    if (supportTypes.indexOf(left.dataType) == -1) {
+      throw new UnsupportedOperationException(s"The left input type for remainder is" +
+        s" not supported: ${left.dataType}")
+    }
+    if (supportTypes.indexOf(right.dataType) == -1) {
+      throw new UnsupportedOperationException(s"The right input type for remainder is" +
+        s" not supported: ${right.dataType}")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (left_node, input_type): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (right_node, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val output_type = input_type
+    (TreeBuilder.makeFunction("mod",
+      Lists.newArrayList(left_node, right_node), output_type), output_type)
+  }
+}
+
 object ColumnarBinaryArithmetic {
 
   def create(left: Expression, right: Expression, original: Expression): Expression = {
@@ -458,6 +490,8 @@ object ColumnarBinaryArithmetic {
         new ColumnarBitwiseXor(left, right, x)
       case pmod: Pmod =>
         new ColumnarPmod(left, right, pmod)
+      case remainder: Remainder =>
+        new ColumnarRemainder(left, right, remainder)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
