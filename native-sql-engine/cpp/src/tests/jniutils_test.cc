@@ -115,30 +115,22 @@ TEST_F(JniUtilsTest, TestRecordBatchConcatenate) {
   batches.push_back(batch1);
   batches.push_back(batch2);
 
-  for (int i = 0; i < 100; i++) {
-    for (int i = 0; i < 10000; i++) {
-      int total_num_rows = batch1->num_rows() + batch2->num_rows();
+  int total_num_rows = batch1->num_rows() + batch2->num_rows();
 
-      // int num_columns = batches.at(0)->num_columns();
-      int num_columns = schema->num_fields();
-      arrow::ArrayVector arrayColumns;
-      for (jint i = 0; i < num_columns; i++) {
-        arrow::ArrayVector arrvec;
-        for (const auto& batch : batches) {
-          arrvec.push_back(batch->column(i));
-        }
-        std::shared_ptr<arrow::Array> bigArr;
-        ASSERT_OK_AND_ASSIGN(bigArr, Concatenate(arrvec, default_memory_pool()))
-        // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
-        arrayColumns.push_back(bigArr);
-      }
-      auto out_batch = arrow::RecordBatch::Make(schema, total_num_rows, arrayColumns);
-
-      std::cout << "out_batch->num_rows():" << out_batch->num_rows() << std::endl;
+  // int num_columns = batches.at(0)->num_columns();
+  int num_columns = schema->num_fields();
+  arrow::ArrayVector arrayColumns;
+  for (jint i = 0; i < num_columns; i++) {
+    arrow::ArrayVector arrvec;
+    for (const auto& batch : batches) {
+      arrvec.push_back(batch->column(i));
     }
-
-    sleep(3);
+    std::shared_ptr<arrow::Array> bigArr;
+    ASSERT_OK_AND_ASSIGN(bigArr, Concatenate(arrvec, default_memory_pool()))
+    // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
+    arrayColumns.push_back(bigArr);
   }
+  auto out_batch = arrow::RecordBatch::Make(schema, total_num_rows, arrayColumns);
 }
 
 TEST_F(JniUtilsTest, TestMakeRecordBatchBuild_Int_Struct) {

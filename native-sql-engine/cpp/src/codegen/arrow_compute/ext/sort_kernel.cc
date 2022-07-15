@@ -1566,11 +1566,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
+                     comp);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
+                     comp);
       }
     }
   }
@@ -1584,9 +1584,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1594,9 +1594,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     }
   }
@@ -1610,11 +1610,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
+                     comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
+                     comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1622,11 +1622,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
+                     comp);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
+                     comp);
       }
     }
   }
