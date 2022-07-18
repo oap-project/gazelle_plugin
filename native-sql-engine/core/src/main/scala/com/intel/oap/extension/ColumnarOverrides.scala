@@ -562,29 +562,13 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   var originalPlan: SparkPlan = _
   var fallbacks = 0
 
-  private def supportAdaptive(plan: SparkPlan): Boolean = {
-    // TODO migrate dynamic-partition-pruning onto adaptive execution.
-    // Only QueryStage will have Exchange as Leaf Plan
-    val isLeafPlanExchange = plan match {
-      case e: Exchange => true
-      case other => false
-    }
-    isLeafPlanExchange || (SQLConf.get.adaptiveExecutionEnabled && (sanityCheck(plan) &&
-    !plan.logicalLink.exists(_.isStreaming) &&
-    !plan.expressions.exists(_.find(_.isInstanceOf[DynamicPruningSubquery]).isDefined) &&
-    plan.children.forall(supportAdaptive)))
-  }
-
-  private def sanityCheck(plan: SparkPlan): Boolean =
-    plan.logicalLink.isDefined
-
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
       // According to Spark's Columnar.scala, the plan is tackled one by one.
       // By recording the original plan, we can easily let the whole stage
       // fallback at #postColumnarTransitions.
       originalPlan = plan
-      isSupportAdaptive = supportAdaptive(plan)
+      isSupportAdaptive = SparkShimLoader.getSparkShims.supportAdaptiveWithExchangeConsidered(plan)
       val rule = preOverrides
       rule.setAdaptiveSupport(isSupportAdaptive)
       rule(rowGuardOverrides(plan))
@@ -651,7 +635,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      if (SQLConf.get.adaptiveExecutionEnabled && fallbackWholeStage(plan)) {
+      if (isSupportAdaptive && fallbackWholeStage(plan)) {
         // BatchScan with ArrowScan initialized can still connect
         // to ColumnarToRow for transition.
         insertTransitions(originalPlan, false)

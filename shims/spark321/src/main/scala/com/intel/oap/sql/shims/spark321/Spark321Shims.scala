@@ -235,4 +235,11 @@ class Spark321Shims extends SparkShims {
     }
   }
 
+  /**
+    * Ported from InsertAdaptiveSparkPlan.
+    */
+  override def supportAdaptive(plan: SparkPlan): Boolean = {
+    sanityCheck(plan) && !plan.logicalLink.exists(_.isStreaming) &&
+      plan.children.forall(supportAdaptive)
+  }
 }
