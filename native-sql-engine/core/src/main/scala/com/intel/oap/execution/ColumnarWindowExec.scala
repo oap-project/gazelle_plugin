@@ -257,19 +257,27 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   Some(TreeBuilder.makeField(
                     Field.nullable(a.name,
                       CodeGeneration.getResultType(a.dataType))))
-                case c: Cast =>
+                case c: Cast if c.child.isInstanceOf[AttributeReference] =>
                   Some(TreeBuilder.makeField(
                     Field.nullable(c.child.asInstanceOf[AttributeReference].name,
-                      CodeGeneration.getResultType(c.dataType))
-                  ))
-                case _: Literal =>
+                      CodeGeneration.getResultType(c.dataType))))
+                case _: Cast | _ : Literal =>
                   None
                 case _ =>
                   throw new IllegalStateException()
               }.toList.asJava,
             NoneType.NONE_TYPE)
         }
-        val groupingExpressions = partitionSpec.map(e => e.asInstanceOf[AttributeReference])
+        val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
+          case a: AttributeReference =>
+            a
+          case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+            c.child.asInstanceOf[AttributeReference]
+          case _: Cast | _ : Literal =>
+            null
+          case _ =>
+            throw new IllegalStateException()
+        }.filter(_ != null)
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
           groupingExpressions.map(e => TreeBuilder.makeField(
