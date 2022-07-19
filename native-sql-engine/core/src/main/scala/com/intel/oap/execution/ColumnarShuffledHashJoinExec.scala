@@ -128,6 +128,18 @@ case class ColumnarShuffledHashJoinExec(
       case _ =>
         throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
     }
+    // build check for leftKeys and rightKeys
+    leftKeys.union(rightKeys).foreach { expr =>
+      val keyExpr =
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      val supportCodegen =
+        keyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      this.supportCodegen = this.supportCodegen && supportCodegen
+      if (!supportCodegen) {
+        throw new UnsupportedOperationException(
+          "Condition expression is not fully supporting codegen!")
+      }
+    }
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {
