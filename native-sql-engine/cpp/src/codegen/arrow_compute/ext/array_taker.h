@@ -53,7 +53,7 @@ class TakerBase {
     return arrow::Status::NotImplemented("TakerBase Finish is abstract.");
   }
 
-  virtual arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  virtual arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                         std::shared_ptr<arrow::Array>* out) {
     return arrow::Status::NotImplemented("TakerBase TakeFromIndices is abstract.");
   }
@@ -101,7 +101,7 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
@@ -181,7 +181,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
@@ -266,7 +266,7 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
@@ -352,7 +352,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     for (int64_t position = 0; position < length; position++) {
       auto item = indices_begin + position;
@@ -410,7 +410,7 @@ class ComplexArrayTaker : public TakerBase {
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     for (int64_t position = 0; position < length; position++) {
       auto item = indices_begin + position;
@@ -458,7 +458,7 @@ class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerB
     return arrow::Status::OK();
   }
 
-  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+  arrow::Status TakeFromIndices(ArrayItemIndex* indices_begin, int64_t length,
                                 std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;

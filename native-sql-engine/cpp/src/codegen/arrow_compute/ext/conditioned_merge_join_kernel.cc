@@ -246,11 +246,11 @@ class ConditionedMergeJoinKernel::Impl {
       auto function_name = "ConditionCheck_" + std::to_string(relation_id_[0]);
       if (use_relation_for_stream) {
         function_define_ss << "inline bool " << function_name
-                           << "(ArrayItemIndexS idx_0, ArrayItemIndexS idx_1) {"
+                           << "(ArrayItemIndex idx_0, ArrayItemIndex idx_1) {"
                            << std::endl;
       } else {
         function_define_ss << "inline bool " << function_name
-                           << "(ArrayItemIndexS idx_0) {" << std::endl;
+                           << "(ArrayItemIndex idx_0) {" << std::endl;
       }
       function_define_ss << condition_node_visitor->GetPrepare() << std::endl;
       function_define_ss << "return " << condition_node_visitor->GetResult() << ";"
@@ -346,11 +346,11 @@ class ConditionedMergeJoinKernel::Impl {
                            << "->GetItemIndexWithShift(" << streamed_range_id << ");"
                            << std::endl;
       std::stringstream prepare_ss;
-      prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
+      prepare_ss << "ArrayItemIndex " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
     }
     std::stringstream prepare_ss;
-    prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
+    prepare_ss << "ArrayItemIndex " << left_index_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
     if (cache_right) {
       codes_ss << right_for_loop_codes.str();
@@ -435,11 +435,11 @@ class ConditionedMergeJoinKernel::Impl {
                            << "->GetItemIndexWithShift(" << streamed_range_id << ");"
                            << std::endl;
       std::stringstream prepare_ss;
-      prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
+      prepare_ss << "ArrayItemIndex " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
     }
     std::stringstream prepare_ss;
-    prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
+    prepare_ss << "ArrayItemIndex " << left_index_name << ";" << std::endl;
     prepare_ss << "bool " << fill_null_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
     if (cache_right) {
@@ -538,11 +538,11 @@ class ConditionedMergeJoinKernel::Impl {
       codes_ss << right_index_name << " = " << streamed_relation
                << "->GetItemIndexWithShift(" << streamed_range_id << ");" << std::endl;
       std::stringstream prepare_ss;
-      prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
+      prepare_ss << "ArrayItemIndex " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
     }
     std::stringstream prepare_ss;
-    prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
+    prepare_ss << "ArrayItemIndex " << left_index_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
     codes_ss << "for (int " << range_id << " = 0; " << range_id << " < 1;" << range_id
              << "++) {" << std::endl;
@@ -631,11 +631,11 @@ class ConditionedMergeJoinKernel::Impl {
       codes_ss << right_index_name << " = " << streamed_relation
                << "->GetItemIndexWithShift(" << streamed_range_id << ");" << std::endl;
       std::stringstream prepare_ss;
-      prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
+      prepare_ss << "ArrayItemIndex " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
     }
     std::stringstream prepare_ss;
-    prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
+    prepare_ss << "ArrayItemIndex " << left_index_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
     codes_ss << "for (int " << range_id << " = 0; " << range_id << " < 1;" << range_id
              << "++) {" << std::endl;
@@ -720,11 +720,11 @@ class ConditionedMergeJoinKernel::Impl {
       codes_ss << right_index_name << " = " << streamed_relation
                << "->GetItemIndexWithShift(" << streamed_range_id << ");" << std::endl;
       std::stringstream prepare_ss;
-      prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
+      prepare_ss << "ArrayItemIndex " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
     }
     std::stringstream prepare_ss;
-    prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
+    prepare_ss << "ArrayItemIndex " << left_index_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
     codes_ss << "for (int " << range_id << " = 0; " << range_id << " < 1;" << range_id
              << "++) {" << std::endl;

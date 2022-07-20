@@ -237,7 +237,7 @@ class SortArraysToIndicesKernel::Impl {
             "SorterResultIterator received cache with " + std::to_string(cached.size()) +
             ", which does not match expected num_cols of " + std::to_string(col_num_));
       }
-      indices_begin_ = (ArrayItemIndexS*)indices_in->value_data();
+      indices_begin_ = (ArrayItemIndex*)indices_in->value_data();
       for (int i = 0; i < col_num_; i++) {
         auto field = schema->field(i);
         std::shared_ptr<TakerBase> taker;
@@ -337,7 +337,7 @@ class SortArraysToIndicesKernel::Impl {
     arrow::compute::ExecContext* ctx_;
     uint64_t batch_size_;
     int col_num_;
-    ArrayItemIndexS* indices_begin_;
+    ArrayItemIndex* indices_begin_;
     std::vector<std::shared_ptr<arrow::DataType>> type_list_;
     std::vector<std::shared_ptr<TakerBase>> taker_list_;
     std::shared_ptr<FixedSizeBinaryArray> indices_in_cache_;
@@ -1392,7 +1392,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  void PartitionNulls(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+  void PartitionNulls(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
 
@@ -1456,7 +1456,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
-  int64_t PartitionNaNs(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+  int64_t PartitionNaNs(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_nan = 0;
 
@@ -1529,7 +1529,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   template <typename T>
-  auto Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end,
+  auto Partition(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end,
                  int64_t& num_nan) ->
       typename std::enable_if_t<arrow::is_floating_type<T>::value> {
     PartitionNulls(indices_begin, indices_end);
@@ -1539,14 +1539,14 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   template <typename T>
-  auto Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end,
+  auto Partition(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end,
                  int64_t& num_nan) ->
       typename std::enable_if_t<!arrow::is_floating_type<T>::value> {
     PartitionNulls(indices_begin, indices_end);
   }
 
   template <typename T>
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan)
+  auto Sort(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end, int64_t num_nan)
       -> typename std::enable_if_t<is_number_bool_date<T>::value> {
     if (asc_) {
       if (nulls_first_) {
@@ -1561,7 +1561,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                  });
       }
     } else {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
         return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1576,10 +1576,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   template <typename T>
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan)
+  auto Sort(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end, int64_t num_nan)
       -> typename std::enable_if_t<std::is_same<T, arrow::StringType>::value> {
     if (asc_) {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
         return cached_key_[x.array_id]->GetView(x.id) <
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1589,7 +1589,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
         return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1602,10 +1602,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   template <typename T>
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan)
+  auto Sort(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end, int64_t num_nan)
       -> typename std::enable_if_t<arrow::is_decimal_type<T>::value> {
     if (asc_) {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
         return cached_key_[x.array_id]->GetView(x.id) <
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1617,7 +1617,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                      comp);
       }
     } else {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
         return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1634,19 +1634,19 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status FinishInternal(std::shared_ptr<FixedSizeBinaryArray>* out) {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
-    int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
+    int64_t buf_size = items_total_ * sizeof(ArrayItemIndex);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
-    ArrayItemIndexS* indices_begin =
-        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
-    ArrayItemIndexS* indices_end = indices_begin + items_total_;
+    ArrayItemIndex* indices_begin =
+        reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
+    ArrayItemIndex* indices_end = indices_begin + items_total_;
     // do partition and sort here
     int64_t num_nan = 0;
     Partition<DATATYPE>(indices_begin, indices_end, num_nan);
     Sort<DATATYPE>(indices_begin, indices_end, num_nan);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
-        MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
+        MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
 
     return arrow::Status::OK();
@@ -2021,13 +2021,13 @@ class TypedSorterImpl : public CodeGenBase {
            R"(
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
-    int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
+    int64_t buf_size = items_total_ * sizeof(ArrayItemIndex);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
 
-    ArrayItemIndexS* indices_begin =
-        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
-    ArrayItemIndexS* indices_end = indices_begin + items_total_;
+    ArrayItemIndex* indices_begin =
+        reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
+    ArrayItemIndex* indices_end = indices_begin + items_total_;
 
     int64_t indices_i = 0;
     ARROW_CHECK_LE(num_batches_, 64 * 1024);
@@ -2043,7 +2043,7 @@ class TypedSorterImpl : public CodeGenBase {
     )" + sort_func_str +
            R"(
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
-    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
+    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
     return arrow::Status::OK();
   }
@@ -2110,13 +2110,13 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       projected = false;
     }
     if (has_null) {
-      ss << "auto comp = [this](const ArrayItemIndexS& x, const "
-            "ArrayItemIndexS& y) {"
+      ss << "auto comp = [this](const ArrayItemIndex& x, const "
+            "ArrayItemIndex& y) {"
          << GetCompFunction_(0, projected, key_field_list_, projected_types_,
                              sort_directions_, nulls_order_);
     } else {
       ss << "auto comp_without_null = "
-         << "[this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {"
+         << "[this](const ArrayItemIndex& x, const ArrayItemIndex& y) {"
          << GetCompFunction_Without_Null_(0, projected, key_field_list_, projected_types_,
                                           sort_directions_);
     }
@@ -2579,15 +2579,15 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  void Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+  void Sort(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end) {
     int keys_num = sort_directions_.size();
-    auto comp = [this, &keys_num](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+    auto comp = [this, &keys_num](const ArrayItemIndex& x, const ArrayItemIndex& y) {
       return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num);
     };
     gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
-  void Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+  void Partition(ArrayItemIndex* indices_begin, ArrayItemIndex* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
     ARROW_CHECK_LE(num_batches_, 64 * 1024);
@@ -2604,12 +2604,12 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status FinishInternal(std::shared_ptr<FixedSizeBinaryArray>* out) {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
-    int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
+    int64_t buf_size = items_total_ * sizeof(ArrayItemIndex);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
-    ArrayItemIndexS* indices_begin =
-        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
-    ArrayItemIndexS* indices_end = indices_begin + items_total_;
+    ArrayItemIndex* indices_begin =
+        reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
+    ArrayItemIndex* indices_end = indices_begin + items_total_;
     // do partition and sort here
     Partition(indices_begin, indices_end);
     if (key_projector_) {
@@ -2627,7 +2627,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     Sort(indices_begin, indices_end);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
-        MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
+        MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
     return arrow::Status::OK();
   }
