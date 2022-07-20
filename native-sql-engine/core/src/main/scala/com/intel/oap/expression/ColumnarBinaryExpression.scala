@@ -121,7 +121,7 @@ object ColumnarBinaryExpression {
       case s: DateDiff =>
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
-        new ColumnarUnixTimestamp(left, right)
+        new ColumnarUnixTimestamp(left, right, a.timeZoneId, a.failOnError)
       // To match GetTimestamp (a private class).
       case _ if (original.isInstanceOf[ToTimestamp] && original.dataType == TimestampType) =>
         // Convert a string to Timestamp. Default timezone is used.
