@@ -137,7 +137,7 @@ case class ColumnarShuffledHashJoinExec(
       this.supportCodegen = this.supportCodegen && supportCodegen
       if (!supportCodegen) {
         throw new UnsupportedOperationException(
-          "Condition expression is not fully supporting codegen!")
+          "Left or Right key expressions are not fully supporting codegen!")
       }
     }
     // build check for condition
