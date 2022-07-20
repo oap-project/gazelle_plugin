@@ -135,10 +135,6 @@ case class ColumnarShuffledHashJoinExec(
       val supportCodegen =
         keyExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
       this.supportCodegen = this.supportCodegen && supportCodegen
-      if (!supportCodegen) {
-        throw new UnsupportedOperationException(
-          "Left or Right key expressions are not fully supporting codegen!")
-      }
     }
     // build check for condition
     val conditionExpr: Expression = condition.orNull
