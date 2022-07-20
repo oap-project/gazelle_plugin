@@ -445,8 +445,12 @@ object ColumnarDateTimeExpressions {
     * The input is the date/time for local timezone (can be configured in spark) and the result is
     * the timestamp for UTC. So we need consider timezone difference.
     * */
-  class ColumnarUnixTimestamp(left: Expression, right: Expression)
-      extends UnixTimestamp(left, right) with
+  class ColumnarUnixTimestamp(
+      left: Expression,
+      right: Expression,
+      timeZoneId: Option[String] = None,
+      failOnError: Boolean = SQLConf.get.ansiEnabled)
+      extends UnixTimestamp(left, right, timeZoneId, failOnError) with
       ColumnarExpression {
 
     val yearMonthDayFormat = "yyyy-MM-dd"
