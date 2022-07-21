@@ -33,6 +33,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <stack>
 
 #include "shuffle/utils.h"
 #include "utils/macros.h"
@@ -223,8 +224,6 @@ arrow::Status Splitter::Init() {
   const auto& fields = schema_->fields();
   ARROW_ASSIGN_OR_RAISE(column_type_id_, ToSplitterTypeId(schema_->fields()));
 
-  partition_writer_.resize(num_partitions_);
-
   // pre-computed row count for each partition after the record batch split
   partition_id_cnt_.resize(num_partitions_);
   // pre-allocated buffer size for each partition, unit is row count
@@ -237,6 +236,8 @@ arrow::Status Splitter::Init() {
 
   partition_cached_recordbatch_.resize(num_partitions_);
   partition_cached_recordbatch_size_.resize(num_partitions_);
+  // output_rb_.resize(num_partitions_);
+  partition_cached_arb_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
   raw_partition_lengths_.resize(num_partitions_);
   reducer_offset_offset_.resize(num_partitions_ + 1);
@@ -294,37 +295,39 @@ arrow::Status Splitter::Init() {
     partition_list_builders_[i].resize(num_partitions_);
   }
 
-  ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
-  sub_dir_selection_.assign(configured_dirs_.size(), 0);
+  if (!options_.data_file.empty()) {
+    partition_writer_.resize(num_partitions_);
 
-  // Both data_file and shuffle_index_file should be set through jni.
-  // For test purpose, Create a temporary subdirectory in the system temporary
-  // dir with prefix "columnar-shuffle"
-  if (options_.data_file.length() == 0) {
-    ARROW_ASSIGN_OR_RAISE(options_.data_file, CreateTempShuffleFile(configured_dirs_[0]));
+    ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
+    sub_dir_selection_.assign(configured_dirs_.size(), 0);
+
+    // Both data_file and shuffle_index_file should be set through jni.
+    // For test purpose, Create a temporary subdirectory in the system temporary
+    // dir with prefix "columnar-shuffle"
+    if (options_.data_file.length() == 0) {
+      ARROW_ASSIGN_OR_RAISE(options_.data_file, CreateTempShuffleFile(configured_dirs_[0]));
+    }
+    auto& ipc_write_options = options_.ipc_write_options;
+    ipc_write_options.memory_pool = options_.memory_pool;
+    ipc_write_options.use_threads = false;
+    if (options_.compression_type == arrow::Compression::FASTPFOR) {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+                            arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+
+    } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+                            arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
+                                                        arrow::Compression::UNCOMPRESSED));
+    }
+
+    // initialize tiny batch write options
+    tiny_bach_write_options_ = ipc_write_options;
+    ARROW_ASSIGN_OR_RAISE(
+        tiny_bach_write_options_.codec,
+        arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
   }
-
-  auto& ipc_write_options = options_.ipc_write_options;
-  ipc_write_options.memory_pool = options_.memory_pool;
-  ipc_write_options.use_threads = false;
-
-  if (options_.compression_type == arrow::Compression::FASTPFOR) {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-                          arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
-
-  } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-                          arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
-                                                       arrow::Compression::UNCOMPRESSED));
-  }
-
-  // initialize tiny batch write options
-  tiny_bach_write_options_ = ipc_write_options;
-  ARROW_ASSIGN_OR_RAISE(
-      tiny_bach_write_options_.codec,
-      arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
 
   // Allocate first buffer for split reducer
   ARROW_ASSIGN_OR_RAISE(combine_buffer_,
@@ -389,6 +392,55 @@ arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(ComputeAndCountPartitionId(rb));
   RETURN_NOT_OK(DoSplit(rb));
   EVAL_END("split", options_.thread_id, options_.task_attempt_id)
+  return arrow::Status::OK();
+}
+
+bool Splitter::hasNext() {
+  if (!output_rb_.empty()){
+    next_partition_id = output_rb_.top().first;
+    next_batch = output_rb_.top().second;
+  }
+  return !output_rb_.empty();
+}
+
+std::shared_ptr<arrow::RecordBatch> Splitter::nextBatch() {
+  if (!output_rb_.empty()) {
+    output_rb_.pop();
+  }
+  return next_batch;
+}
+
+int32_t Splitter::nextPartitionId() {
+  return next_partition_id;
+}
+
+/**
+* Collect the rb.
+*/
+std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect() {
+  EVAL_START("close", options_.thread_id)
+  // collect buffers and collect metrics
+  for (auto pid = 0; pid < num_partitions_; ++pid) {
+    CacheRecordBatch(pid, true);
+    if (partition_cached_recordbatch_size_[pid] > 0) {
+      std::cout << "partition data is: " << pid << std::endl;
+      if (partition_cached_arb_[pid].size() == 0) {
+        std::cout << "partition_cached_arb_ is null. " << std::endl;
+      }
+    }
+  }
+  EVAL_END("close", options_.thread_id, options_.task_attempt_id)
+  return partition_cached_arb_;
+}
+
+
+arrow::Status Splitter::Clear() {
+  EVAL_START("close", options_.thread_id)
+  //ClearCache();
+  this -> combine_buffer_.reset();
+  this -> schema_payload_.reset();
+  partition_buffers_.clear();
+  EVAL_END("close", options_.thread_id, options_.task_attempt_id)
   return arrow::Status::OK();
 }
 
@@ -599,8 +651,10 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                        arrow::ipc::GetRecordBatchPayload(*batch, tiny_bach_write_options_,
                                                          payload.get()));
 #endif
-
+    output_rb_.emplace(std::pair(partition_id, batch));
+    partition_cached_arb_[partition_id].push_back(batch);
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
+    std::cout << "partition_id: " << partition_id <<  "size: " << partition_cached_recordbatch_size_[partition_id] << std::endl;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
   }
@@ -787,10 +841,10 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
   }
   if (partition_to_spill != -1) {
     RETURN_NOT_OK(SpillPartition(partition_to_spill));
-#ifdef DEBUG
+//#ifdef DEBUG
     std::cout << "Spilled partition " << std::to_string(partition_to_spill) << ", "
               << std::to_string(max_size) << " bytes released" << std::endl;
-#endif
+//#endif
     *size = max_size;
   } else {
     *size = 0;

@@ -20,7 +20,9 @@ package org.apache.spark.sql.execution
 import com.google.common.collect.Lists
 import com.intel.oap.expression.{CodeGeneration, ColumnarExpression, ColumnarExpressionConverter, ConverterUtils}
 import com.intel.oap.GazellePluginConfig
-import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, NativePartitioning}
+import com.intel.oap.vectorized.SplitIterator.IteratorOptions
+import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, CloseablePartitionedBlockIterator, NativePartitioning, ShuffleSplitterJniWrapper, SplitIterator, SplitResult}
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 
@@ -45,10 +47,12 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.{MutablePair, Utils}
+
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-
 import org.apache.spark.sql.util.ArrowUtils
+
+import scala.collection.mutable.ListBuffer
 
 case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
@@ -339,6 +343,16 @@ object ColumnarShuffleExchangeExec extends Logging {
     }
   }
 
+  private val conf = SparkEnv.get.conf
+  private val offHeadSize = conf.getSizeAsBytes("spark.memory.offHeap.size", 0)
+  private val executorNum = conf.getInt("spark.executor.cores", 1)
+  private val offheapPerTask = offHeadSize / executorNum
+  private val nativeBufferSize = GazellePluginConfig.getSessionConf.shuffleSplitDefaultSize
+
+  private val jniWrapper = new ShuffleSplitterJniWrapper()
+  private var splitResult: SplitResult = _
+  private var firstRecordBatch: Boolean = true
+
   def prepareShuffleDependency(
       rdd: RDD[ColumnarBatch],
       outputAttributes: Seq[Attribute],
@@ -354,8 +368,9 @@ object ColumnarShuffleExchangeExec extends Logging {
       compressTime: SQLMetric,
       prepareTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
     val arrowFields = outputAttributes.map(attr => ConverterUtils.createArrowField(attr))
+    var schema: Schema = null
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
-      val schema = new Schema(fields.asJava)
+      schema = new Schema(fields.asJava)
       ConverterUtils.getSchemaBytesBuf(schema)
     }
 
@@ -455,39 +470,115 @@ object ColumnarShuffleExchangeExec extends Logging {
     // Thus in Columnar Shuffle we never use the "key" part.
     val isOrderSensitive = isRoundRobin && !SQLConf.get.sortBeforeRepartition
 
-    val rddWithDummyKey: RDD[Product2[Int, ColumnarBatch]] = newPartitioning match {
-      case RangePartitioning(sortingExpressions, _) =>
-        rdd.mapPartitionsWithIndexInternal((_, cbIter) => {
-          val partitionKeyExtractor: InternalRow => Any = {
-            val projection =
-              UnsafeProjection.create(sortingExpressions.map(_.child), outputAttributes)
-            row => projection(row)
-          }
-          val newIter = computeAndAddPartitionId(cbIter, partitionKeyExtractor)
+    val rddWithPartitionKey: RDD[Product2[Int, ColumnarBatch]] =
+      if (GazellePluginConfig.getSessionConf.enableColumnarShuffle) {
+        newPartitioning match {
+        case RangePartitioning(sortingExpressions, _) =>
+          rdd.mapPartitionsWithIndexInternal((_, cbIter) => {
+            val partitionKeyExtractor: InternalRow => Any = {
+              val projection =
+                UnsafeProjection.create(sortingExpressions.map(_.child), outputAttributes)
+              row => projection(row)
+            }
+            val newIter = computeAndAddPartitionId(cbIter, partitionKeyExtractor)
 
-          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
-            newIter.closeAppendedVector()
-          }
+            SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
+              newIter.closeAppendedVector()
+            }
 
-          newIter
-        }, isOrderSensitive = isOrderSensitive)
-      case _ =>
-        rdd.mapPartitionsWithIndexInternal(
-          (_, cbIter) =>
-            cbIter.map { cb =>
-              (0 until cb.numCols).foreach(
-                cb.column(_)
-                  .asInstanceOf[ArrowWritableColumnVector]
-                  .getValueVector
-                  .setValueCount(cb.numRows))
-              (0, cb)
+            newIter
+          }, isOrderSensitive = isOrderSensitive)
+        case _ =>
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) =>
+              cbIter.map { cb =>
+                (0 until cb.numCols).foreach(
+                  cb.column(_)
+                    .asInstanceOf[ArrowWritableColumnVector]
+                    .getValueVector
+                    .setValueCount(cb.numRows))
+                (0, cb)
+              },
+            isOrderSensitive = isOrderSensitive)
+      }
+    } else {
+      val options = new IteratorOptions
+      options.setExpr("")
+      options.setSchema(schema)
+      options.setOffheapPerTask(offheapPerTask)
+      options.setBufferSize(nativeBufferSize)
+      options.setNativePartitioning(nativePartitioning)
+      newPartitioning match {
+        case HashPartitioning(exprs, n) =>
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) => {
+              options.setPartitionNum(n)
+              val fields = exprs.zipWithIndex.map {
+                case (expr, i) =>
+                  val attribute = ConverterUtils.getAttrFromExpr(expr)
+                  ConverterUtils.genColumnNameWithExprId(attribute)
+              }
+              options.setExpr(fields.mkString(","))
+              options.setName("hash")
+              // ColumnarBatch Iterator
+              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+                  val splitIterator = new SplitIterator(jniWrapper,
+                    cbIter.asJava, options)
+
+                  override def hasNext: Boolean = splitIterator.hasNext
+
+                  override def next(): Product2[Int, ColumnarBatch] =
+                    (splitIterator.nextPartitionId(), splitIterator.next());
+                }
+              new CloseablePartitionedBlockIterator(iter)
             },
-          isOrderSensitive = isOrderSensitive)
-    }
+            isOrderSensitive = isOrderSensitive
+          )
+        case RoundRobinPartitioning(n) =>
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) => {
+              options.setPartitionNum(n)
+              options.setName("rr")
+              // ColumnarBatch Iterator
+              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+                val splitIterator = new SplitIterator(jniWrapper,
+                  cbIter.asJava, options)
+
+                override def hasNext: Boolean = splitIterator.hasNext
+
+                override def next(): Product2[Int, ColumnarBatch] =
+                  (splitIterator.nextPartitionId(), splitIterator.next());
+              }
+              new CloseablePartitionedBlockIterator(iter)
+            },
+            isOrderSensitive = isOrderSensitive
+          )
+        case SinglePartition =>
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) => {
+              options.setPartitionNum(1)
+              options.setName("single")
+              // ColumnarBatch Iterator
+              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+                val splitIterator = new SplitIterator(jniWrapper,
+                  cbIter.asJava, options)
+
+                override def hasNext: Boolean = splitIterator.hasNext
+
+                override def next(): Product2[Int, ColumnarBatch] =
+                  (splitIterator.nextPartitionId(), splitIterator.next());
+              }
+              new CloseablePartitionedBlockIterator(iter)
+            },
+            isOrderSensitive = isOrderSensitive
+          )
+        case _ =>
+          throw new UnsupportedOperationException("Unsupported operations")
+      }}
 
     val dependency =
       new ColumnarShuffleDependency[Int, ColumnarBatch, ColumnarBatch](
-        rddWithDummyKey,
+        rddWithPartitionKey,
         new PartitionIdPassthrough(newPartitioning.numPartitions),
         serializer,
         shuffleWriterProcessor = createShuffleWriteProcessor(writeMetrics),

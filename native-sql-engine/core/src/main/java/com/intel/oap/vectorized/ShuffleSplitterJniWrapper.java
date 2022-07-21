@@ -83,6 +83,28 @@ public class ShuffleSplitterJniWrapper {
       long memoryPoolId,
       boolean writeSchema);
 
+  public long make(
+          NativePartitioning part,
+          long offheapPerTask,
+          int bufferSize) {
+    return initSplit(
+            part.getShortName(),
+            part.getNumPartitions(),
+            part.getSchema(),
+            part.getExprList(),
+            offheapPerTask,
+            bufferSize
+           );
+  }
+
+  public native long initSplit(
+          String shortName,
+          int numPartitions,
+          byte[] schema,
+          byte[] exprList,
+          long offheapPerTask,
+          int bufferSize);
+
   /**
    *
    * Spill partition data to disk.
@@ -126,6 +148,21 @@ public class ShuffleSplitterJniWrapper {
    * @return SplitResult
    */
   public native SplitResult stop(long splitterId) throws IOException;
+
+  public native byte[][] cacheBuffer(
+          long splitterId,
+          int numRows)
+          throws RuntimeException;
+
+
+  /**
+   * Clear the buffer. And stop processing splitting
+   *
+   * @param splitterId splitter instance id
+   * @return SplitResult
+   */
+  public native SplitResult clear(long splitterId) throws IOException;
+
 
   /**
    * Release resources associated with designated splitter instance.

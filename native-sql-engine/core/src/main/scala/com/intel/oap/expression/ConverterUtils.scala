@@ -21,7 +21,6 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException}
 import java.nio.channels.Channels
 import java.nio.ByteBuffer
 import java.util.ArrayList
-
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import io.netty.buffer.{ByteBufAllocator, ByteBufOutputStream}
 import org.apache.arrow.memory.ArrowBuf
@@ -47,28 +46,36 @@ import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
-import java.nio.channels.{Channels, WritableByteChannel}
-
 import com.google.common.collect.Lists
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
+
 import java.io.{InputStream, OutputStream}
 import java.util
-import java.util.concurrent.TimeUnit.SECONDS
-
 import org.apache.arrow.vector.complex.MapVector
 import org.apache.arrow.vector.types.TimeUnit
-import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
-import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
-import org.apache.spark.sql.catalyst.util.DateTimeConstants.MICROS_PER_SECOND
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils, SparkVectorUtils}
 
 object ConverterUtils extends Logging {
   def calcuateEstimatedSize(columnarBatch: ColumnarBatch): Long = {
     SparkVectorUtils.estimateSize(columnarBatch)
+  }
+
+  def createRecordBatch(serializedRecordBatch: Array[Byte], schema: Schema): ColumnarBatch = {
+    val allocator = SparkMemoryUtils.contextAllocatorForBufferImport
+    val resultBatch = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
+    if (resultBatch == null) {
+      val resultColumnVectors =
+        ArrowWritableColumnVector.loadColumns(0, schema, resultBatch).toArray
+      new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+    } else {
+      val resultColumnVectorList =
+        ConverterUtils.fromArrowRecordBatch(schema, resultBatch)
+      val length = resultBatch.getLength()
+      ConverterUtils.releaseArrowRecordBatch(resultBatch)
+      new ColumnarBatch(resultColumnVectorList.map(v => v.asInstanceOf[ColumnVector]), length)
+    }
   }
 
   def createArrowRecordBatch(columnarBatch: ColumnarBatch): ArrowRecordBatch = {
@@ -366,6 +373,19 @@ object ConverterUtils extends Logging {
         throw new UnsupportedOperationException(
           s"makeStructField is unable to parse from $other (${other.getClass}).")
     }
+  }
+
+  def getShortAttributeName(attr: Attribute): String = {
+    val index = attr.name.indexOf("(")
+    if (index != -1) {
+      attr.name.substring(0, index)
+    } else {
+      attr.name
+    }
+  }
+
+  def genColumnNameWithExprId(attr: Attribute): String = {
+    getShortAttributeName(attr) + "#" + attr.exprId.id
   }
 
   def getResultAttrFromExpr(
