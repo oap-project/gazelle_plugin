@@ -32,7 +32,19 @@ object CodeGeneration {
 
   def getResultType(left: ArrowType, right: ArrowType): ArrowType = {
     //TODO(): remove this API
-    left
+    // Use left type except that left is int16. If both right & left are int16,
+    // int32 will be used.
+    left match {
+      case intLeft: ArrowType.Int if (intLeft.getBitWidth == 16) =>
+        right match {
+          case intRight: ArrowType.Int if (intRight.getBitWidth == 16) =>
+            new ArrowType.Int(32, true)
+          case _ =>
+            right
+        }
+      case _ =>
+        left
+    }
   }
 
   def getResultType(dataType: DataType): ArrowType = {
@@ -81,6 +93,8 @@ object CodeGeneration {
     dataType match {
       case t: ArrowType.FloatingPoint =>
         s"castFLOAT${4 * dataType.asInstanceOf[ArrowType.FloatingPoint].getPrecision().getFlatbufID()}"
+      case i: ArrowType.Int if i.getBitWidth == 32 =>
+        "castINT"
       case _ =>
         throw new UnsupportedOperationException(s"getCastFuncName(${dataType}) is not supported.")
     }
