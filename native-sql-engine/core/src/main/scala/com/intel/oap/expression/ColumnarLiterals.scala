@@ -42,7 +42,7 @@ class ColumnarLiteral(lit: Literal)
 
   def buildCheck(): ArrowType = {
     val supportedTypes =
-      List(StringType, IntegerType, LongType, DoubleType, FloatType, DateType,
+      List(StringType, ShortType, IntegerType, LongType, DoubleType, FloatType, DateType,
            BooleanType, CalendarIntervalType, BinaryType, TimestampType)
     if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
       // Decimal is supported in ColumnarLiteral
@@ -75,6 +75,8 @@ class ColumnarLiteral(lit: Literal)
           throw new UnsupportedOperationException(
             s"can't support CalendarIntervalType with microseconds yet")
         }
+      case ShortType =>
+        new ArrowType.Int(32, true)
       case _ =>
         CodeGeneration.getResultType(dataType)
     }
@@ -97,12 +99,13 @@ class ColumnarLiteral(lit: Literal)
           case _ =>
             (TreeBuilder.makeLiteral(value.asInstanceOf[Integer]), resultType)
         }
-      case t: ShortType =>
+      case _: ShortType =>
         value match {
           case null =>
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
-            (TreeBuilder.makeLiteral(value.asInstanceOf[Integer]), resultType)
+            (TreeBuilder.makeLiteral(new Integer(
+              value.asInstanceOf[java.lang.Short].toInt)), resultType)
         }
       case t: LongType =>
         value match {
