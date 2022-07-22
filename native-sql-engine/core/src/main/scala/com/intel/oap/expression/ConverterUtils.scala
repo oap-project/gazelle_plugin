@@ -369,6 +369,8 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(concat.children(0))
       case strTrim: StringTrim =>
         getAttrFromExpr(strTrim.children(0))
+      case makeTimestamp: MakeTimestamp =>
+        getAttrFromExpr(makeTimestamp.children(0))
       case and: And =>
         getAttrFromExpr(and.children(0))
       case caseWhen: CaseWhen =>
@@ -383,6 +385,9 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(ternaryExpr.children(0))
       case quaternaryExpr: QuaternaryExpression =>
         getAttrFromExpr(quaternaryExpr.children(0))
+      // For leaf expression like CurrentTimestamp, CurrentDate, Now.
+      case leafExpr: LeafExpression =>
+        new AttributeReference(leafExpr.prettyName, leafExpr.dataType, leafExpr.nullable)()
       case other =>
         throw new UnsupportedOperationException(
           s"makeStructField is unable to parse from $other (${other.getClass}).")
