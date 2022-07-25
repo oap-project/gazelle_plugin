@@ -507,9 +507,9 @@ class ColumnarShiftRight(left: Expression, right: Expression, original: Expressi
         with ColumnarExpression
         with Logging {
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-    var (left_node, left_type): (TreeNode, ArrowType) =
+    val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    var (right_node, right_type): (TreeNode, ArrowType) =
+    val (right_node, right_type): (TreeNode, ArrowType) =
       right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     if (right_type.getTypeID != ArrowTypeID.Int) {
@@ -520,6 +520,26 @@ class ColumnarShiftRight(left: Expression, right: Expression, original: Expressi
       "shift_right",
       Lists.newArrayList(left_node, right_node),
       resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarFindInSet(left: Expression, right: Expression, original: Expression)
+  extends FindInSet(left: Expression, right: Expression) with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Int(32, true)
+    val funcNode = TreeBuilder.makeFunction("find_in_set",
+      Lists.newArrayList(leftNode, rightNode), resultType)
     (funcNode, resultType)
   }
 }
@@ -559,6 +579,8 @@ object ColumnarBinaryOperator {
         new ColumnarShiftLeft(left, right, s)
       case s: ShiftRight =>
         new ColumnarShiftRight(left, right, s)
+      case f: FindInSet =>
+        new ColumnarFindInSet(left, right, f)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
