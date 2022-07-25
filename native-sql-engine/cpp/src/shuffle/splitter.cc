@@ -236,7 +236,6 @@ arrow::Status Splitter::Init() {
 
   partition_cached_recordbatch_.resize(num_partitions_);
   partition_cached_recordbatch_size_.resize(num_partitions_);
-  // output_rb_.resize(num_partitions_);
   partition_cached_arb_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
   raw_partition_lengths_.resize(num_partitions_);
@@ -407,6 +406,10 @@ std::shared_ptr<arrow::RecordBatch> Splitter::nextBatch() {
   if (!output_rb_.empty()) {
     output_rb_.pop();
   }
+//  #ifndef DEBUG
+//    std::cout << "Output partitionid is: " << next_partition_id <<
+//      ", output_batch_rows:  " << next_batch->num_rows() << std::endl;
+//  #endif
   return next_batch;
 }
 
@@ -415,18 +418,18 @@ int32_t Splitter::nextPartitionId() {
 }
 
 /**
-* Collect the rb.
+* Collect the rb after splitting.
 */
 std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect() {
   EVAL_START("close", options_.thread_id)
   // collect buffers and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
-    CacheRecordBatch(pid, true);
-    if (partition_cached_recordbatch_size_[pid] > 0) {
-      std::cout << "partition data is: " << pid << std::endl;
-      if (partition_cached_arb_[pid].size() == 0) {
-        std::cout << "partition_cached_arb_ is null. " << std::endl;
-      }
+    if (partition_buffer_idx_base_[pid] > 0) {
+      #ifdef DEBUG
+        std::cout << "Collect buffers to output, cache the record batch, current partition id is " << pid << 
+          ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
+      #endif
+      CacheRecordBatch(pid, true);
     }
   }
   EVAL_END("close", options_.thread_id, options_.task_attempt_id)
@@ -436,7 +439,12 @@ std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect
 
 arrow::Status Splitter::Clear() {
   EVAL_START("close", options_.thread_id)
-  //ClearCache();
+  next_batch = nullptr;
+  for (auto pid = 0; pid < num_partitions_; ++pid) {
+    partition_cached_arb_[pid].clear();
+    partition_cached_recordbatch_[pid].clear();
+    partition_cached_recordbatch_size_[pid] = 0;
+  }
   this -> combine_buffer_.reset();
   this -> schema_payload_.reset();
   partition_buffers_.clear();
@@ -651,10 +659,10 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                        arrow::ipc::GetRecordBatchPayload(*batch, tiny_bach_write_options_,
                                                          payload.get()));
 #endif
-    output_rb_.emplace(std::pair(partition_id, batch));
-    partition_cached_arb_[partition_id].push_back(batch);
+    std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>> part_batch = std::make_pair(partition_id, batch);
+    output_rb_.emplace(part_batch);
+    // partition_cached_arb_[partition_id].push_back(batch);
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
-    std::cout << "partition_id: " << partition_id <<  "size: " << partition_cached_recordbatch_size_[partition_id] << std::endl;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
   }
@@ -841,10 +849,10 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
   }
   if (partition_to_spill != -1) {
     RETURN_NOT_OK(SpillPartition(partition_to_spill));
-//#ifdef DEBUG
+#ifdef DEBUG
     std::cout << "Spilled partition " << std::to_string(partition_to_spill) << ", "
               << std::to_string(max_size) << " bytes released" << std::endl;
-//#endif
+#endif
     *size = max_size;
   } else {
     *size = 0;
@@ -986,6 +994,12 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // update partition buffer base after split
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     partition_buffer_idx_base_[pid] += partition_id_cnt_[pid];
+    #ifdef DEBUG
+    if (partition_buffer_idx_base_[pid] > 0) {
+      std::cout << "Update partition buffer base after split, current partition id is " << pid <<
+        ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
+    }
+    #endif
   }
 
   return arrow::Status::OK();

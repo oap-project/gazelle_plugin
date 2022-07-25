@@ -19,22 +19,14 @@ package com.intel.oap.vectorized;
 
 
 import com.intel.oap.expression.ConverterUtils;
-import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer;
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BufferLayout;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class SplitIterator implements Iterator<ColumnarBatch>{
 
@@ -50,8 +42,6 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     private int bufferSize;
 
     private String expr;
-
-    private Schema schema;
 
     public NativePartitioning getNativePartitioning() {
       return nativePartitioning;
@@ -103,13 +93,6 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       this.expr = expr;
     }
 
-    public Schema getSchema() {
-      return schema;
-    }
-
-    public void setSchema(Schema schema) {
-      this.schema = schema;
-    }
   }
 
   ShuffleSplitterJniWrapper jniWrapper;
@@ -130,9 +113,9 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
       nativeSplitter = jniWrapper.make(
-              options.nativePartitioning,
-              options.offheapPerTask,
-              options.bufferSize);
+              options.getNativePartitioning(),
+              options.getOffheapPerTask(),
+              options.getBufferSize());
       int len = recordBatch.getBuffers().size();
       long[] bufAddrs = new long[len];
       long[] bufSizes = new long[len];
@@ -143,7 +126,8 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       for (ArrowBuffer buffer: recordBatch.getBuffersLayout()) {
         bufSizes[j++] = buffer.getSize();
       }
-      jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, true);
+      jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, false);
+      jniWrapper.collect(nativeSplitter, cb.numRows());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -152,12 +136,26 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
 
   private native boolean nativeHasNext(long instance);
 
-  // first
+  /**
+   * First to check, 
+   * @return
+   */
   @Override
   public boolean hasNext() {
+
+    // 1. Init the native splitter
+    if (nativeSplitter == 0) {
+      if (!iterator.hasNext()) {
+        return false;
+      } else {
+        nativeCreateInstance();
+      }
+    }
+    // 2. Call native hasNext
     if (nativeHasNext(nativeSplitter)) {
       return true;
-    } else if (!iterator.hasNext()) {
+    } else if (iterator.hasNext()) {
+      // 3. Split next rb
       nativeCreateInstance();
     }
     return nativeHasNext(nativeSplitter);
@@ -168,7 +166,9 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   @Override
   public ColumnarBatch next() {
     byte[] serializedRecordBatch = nativeNext(nativeSplitter);
-    return ConverterUtils.createRecordBatch(serializedRecordBatch, options.getSchema());
+    ColumnarBatch cb = ConverterUtils.createRecordBatch(serializedRecordBatch,
+            options.getNativePartitioning().getSchema());
+    return cb;
   }
 
   private native int nativeNextPartitionId(long nativeSplitter);

@@ -136,6 +136,11 @@ public class ShuffleSplitterJniWrapper {
       throws IOException;
 
   /**
+   * Collect the record batch after splitting.
+   */
+  public native void collect(long splitterId, int numRows) throws IOException;
+
+  /**
    * Update the compress type.
    */
   public native void setCompressType(long splitterId, String compressType);

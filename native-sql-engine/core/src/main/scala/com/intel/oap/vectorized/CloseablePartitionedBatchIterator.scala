@@ -19,20 +19,18 @@ package com.intel.oap.vectorized
 
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 /**
  * An Iterator that insures that the batches [[ColumnarBatch]]s it iterates over are all closed
  * properly.
  */
-class CloseablePartitionedBlockIterator(itr: Iterator[Product2[Int, ColumnarBatch]])
+class CloseablePartitionedBatchIterator(itr: Iterator[Product2[Int, ColumnarBatch]])
     extends Iterator[Product2[Int, ColumnarBatch]]
     with Logging {
   var cb: ColumnarBatch = null
 
   private def closeCurrentBatch(): Unit = {
-    itr.finalize()
     if (cb != null) {
       cb.close()
       cb = null

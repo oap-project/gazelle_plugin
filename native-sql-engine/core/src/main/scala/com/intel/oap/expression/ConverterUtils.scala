@@ -62,17 +62,15 @@ object ConverterUtils extends Logging {
     SparkVectorUtils.estimateSize(columnarBatch)
   }
 
-  def createRecordBatch(serializedRecordBatch: Array[Byte], schema: Schema): ColumnarBatch = {
+  def createRecordBatch(serializedRecordBatch: Array[Byte], serializedSchema: Array[Byte]): ColumnarBatch = {
+    val schema = ConverterUtils.getSchemaFromBytesBuf(serializedSchema);
     val allocator = SparkMemoryUtils.contextAllocatorForBufferImport
     val resultBatch = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
     if (resultBatch == null) {
-      val resultColumnVectors =
-        ArrowWritableColumnVector.loadColumns(0, schema, resultBatch).toArray
-      new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+      throw new Exception("Error from SerializedRecordBatch to ColumnarBatch.")
     } else {
-      val resultColumnVectorList =
-        ConverterUtils.fromArrowRecordBatch(schema, resultBatch)
-      val length = resultBatch.getLength()
+      val resultColumnVectorList = fromArrowRecordBatch(schema, resultBatch)
+      val length = resultBatch.getLength
       ConverterUtils.releaseArrowRecordBatch(resultBatch)
       new ColumnarBatch(resultColumnVectorList.map(v => v.asInstanceOf[ColumnVector]), length)
     }

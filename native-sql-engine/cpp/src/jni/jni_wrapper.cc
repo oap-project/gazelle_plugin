@@ -1139,7 +1139,6 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_initSplit(
       JniGetOrThrow(Splitter::Make(partitioning_name, std::move(schema), num_partitions,
                                    expr_vector, std::move(splitOptions)),
                     "Failed create native shuffle splitter");
-  std::cout << "jni.wrapper" << std::endl;
   return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(splitter));
 
   JNI_METHOD_END(-1L)
@@ -1311,6 +1310,19 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
   JNI_METHOD_END(-1L)
 }
 
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_collect(
+    JNIEnv* env, jobject obj, jlong splitter_id, jint num_rows) {
+  JNI_METHOD_START
+  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter_) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+  splitter_->Collect();
+  JNI_METHOD_END()
+}
+
 JNIEXPORT jobjectArray JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_cacheBuffer(
     JNIEnv* env, jobject obj, jlong splitter_id,
@@ -1334,7 +1346,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_cacheBuffer(
       env->SetObjectArrayElement(serialized_record_batch_array, index++,
                                serialized_record_batch);
       
-      recordBatch = nullptr;
+      // recordBatch = nullptr;
     }
   }
 
