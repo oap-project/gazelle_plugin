@@ -359,8 +359,6 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(ss.children(0))
       case strTrim: StringTrim =>
         getAttrFromExpr(strTrim.children(0))
-      case makeTimestamp: MakeTimestamp =>
-        getAttrFromExpr(makeTimestamp.children(0))
       case and: And =>
         getAttrFromExpr(and.children(0))
       case caseWhen: CaseWhen =>
