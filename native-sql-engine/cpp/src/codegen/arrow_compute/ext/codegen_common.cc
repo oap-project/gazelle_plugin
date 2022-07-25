@@ -628,7 +628,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   std::string env_jar = std::string(env_jar_);
 
-  std::string env_codegen_option = " -O3 -march=native ";
+  std::string env_codegen_option = " -O1 -march=native ";
   char* env_codegen_option_ = std::getenv("CODEGEN_OPTION");
 
   if (env_codegen_option_ != nullptr) {
