@@ -343,12 +343,6 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(a.child)
       case c: Coalesce =>
         getAttrFromExpr(c.children(0))
-      case i: If =>
-        getAttrFromExpr(i.children(0))
-      case i: In =>
-        getAttrFromExpr(i.children(0))
-      case i: InSet =>
-        getAttrFromExpr(i.children(0))
       case i: IsNull =>
         getAttrFromExpr(i.child)
       case a: Add =>
@@ -363,10 +357,6 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(u.child)
       case ss: Substring =>
         getAttrFromExpr(ss.children(0))
-      case concatWs: ConcatWs =>
-        getAttrFromExpr(concatWs.children(0))
-      case concat: Concat =>
-        getAttrFromExpr(concat.children(0))
       case strTrim: StringTrim =>
         getAttrFromExpr(strTrim.children(0))
       case makeTimestamp: MakeTimestamp =>
@@ -377,14 +367,12 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(caseWhen.children(0))
       case greaterThanOrEqual: GreaterThanOrEqual =>
         getAttrFromExpr(greaterThanOrEqual.children(0))
+      case conv: Conv =>
+        getAttrFromExpr(conv.children(0))
+      case lpad: StringLPad =>
+        getAttrFromExpr(lpad.children(0))
       case unaryExpr: UnaryExpression =>
         getAttrFromExpr(unaryExpr.child)
-      case binaryExpr: BinaryExpression =>
-        getAttrFromExpr(binaryExpr.left)
-      case ternaryExpr: TernaryExpression =>
-        getAttrFromExpr(ternaryExpr.children(0))
-      case quaternaryExpr: QuaternaryExpression =>
-        getAttrFromExpr(quaternaryExpr.children(0))
       // For leaf expression like CurrentTimestamp, CurrentDate, Now.
       case leafExpr: LeafExpression =>
         new AttributeReference(leafExpr.prettyName, leafExpr.dataType, leafExpr.nullable)()
