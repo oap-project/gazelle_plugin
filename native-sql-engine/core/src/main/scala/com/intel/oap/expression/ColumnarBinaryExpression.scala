@@ -82,6 +82,11 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
     with ColumnarExpression
     with Logging {
 
+  // TODO: currently we have a codegen implementation, but needs to be optimized.
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -121,7 +126,7 @@ object ColumnarBinaryExpression {
       case s: DateDiff =>
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
-        new ColumnarUnixTimestamp(left, right)
+        new ColumnarUnixTimestamp(left, right, a.timeZoneId, a.failOnError)
       // To match GetTimestamp (a private class).
       case _ if (original.isInstanceOf[ToTimestamp] && original.dataType == TimestampType) =>
         // Convert a string to Timestamp. Default timezone is used.
@@ -131,8 +136,8 @@ object ColumnarBinaryExpression {
       case d: DateSub =>
         new ColumnarDateSub(left, right)
       //TODO(): the current impl has poor perf
-      // case g: GetJsonObject =>
-      //   new ColumnarGetJsonObject(left, right, g)
+       case g: GetJsonObject =>
+         new ColumnarGetJsonObject(left, right, g)
       case instr: StringInstr =>
         new ColumnarStringInstr(left, right, instr)
       case other =>

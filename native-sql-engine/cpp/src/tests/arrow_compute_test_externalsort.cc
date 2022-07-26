@@ -30,7 +30,7 @@
 namespace sparkcolumnarplugin {
 namespace codegen {
 
-TEST(TestArrowComputeSort, SortTestInplaceDouble) {
+TEST(TestArrowComputeExternalSort, SortTestInplaceDouble) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float64());
@@ -124,7 +124,7 @@ TEST(TestArrowComputeSort, SortTestInplaceDouble) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestInplaceDecimal) {
+TEST(TestArrowComputeExternalSort, SortTestInplaceDecimal) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", decimal128(10, 4));
@@ -205,7 +205,7 @@ TEST(TestArrowComputeSort, SortTestInplaceDecimal) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestOneKey) {
+TEST(TestArrowComputeExternalSort, SortTestOneKey) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float64());
@@ -325,7 +325,7 @@ TEST(TestArrowComputeSort, SortTestOneKey) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestOneKeyDecimal) {
+TEST(TestArrowComputeExternalSort, SortTestOneKeyDecimal) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", decimal128(10, 4));
@@ -420,7 +420,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyDecimal) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestOneKeyStr) {
+TEST(TestArrowComputeExternalSort, SortTestOneKeyStr) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", utf8());
@@ -488,7 +488,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
       R"(["a","a","b","b","c","d","d","e","f","g","l","o","p","q","q","q","q","r","s","t","u","w","x","y","z",null,null,null,null,null,null,null,null,null,null])",
-      R"(["h","a","a","e",null,"f","f","f","c","h",null,"e","a","c","a","c","e",null,"e","f","h","c","f","g","e","g","g","j",null,"h","a","j","g","j","j"])"};
+      R"(["h","a","a","e",null,"f","f","f","c","h",null,"e","a","c","e","c","a",null,"e","f","h","c","f","g","e","g","g","j",null,"h","a","j","g","j","j"])"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
   for (auto batch : input_batch_list) {
     ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
@@ -506,7 +506,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
+TEST(TestArrowComputeExternalSort, SortTestOneKeyWithProjection) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", utf8());
@@ -594,7 +594,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestMultipleKeys) {
+TEST(TestArrowComputeExternalSort, SortTestMultipleKeys) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float32());
@@ -704,7 +704,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeys) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
+TEST(TestArrowComputeExternalSort, SortTestMultipleKeysWithProjection) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", uint32());
@@ -850,7 +850,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
   unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
-TEST(TestArrowComputeSort, SortTestMulKeyDecimalCodegen) {
+TEST(TestArrowComputeExternalSort, SortTestMulKeyDecimalCodegen) {
   setenv("NATIVESQL_MAX_MEMORY_SIZE", "300", 1);
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", decimal128(10, 4));

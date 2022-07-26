@@ -297,7 +297,7 @@ arrow::Status WindowRankKernel::Make(
       throw JniPendingException("Window Sort codegen failed");
     }
   }
-  if (function_name == "row_number") {
+  if (function_name.rfind("row_number", 0) == 0) {
     *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, true);
   } else {
     *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);

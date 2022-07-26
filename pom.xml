@@ -33,31 +33,27 @@
     <module>arrow-data-source</module>
     <module>native-sql-engine/core</module>
     <module>shims</module>
+    <module>gazelle-dist</module>
   </modules>
 
   <profiles>
     <profile>
-      <id>spark</id>
+      <id>spark-3.1</id>
       <activation>
-          <activeByDefault>true</activeByDefault>
+        <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
-          <spark.version>${spark311.version}</spark.version>
+        <spark.version>${spark311.version}</spark.version>
+        <scala.version>2.12.10</scala.version>
+        <jackson.version>2.10.0</jackson.version>
       </properties>
-    </profile>
-    <profile>
-        <id>spark-3.1</id>
-        <properties>
-            <spark.version>${spark311.version}</spark.version>
-            <scala.version>2.12.10</scala.version>
-            <jackson.version>2.10.0</jackson.version>
-        </properties>
     </profile>
     <profile>
       <id>spark-3.2</id>
       <properties>
         <spark.version>${spark321.version}</spark.version>
         <scala.version>2.12.15</scala.version>
+        <!--Jackson may be directly used in future UT. Align with the version in spark 3.2.-->
         <jackson.version>2.12.0</jackson.version>
         <maven.test.skip>true</maven.test.skip>
       </properties>
@@ -162,6 +158,18 @@
     <dependencies>
       <dependency>
         <groupId>org.apache.spark</groupId>
+        <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.spark</groupId>
         <artifactId>spark-sql_${scala.binary.version}</artifactId>
         <version>${spark.version}</version>
         <scope>provided</scope>
@@ -187,24 +195,6 @@
             <artifactId>curator-recipes</artifactId>
           </exclusion>
         </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.spark</groupId>
-        <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
-        <version>${spark.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>*</artifactId>
-          </exclusion>
-        </exclusions>
-        <scope>provided</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.spark</groupId>
-        <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        <version>${spark.version}</version>
-        <scope>provided</scope>
       </dependency>
       <!-- test dependencies -->
       <dependency>

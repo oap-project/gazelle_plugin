@@ -26,7 +26,7 @@
 
 #include "third_party/row_wise_memory/native_memory.h"
 
-#define TEMP_UNSAFEROW_BUFFER_SIZE 1024
+#define TEMP_UNSAFEROW_BUFFER_SIZE 8192
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 /* Unsafe Row Layout (This unsafe row only used to append all fields data as

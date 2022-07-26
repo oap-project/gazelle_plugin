@@ -476,10 +476,24 @@ case class ColumnarHashAggregateExec(
     // check project
     for (expr <- aggregateExpressions) {
       val internalExpressionList = expr.aggregateFunction.children
-      ColumnarProjection.buildCheck(child.output, internalExpressionList)
+      try {
+        ColumnarProjection.buildCheck(child.output, internalExpressionList)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            "internalExpressionList has unsupported type in ColumnarAggregation")
+      }
     }
-    ColumnarProjection.buildCheck(child.output, groupingExpressions)
-    ColumnarProjection.buildCheck(child.output, resultExpressions)
+
+    try {
+      ColumnarProjection.buildCheck(child.output, groupingExpressions)
+      ColumnarProjection.buildCheck(child.output, resultExpressions)
+    } catch {
+      case e: UnsupportedOperationException =>
+        throw new UnsupportedOperationException(
+          "groupingExpressions/resultExpressions has unsupported type in ColumnarAggregation")
+    }
+
     // check the supported types and modes for different aggregate functions
     checkTypeAndAggrFunction(aggregateExpressions, aggregateAttributes)
   }
@@ -685,6 +699,20 @@ case class ColumnarHashAggregateExec(
       }
       val internalExpressionList = expr.aggregateFunction.children
       for (expr <- internalExpressionList) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
+          return false
+        }
+      }
+      for (expr <- groupingExpressions) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
+          return false
+        }
+      }
+      for (expr <- resultExpressions) {
         val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
         if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
           Lists.newArrayList())) {

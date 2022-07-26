@@ -1399,7 +1399,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     if (nulls_total_ == 0) {
       // if all batches have no null value,
       // we do not need to check whether the value is null
+      ARROW_CHECK_LE(num_batches_, 64 * 1024);
       for (int array_id = 0; array_id < num_batches_; array_id++) {
+        ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
         for (int64_t i = 0; i < length_list_[array_id]; i++) {
           (indices_begin + indices_i)->array_id = array_id;
           (indices_begin + indices_i)->id = i;
@@ -1408,7 +1410,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       }
     } else {
       // we should support nulls first and nulls last here
+      ARROW_CHECK_LE(num_batches_, 64 * 1024);
       for (int array_id = 0; array_id < num_batches_; array_id++) {
+        ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
         if (cached_key_[array_id]->null_count() == 0) {
           // if this array has no null value,
           // we do need to check if the value is null
@@ -1456,7 +1460,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     int64_t indices_i = 0;
     int64_t indices_nan = 0;
 
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
+      ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
         if (cached_key_[array_id]->IsNull(i)) {
           continue;
@@ -1560,11 +1566,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
+                     comp);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
+                     comp);
       }
     }
   }
@@ -1574,23 +1580,23 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       -> typename std::enable_if_t<std::is_same<T, arrow::StringType>::value> {
     if (asc_) {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetString(x.id) <
-               cached_key_[y.array_id]->GetString(y.id);
+        return cached_key_[x.array_id]->GetView(x.id) <
+               cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetString(x.id) >
-               cached_key_[y.array_id]->GetString(y.id);
+        return cached_key_[x.array_id]->GetView(x.id) >
+               cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     }
   }
@@ -1604,11 +1610,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
+                     comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
+                     comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1616,11 +1622,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
+                     comp);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        gfx::timsort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
+                     comp);
       }
     }
   }
@@ -1988,6 +1994,7 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
 
     return BaseCodes() + R"(
 
+#include "arrow/util/logging.h"
 #include "precompile/wscgapi.hpp"
 
 
@@ -2023,7 +2030,9 @@ class TypedSorterImpl : public CodeGenBase {
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
 
     int64_t indices_i = 0;
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
+      ARROW_CHECK_LE(length_list_[array_id], 64*1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
         (indices_begin + indices_i)->array_id = array_id;
         (indices_begin + indices_i)->id = i;
@@ -2136,11 +2145,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     auto x_num_value =
         array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto x_str_value =
-        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetString(x.id)";
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto y_num_value =
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto y_str_value =
-        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto is_x_null = array + std::to_string(cur_key_idx) + "_[x.array_id]->IsNull(x.id)";
     auto is_y_null = array + std::to_string(cur_key_idx) + "_[y.array_id]->IsNull(y.id)";
     auto x_null_count =
@@ -2192,7 +2201,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     ss << " else {\n";
 
     // Multiple keys sorting w/ different ordering is supported.
-    // For string type of data, GetString should be used instead of GetView.
+    // For string type of data, GetView should be used instead of GetView.
     if (asc) {
       if (data_type->id() == arrow::Type::STRING) {
         ss << "return " << x_str_value << " < " << y_str_value << ";\n}\n";
@@ -2252,11 +2261,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     auto x_num_value =
         array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto x_str_value =
-        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetString(x.id)";
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto y_num_value =
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto y_str_value =
-        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
 
@@ -2283,7 +2292,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     }
 
     // Multiple keys sorting w/ different ordering is supported.
-    // For string type of data, GetString should be used instead of GetView.
+    // For string type of data, GetView should be used instead of GetView.
     if (asc) {
       if (data_type->id() == arrow::Type::STRING) {
         ss << "return " << x_str_value << " < " << y_str_value << ";\n";
@@ -2581,7 +2590,9 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   void Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
+    ARROW_CHECK_LE(num_batches_, 64 * 1024);
     for (int array_id = 0; array_id < num_batches_; array_id++) {
+      ARROW_CHECK_LE(length_list_[array_id], 64 * 1024);
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
         (indices_begin + indices_i)->array_id = array_id;
         (indices_begin + indices_i)->id = i;
