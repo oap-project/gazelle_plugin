@@ -992,11 +992,11 @@ class ColumnarBin(child: Expression) extends Bin(child: Expression)
     val (child_node, _): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     val resultType = new ArrowType.Utf8()
-    val limitNode = TreeBuilder.makeLiteral(64)
+    val limitNode = TreeBuilder.makeLiteral(new java.lang.Long(64))
     val castNode = TreeBuilder.makeFunction("castVARCHAR",
       Lists.newArrayList(child_node, limitNode), resultType)
-    val fromBaseNode = TreeBuilder.makeLiteral(10)
-    val toBaseNode = TreeBuilder.makeLiteral(2)
+    val fromBaseNode = TreeBuilder.makeLiteral(new java.lang.Integer(10))
+    val toBaseNode = TreeBuilder.makeLiteral(new java.lang.Integer(2))
     val funcNode = TreeBuilder.makeFunction("conv",
       Lists.newArrayList(castNode, fromBaseNode, toBaseNode), resultType)
     (funcNode, resultType)
@@ -1076,8 +1076,8 @@ object ColumnarUnaryOperator {
       new ColumnarLength(child)
     case hex: Hex =>
       new ColumnarHex(child)
-    case bin: Bin =>
-
+    case _: Bin =>
+      new ColumnarBin(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
