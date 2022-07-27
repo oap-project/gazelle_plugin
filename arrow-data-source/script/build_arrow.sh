@@ -64,6 +64,7 @@ mkdir -p $ARROW_SOURCE_DIR
 mkdir -p $ARROW_INSTALL_DIR
 git clone https://github.com/oap-project/arrow.git  --branch arrow-4.0.0-oap $ARROW_SOURCE_DIR
 pushd $ARROW_SOURCE_DIR
+git checkout 20cf06f82f0af38e35fc0eb2b28d02fd0248f4ad
 
 cmake ./cpp \
 	-DARROW_BUILD_STATIC=OFF -DARROW_BUILD_SHARED=ON -DARROW_COMPUTE=ON \
