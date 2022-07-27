@@ -101,6 +101,8 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   private final Iterator<ColumnarBatch> iterator;
   private final IteratorOptions options;
 
+  private ColumnarBatch cb = null;
+
   public SplitIterator(ShuffleSplitterJniWrapper jniWrapper,
                        Iterator<ColumnarBatch> iterator, IteratorOptions options)  {
     this.jniWrapper = jniWrapper;
@@ -109,7 +111,6 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   }
 
   private void nativeCreateInstance() {
-    ColumnarBatch cb = iterator.next();
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
       nativeSplitter = jniWrapper.make(
@@ -136,16 +137,22 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
 
   private native boolean nativeHasNext(long instance);
 
-  /**
-   * First to check, 
-   * @return
-   */
+  public boolean hasRecordBatch(){
+    while (iterator.hasNext()) {
+      cb = iterator.next();
+      if (cb.numRows() != 0 && cb.numCols() != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean hasNext() {
-
     // 1. Init the native splitter
     if (nativeSplitter == 0) {
-      if (!iterator.hasNext()) {
+      boolean flag = hasRecordBatch();
+      if (!flag) {
         return false;
       } else {
         nativeCreateInstance();
@@ -154,9 +161,13 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     // 2. Call native hasNext
     if (nativeHasNext(nativeSplitter)) {
       return true;
-    } else if (iterator.hasNext()) {
-      // 3. Split next rb
-      nativeCreateInstance();
+    } else {
+      boolean flag = hasRecordBatch();
+      if (!flag) {
+        return false;
+      } else {
+        nativeCreateInstance();
+      }
     }
     return nativeHasNext(nativeSplitter);
   }

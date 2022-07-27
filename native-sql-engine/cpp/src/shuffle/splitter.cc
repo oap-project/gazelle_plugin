@@ -425,10 +425,10 @@ std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect
   // collect buffers and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     if (partition_buffer_idx_base_[pid] > 0) {
-      #ifdef DEBUG
-        std::cout << "Collect buffers to output, cache the record batch, current partition id is " << pid << 
-          ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
-      #endif
+//      #ifdef DEBUG
+//        std::cout << "Collect buffers to output, cache the record batch, current partition id is " << pid <<
+//          ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
+//      #endif
       CacheRecordBatch(pid, true);
     }
   }
@@ -995,12 +995,12 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // update partition buffer base after split
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     partition_buffer_idx_base_[pid] += partition_id_cnt_[pid];
-    #ifdef DEBUG
-    if (partition_buffer_idx_base_[pid] > 0) {
-      std::cout << "Update partition buffer base after split, current partition id is " << pid <<
-        ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
-    }
-    #endif
+//    #ifdef DEBUG
+//    if (partition_buffer_idx_base_[pid] > 0) {
+//      std::cout << "Update partition buffer base after split, current partition id is " << pid <<
+//        ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
+//    }
+//    #endif
   }
 
   return arrow::Status::OK();
