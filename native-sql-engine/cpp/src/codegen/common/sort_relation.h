@@ -26,7 +26,7 @@
 #include "codegen/common/relation_column.h"
 #include "precompile/type_traits.h"
 
-using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
+using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndexS;
 using sparkcolumnarplugin::precompile::enable_if_number;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::FixedSizeBinaryArray;
@@ -50,10 +50,10 @@ class SortRelation {
     }
 
     if (!is_lazy_input_) {
-      int64_t buf_size = items_total_ * sizeof(ArrayItemIndex);
+      int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
       auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
       indices_buf_ = *std::move(maybe_buffer);
-      indices_begin_ = reinterpret_cast<ArrayItemIndex*>(indices_buf_->mutable_data());
+      indices_begin_ = reinterpret_cast<ArrayItemIndexS*>(indices_buf_->mutable_data());
       uint64_t idx = 0;
       int array_id = 0;
       for (auto size : size_array) {
@@ -155,7 +155,7 @@ class SortRelation {
     }
   }
 
-  ArrayItemIndex GetItemIndexWithShift(int shift) {
+  ArrayItemIndexS GetItemIndexWithShift(int shift) {
     // std::cout << "DEBUG -> GetItemIndexWithShift: " << shift << std::endl;
     if (!is_lazy_input_) {
       return indices_begin_[offset_ + shift];
@@ -167,7 +167,7 @@ class SortRelation {
     int32_t requested_batches_0;
 
     if (shift == last_shifted_) {
-      ArrayItemIndex s(shift_cache_aid_, shift_cache_rid_);
+      ArrayItemIndexS s(shift_cache_aid_, shift_cache_rid_);
       return s;
     } else if (last_shifted_ >= 0 && shift > last_shifted_) {
       requested_batches_0 = shift_cache_aid_;
@@ -182,7 +182,7 @@ class SortRelation {
     batch_remaining_0 = (batch_length_0 - 1) - offset_in_current_batch_0;
     if (shift_0 <= batch_remaining_0) {
       int64_t rid = offset_in_current_batch_0 + shift_0;
-      ArrayItemIndex s(requested_batches_0, rid);
+      ArrayItemIndexS s(requested_batches_0, rid);
       last_shifted_ = shift;
       shift_cache_aid_ = requested_batches_0;
       shift_cache_rid_ = rid;
@@ -194,7 +194,7 @@ class SortRelation {
       int64_t current_batch_length = lazy_in_->GetNumRowsOfBatch(batch_i);
       if (remaining <= current_batch_length) {
         int64_t rid = remaining - 1;
-        ArrayItemIndex s(batch_i, rid);
+        ArrayItemIndexS s(batch_i, rid);
         last_shifted_ = shift;
         shift_cache_aid_ = batch_i;
         shift_cache_rid_ = rid;
@@ -379,6 +379,6 @@ class SortRelation {
   int64_t rb_shift_cache_rid_ = -1;
 
   std::shared_ptr<arrow::Buffer> indices_buf_;
-  ArrayItemIndex* indices_begin_;
+  ArrayItemIndexS* indices_begin_;
   const uint64_t items_total_;
 };
