@@ -117,6 +117,25 @@ class ColumnarStringInstr(left: Expression, right: Expression, original: StringI
   }
 }
 
+class ColumnarPow(left: Expression, right: Expression, original: Pow) extends Pow(left, right)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("pow", Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -140,6 +159,8 @@ object ColumnarBinaryExpression {
          new ColumnarGetJsonObject(left, right, g)
       case instr: StringInstr =>
         new ColumnarStringInstr(left, right, instr)
+      case pow: Pow =>
+        new ColumnarPow(left, right, pow)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
