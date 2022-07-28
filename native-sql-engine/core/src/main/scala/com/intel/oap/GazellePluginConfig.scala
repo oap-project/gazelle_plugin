@@ -85,7 +85,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
 
   // enable or disable fallback shuffle manager
   val enableFallbackShuffle: Boolean = conf
-    .getConfString("spark.oap.sql.columnar.enableFallbackShuffle", "true")
+    .getConfString("spark.oap.sql.columnar.enableFallbackShuffle", "false")
     .equals("true") && enableCpu
 
   val enableArrowColumnarToRow: Boolean =
