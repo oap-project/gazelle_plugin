@@ -898,8 +898,8 @@ class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZe
 class ColumnarRand(child: Expression)
     extends Rand(child: Expression) with ColumnarExpression with Logging {
 
-  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
-  var offset: Integer = _;
+  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+  var offset: Integer = _
 
   buildCheck()
 
@@ -915,7 +915,7 @@ class ColumnarRand(child: Expression)
 
   // Aligned with Spark, seed + partitionIndex will be the actual seed.
   override def initializeInternal(partitionIndex: Int): Unit = {
-    offset = partitionIndex;
+    offset = partitionIndex
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
@@ -978,6 +978,28 @@ class ColumnarHex(child: Expression) extends Hex(child: Expression)
     val resultType = new ArrowType.Utf8()
     (TreeBuilder.makeFunction("hex", Lists.newArrayList(child_node),
       resultType), resultType)
+  }
+}
+
+class ColumnarBin(child: Expression) extends Bin(child: Expression)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val limitNode = TreeBuilder.makeLiteral(new java.lang.Long(64))
+    val castNode = TreeBuilder.makeFunction("castVARCHAR",
+      Lists.newArrayList(child_node, limitNode), resultType)
+    val fromBaseNode = TreeBuilder.makeLiteral(new java.lang.Integer(10))
+    val toBaseNode = TreeBuilder.makeLiteral(new java.lang.Integer(2))
+    val funcNode = TreeBuilder.makeFunction("conv",
+      Lists.newArrayList(castNode, fromBaseNode, toBaseNode), resultType)
+    (funcNode, resultType)
   }
 }
 
@@ -1054,6 +1076,8 @@ object ColumnarUnaryOperator {
       new ColumnarLength(child)
     case hex: Hex =>
       new ColumnarHex(child)
+    case _: Bin =>
+      new ColumnarBin(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
