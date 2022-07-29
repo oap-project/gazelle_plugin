@@ -236,7 +236,7 @@ arrow::Status Splitter::Init() {
 
   partition_cached_recordbatch_.resize(num_partitions_);
   partition_cached_recordbatch_size_.resize(num_partitions_);
-  partition_cached_arb_.resize(num_partitions_);
+  // partition_cached_arb_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
   raw_partition_lengths_.resize(num_partitions_);
   reducer_offset_offset_.resize(num_partitions_ + 1);
@@ -441,7 +441,7 @@ arrow::Status Splitter::Clear() {
   EVAL_START("close", options_.thread_id)
   next_batch = nullptr;
   for (auto pid = 0; pid < num_partitions_; ++pid) {
-    partition_cached_arb_[pid].clear();
+    // partition_cached_arb_[pid].clear();
     partition_cached_recordbatch_[pid].clear();
     partition_cached_recordbatch_size_[pid] = 0;
   }
