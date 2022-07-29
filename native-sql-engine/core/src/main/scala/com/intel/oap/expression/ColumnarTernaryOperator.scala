@@ -57,25 +57,15 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
       len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     // FIXME(): gandiva only support pos and len with int64 type
-    val long_pos_node = pos match {
-      case literal: ColumnarLiteral =>
-        TreeBuilder.makeLiteral(literal.value.asInstanceOf[Integer].longValue() : java.lang.Long)
-      case _ =>
-        TreeBuilder.makeFunction(
-          "castBIGINT", Lists.newArrayList(pos_node), new ArrowType.Int(64, true))
-    }
+    val long_pos_node = TreeBuilder.makeFunction(
+      "castBIGINT", Lists.newArrayList(pos_node), new ArrowType.Int(64, true))
 
-    val long_len_node = len match {
-      case literal: ColumnarLiteral =>
-        TreeBuilder.makeLiteral(literal.value.asInstanceOf[Integer].longValue() : java.lang.Long)
-      case _ =>
-        TreeBuilder.makeFunction(
-          "castBIGINT", Lists.newArrayList(len_node), new ArrowType.Int(64, true))
-    }
+    val long_len_node = TreeBuilder.makeFunction(
+      "castBIGINT", Lists.newArrayList(len_node), new ArrowType.Int(64, true))
 
     val resultType = new ArrowType.Utf8()
-    val funcNode =
-      TreeBuilder.makeFunction("substr", Lists.newArrayList(str_node, long_pos_node, long_len_node), resultType)
+    val funcNode = TreeBuilder.makeFunction(
+      "substr", Lists.newArrayList(str_node, long_pos_node, long_len_node), resultType)
     (funcNode, resultType)
   }
 }
