@@ -129,6 +129,8 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       }
       jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, false);
       jniWrapper.collect(nativeSplitter, cb.numRows());
+      ConverterUtils.releaseArrowRecordBatch(recordBatch);
+      cb.close();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
