@@ -1050,8 +1050,10 @@ Java_com_intel_oap_vectorized_SplitIterator_nativeNext(
     std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
     JniThrow(error_message);
   }
+  auto record_batch = splitter_->nextBatch();
   jbyteArray serialized_record_batch = JniGetOrThrow(
-    ToBytes(env, splitter_->nextBatch()), "Error deserializing message");
+    ToBytes(env, record_batch), "Error deserializing message");
+  record_batch = nullptr;
   return serialized_record_batch;
 
   JNI_METHOD_END(nullptr)
@@ -1319,39 +1321,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_collect(
     std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
     JniThrow(error_message);
   }
-  splitter_->Collect();
+  JniAssertOkOrThrow(splitter_->Collect(), "Native split: splitter collect failed");
   JNI_METHOD_END()
-}
-
-JNIEXPORT jobjectArray JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_cacheBuffer(
-    JNIEnv* env, jobject obj, jlong splitter_id,
-    jint num_rows) {
-    JNI_METHOD_START
-
-  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
-  if (!splitter_) {
-    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
-    JniThrow(error_message);
-  }
-  //const auto& partition_lengths = splitter->PartitionLengths();
-  jobjectArray serialized_record_batch_array =
-    env->NewObjectArray(50, byte_array_class, nullptr);
-  int index = 0;
-  for (auto pid = 0; pid < 50; ++pid) {
-    std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& rbArrays = splitter_->Collect();
-    for (auto& recordBatch : rbArrays[pid]) {
-      jbyteArray serialized_record_batch =
-                      JniGetOrThrow(ToBytes(env, recordBatch), "Error deserializing message");
-      env->SetObjectArrayElement(serialized_record_batch_array, index++,
-                               serialized_record_batch);
-      
-      // recordBatch = nullptr;
-    }
-  }
-
-  return serialized_record_batch_array;
-  JNI_METHOD_END(nullptr)
 }
 
 JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_clear(

@@ -154,11 +154,6 @@ public class ShuffleSplitterJniWrapper {
    */
   public native SplitResult stop(long splitterId) throws IOException;
 
-  public native byte[][] cacheBuffer(
-          long splitterId,
-          int numRows)
-          throws RuntimeException;
-
 
   /**
    * Clear the buffer. And stop processing splitting

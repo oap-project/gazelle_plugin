@@ -420,7 +420,7 @@ int32_t Splitter::nextPartitionId() {
 /**
 * Collect the rb after splitting.
 */
-std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect() {
+arrow::Status Splitter::Collect() {
   EVAL_START("close", options_.thread_id)
   // collect buffers and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
@@ -433,7 +433,7 @@ std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Splitter::Collect
     }
   }
   EVAL_END("close", options_.thread_id, options_.task_attempt_id)
-  return partition_cached_arb_;
+  return arrow::Status::OK();
 }
 
 
