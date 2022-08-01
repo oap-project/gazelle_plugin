@@ -185,6 +185,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list,
                                                     &function_kernel, false));
+      } else if (window_function_name == "lag_desc") {
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
+                                                    function_param_type_list,
+                                                    &function_kernel, true));
+      } else if (window_function_name == "lag_asc") {
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
+                                                    function_param_type_list,
+                                                    &function_kernel, false));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);

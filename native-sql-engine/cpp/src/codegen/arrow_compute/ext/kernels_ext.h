@@ -342,6 +342,24 @@ class WindowRankKernel : public KernalBase {
   bool is_row_number_;
 };
 
+// TODO: implement a make function, pass result type for constructing the object.
+class WindowLagKernel: public WindowRankKernel {
+ public:
+  WindowLagKernel(arrow::compute::ExecContext* ctx,
+                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                   int offset, const std::vector<ArrayList>& default_value,
+                   std::shared_ptr<arrow::DataType> return_type)
+
+  private:
+   // positive offset means lag to the above row from the current row with an offset.
+   // negative offset means lag to the below row from the current row with an offset. 
+   int offset_;
+   // TODO: use a scalar to keep default value?
+   std::vector<ArrayList> default_value_;
+   std::shared_ptr<arrow::DataType> return_type_;
+}
+
 /*class UniqueArrayKernel : public KernalBase {
  public:
   static arrow::Status Make(arrow::compute::ExecContext* ctx,

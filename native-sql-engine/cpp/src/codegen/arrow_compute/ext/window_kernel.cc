@@ -479,6 +479,283 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
 }
 
 static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
+WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
+                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                   int offset, const std::vector<ArrayList>& default_value,
+                   std::shared_ptr<arrow::DataType> return_type) {
+  // The type_list size should be fixed, i.e. 3. The first is the input 
+  super(ctx, type_list, sorter, desc);
+  this.offset_ = offset;
+  this.default_value_ = default_value;
+  this.return_type_ = return_type;
+}
+
+arrow::Status WindowLagKernel::Finish(ArrayList* out) {
+  std::vector<ArrayList> values;
+  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
+#ifdef DEBUG
+  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
+#endif
+#ifdef DEBUG
+  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
+            << std::endl;
+#endif
+  for (auto batch : input_cache_) {
+    ArrayList values_batch;
+    for (int i = 0; i < type_list_.size() + 1; i++) {
+      auto column_slice = batch.at(i);
+      if (i == type_list_.size()) {
+        // we are at the column of partition ids
+        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
+        continue;
+      }
+      values_batch.push_back(column_slice);
+    }
+    values.push_back(values_batch);
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
+#endif
+  int32_t max_group_id = 0;
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      if (slice->GetView(j) > max_group_id) {
+        max_group_id = slice->GetView(j);
+      }
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  // initialize partitions to be sorted
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> partitions_to_sort;
+  for (int i = 0; i <= max_group_id; i++) {
+    partitions_to_sort.emplace_back();
+  }
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Creating indexed array based on group IDs... "
+            << std::endl;
+#endif
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      uint64_t partition_id = slice->GetView(j);
+      partitions_to_sort.at(partition_id)
+          .push_back(std::make_shared<ArrayItemIndex>(i, j));
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> sorted_partitions;
+  RETURN_NOT_OK(SortToIndicesPrepare(values));
+  for (int i = 0; i <= max_group_id; i++) {
+    std::vector<std::shared_ptr<ArrayItemIndex>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition;
+#ifdef DEBUG
+    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
+#endif
+    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+    sorted_partitions.push_back(std::move(sorted_partition));
+  }
+
+  ////// The above is as same as Rank's.///////////////
+
+  int32_t** lag_array = new int32_t*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(lag_array + i) = new int32_t[group_ids.at(i)->length()];
+  }
+
+/////////////// To be deleted begin /////////////////////
+  for (int i = 0; i <= max_group_id; i++) {
+#ifdef DEBUG
+    std::cout << "[window kernel] Generating rank result on a single partition... "
+              << std::endl;
+#endif
+    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition =
+        sorted_partitions.at(i);
+
+
+    // int assumed_rank = 0;
+    for (int j = 0; j < sorted_partition.size(); j++) {
+      ++assumed_rank;  // rank value starts from 1
+      std::shared_ptr<ArrayItemIndex> index = sorted_partition.at(j);
+      if (j == 0) {
+        // index->array_id is i, index->id is j?
+        lag_array[index->array_id][index->id] = 1;  // rank value starts from 1
+        continue;
+      }
+      // TODO: have a function to set lag_array with the value of a given offset row or default value.
+
+
+      std::shared_ptr<ArrayItemIndex> last_index = sorted_partition.at(j - 1);
+      bool same = true;
+      for (int column_id = 0; column_id < type_list_.size(); column_id++) {
+        bool s = false;
+        std::shared_ptr<arrow::DataType> type = type_list_.at(column_id);
+        switch (type->id()) {
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                               \
+  case InType::type_id: {                                                       \
+    RETURN_NOT_OK(                                                              \
+        AreTheSameValue<ARRAY_TYPE>(values, column_id, index, last_index, &s)); \
+  } break;
+          PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
+#undef PROCESS
+          default: {
+            std::cout << "WindowRankKernel: type not supported: " << type->ToString()
+                      << std::endl;  // todo use arrow::Status
+          } break;
+        }
+        if (!s) {
+          same = false;
+          break;
+        }
+      }
+      if (same && rank_array[index->array_id] && rank_array[last_index->array_id]) {
+        rank_array[index->array_id][index->id] =
+            rank_array[last_index->array_id][last_index->id];
+        continue;
+      }
+      rank_array[index->array_id][index->id] = assumed_rank;
+    }
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+  }
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Building overall associated rank results... "
+            << std::endl;
+#endif
+  for (int i = 0; i < input_cache_.size(); i++) {
+    auto batch = input_cache_.at(i);
+    auto group_id_column_slice = batch.at(type_list_.size());
+    int slice_length = group_id_column_slice->length();
+    std::shared_ptr<arrow::Int32Builder> rank_builder =
+        std::make_shared<arrow::Int32Builder>(ctx_->memory_pool());
+    for (int j = 0; j < slice_length; j++) {
+      RETURN_NOT_OK(rank_builder->Append(rank_array[i][j]));
+    }
+    std::shared_ptr<arrow::Int32Array> rank_slice;
+    RETURN_NOT_OK(rank_builder->Finish(&rank_slice));
+    out->push_back(rank_slice);
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete[] * (rank_array + i);
+  }
+  delete[] rank_array;
+///////// to be deleted end ////////////////////
+
+
+
+  std::shared_ptr<arrow::DataType> value_type = result_type_;
+  switch (value_type->id()) {
+#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                                     \
+  case VALUE_TYPE::type_id: {                                                                             \
+    using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                                          \
+    RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>(out, value_type))); \
+  } break;
+
+    PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
+#undef PROCESS
+    default:
+      return arrow::Status::Invalid("window function: unsupported input type: " +
+                                    value_type->name());
+  
+  return arrow::Status::OK();
+}
+
+// TOOD: consider multiple columns or type_list_.
+template <typename DataType, typename CType, typename BuilderType, typename ArrayType>
+static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values, int column,
+ std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids,
+ std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> &sorted_partitions, ArrayList* out) {
+  CType** lag_array = new CType*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(lag_array + i) = new CType[group_ids.at(i)->length()];
+  }
+
+  // Used to track whether a result is null.
+  // TODO: only create it when necessary.
+  bool** validity = new bool*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(validity + i) = new bool[group_ids.at(i)->length()];
+  }
+
+  for (int i = 0; i <= max_group_id; i++) {
+    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition = sorted_partitions.at(i);
+
+    for (int j = 0; j < sorted_partition.size(); j++) {
+      std::shared_ptr<ArrayItemIndex> index = sorted_partition.at(j);
+      int res_index = j - offset_;
+      if (res_index < 0 || res_index > sorted_partition.size() - 1) {
+        // default value.
+        if (default is not null) {
+          lag_array[index->array_id][index->id] = 
+          validity[i][j] = true;
+        } else {
+          validity[i][j] = false;
+        }
+      } else {
+        auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(index->array_id).at(column));
+        lag_array[index->array_id][index->id] = typed_array->GetView(index->id);
+        validity[i][j] = true;
+      }
+    }
+  }
+  
+  for (int i = 0; i < input_cache_.size(); i++) {
+    auto batch = input_cache_.at(i);
+    auto group_id_column_slice = batch.at(type_list_.size());
+    int slice_length = group_id_column_slice->length();
+    std::shared_ptr<BuilderType> lag_builder = std::make_shared<BuilderType>(ctx_->memory_pool());
+    for (int j = 0; j < slice_length; j++) {
+      if (validity[i][j]) {
+        RETURN_NOT_OK(lag_builder->Append(lag_array[i][j]));
+      } else {
+        RETURN_NOT_OK(lag_builder->AppendNull();
+      }
+    }
+    std::shared_ptr<ArrayType> lag_slice;
+    RETURN_NOT_OK(lag_builder->Finish(&lag_slice));
+    out->push_back(lag_slice);
+  }
+
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete[] * (lag_array + i);
+  }
+  delete[] lag_array;
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete[] * (validity + i);
+  }
+  delete[] validity;
+ }
+
+
+
+// TODO: use reference to avoid unnecessary copy?
+static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndex>> in,
                                    std::shared_ptr<arrow::Array>* out) {
   arrow::UInt64Builder builder;
   for (const auto& each : in) {

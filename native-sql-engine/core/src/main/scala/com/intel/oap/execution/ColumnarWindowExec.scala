@@ -217,7 +217,26 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case None => "row_number_asc"
                 }
               case _: Lag =>
-                "lag"
+                val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                  (desc, s) =>
+                    val currentDesc = s.direction match {
+                      case Ascending => false
+                      case Descending => true
+                      case _ => throw new IllegalStateException
+                    }
+                    if (desc.isEmpty) {
+                      Some(currentDesc)
+                    } else if (currentDesc == desc.get) {
+                      Some(currentDesc)
+                    } else {
+                      throw new UnsupportedOperationException("lag: clashed rank order found")
+                    }
+                }
+                desc match {
+                  case Some(true) => "lag_desc"
+                  case Some(false) => "lag_asc"
+                  case None => "lag_asc"
+                }
               case f => throw new UnsupportedOperationException("unsupported window function: " + f)
             }
             if (name.startsWith("row_number")) {
