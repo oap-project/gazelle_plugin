@@ -1017,6 +1017,7 @@ class ColumnarMd5(child: Expression) extends Md5(child) with ColumnarExpression
     val funcNode = TreeBuilder.makeFunction("md5",
       Lists.newArrayList(childNode), resultType)
     (funcNode, resultType)
+  }
 }
 
 object ColumnarUnaryOperator {
