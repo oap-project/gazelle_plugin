@@ -440,8 +440,8 @@ arrow::Status Splitter::Clear() {
   next_batch = nullptr;
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     // partition_cached_arb_[pid].clear();
-    partition_cached_recordbatch_[pid].clear();
-    partition_cached_recordbatch_size_[pid] = 0;
+//    partition_cached_recordbatch_[pid].clear();
+//    partition_cached_recordbatch_size_[pid] = 0;
     partition_lengths_[pid] = 0;
     raw_partition_lengths_[pid] = 0;
   }
