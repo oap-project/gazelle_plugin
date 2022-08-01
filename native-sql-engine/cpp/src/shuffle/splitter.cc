@@ -295,6 +295,7 @@ arrow::Status Splitter::Init() {
   }
 
   if (!options_.data_file.empty()) {
+    std::cerr << "Error Entrance for fallback shuffle." << std::endl;
     partition_writer_.resize(num_partitions_);
 
     ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
@@ -407,7 +408,8 @@ std::shared_ptr<arrow::RecordBatch> Splitter::nextBatch() {
     output_rb_.pop();
   }
 //  #ifndef DEBUG
-//    std::cout << "Output partitionid is: " << next_partition_id <<
+//    std::cout << "remaining rb is " << output_rb_.size() <<
+//      ", Output partitionid is: " << next_partition_id <<
 //      ", output_batch_rows:  " << next_batch->num_rows() << std::endl;
 //  #endif
   return next_batch;
@@ -425,11 +427,7 @@ arrow::Status Splitter::Collect() {
   // collect buffers and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     if (partition_buffer_idx_base_[pid] > 0) {
-//      #ifdef DEBUG
-//        std::cout << "Collect buffers to output, cache the record batch, current partition id is " << pid <<
-//          ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
-//      #endif
-      CacheRecordBatch(pid, true);
+      RETURN_NOT_OK(CacheRecordBatch(pid, true));
     }
   }
   EVAL_END("close", options_.thread_id, options_.task_attempt_id)
@@ -444,6 +442,8 @@ arrow::Status Splitter::Clear() {
     // partition_cached_arb_[pid].clear();
     partition_cached_recordbatch_[pid].clear();
     partition_cached_recordbatch_size_[pid] = 0;
+    partition_lengths_[pid] = 0;
+    raw_partition_lengths_[pid] = 0;
   }
   this -> combine_buffer_.reset();
   this -> schema_payload_.reset();
@@ -642,28 +642,32 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     int64_t raw_size = batch_nbytes(batch);
 
     raw_partition_lengths_[partition_id] += raw_size;
-    auto payload = std::make_shared<arrow::ipc::IpcPayload>();
+    if (!options_.data_file.empty()) {
+      std::cerr << "Error Entrance for fallback shuffle." << std::endl;
+      auto payload = std::make_shared<arrow::ipc::IpcPayload>();
 #ifndef SKIPCOMPRESS
-    if (num_rows <= options_.batch_compress_threshold) {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, tiny_bach_write_options_, payload.get()));
-    } else {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, options_.ipc_write_options, payload.get()));
-    }
+      if (num_rows <= options_.batch_compress_threshold) {
+        TIME_NANO_OR_RAISE(total_compress_time_,
+                          arrow::ipc::GetRecordBatchPayload(
+                              *batch, tiny_bach_write_options_, payload.get()));
+      } else {
+        TIME_NANO_OR_RAISE(total_compress_time_,
+                          arrow::ipc::GetRecordBatchPayload(
+                              *batch, options_.ipc_write_options, payload.get()));
+      }
 #else
-    // for test reason
-    TIME_NANO_OR_RAISE(total_compress_time_,
+      // for test reason
+      TIME_NANO_OR_RAISE(total_compress_time_,
                        arrow::ipc::GetRecordBatchPayload(*batch, tiny_bach_write_options_,
                                                          payload.get()));
 #endif
+      partition_cached_recordbatch_size_[partition_id] += payload->body_length;
+      partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
+    }
+
     std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>> part_batch = std::make_pair(partition_id, batch);
     output_rb_.emplace(part_batch);
     // partition_cached_arb_[partition_id].push_back(batch);
-    partition_cached_recordbatch_size_[partition_id] += payload->body_length;
-    partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
   }
   return arrow::Status::OK();
