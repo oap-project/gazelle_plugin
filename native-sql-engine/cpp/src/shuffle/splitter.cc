@@ -295,7 +295,6 @@ arrow::Status Splitter::Init() {
   }
 
   if (!options_.data_file.empty()) {
-    std::cerr << "Error Entrance for fallback shuffle." << std::endl;
     partition_writer_.resize(num_partitions_);
 
     ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
@@ -330,7 +329,6 @@ arrow::Status Splitter::Init() {
   }
 
   // Allocate first buffer for split reducer
-  std::cerr<< "Init entrance: combine_buffer_." << std::endl;
   ARROW_ASSIGN_OR_RAISE(combine_buffer_,
                         arrow::AllocateResizableBuffer(0, options_.memory_pool));
   combine_buffer_->Resize(0, /*shrink_to_fit =*/false);
@@ -343,7 +341,6 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
   // make size 64byte aligned
   auto reminder = size & 0x3f;
   size += (64 - reminder) & ((reminder == 0) - 1);
-  std::cerr<< "Init entrance: AllocateBufferFromPool." << std::endl;
   if (size > SPLIT_BUFFER_SIZE) {
     ARROW_ASSIGN_OR_RAISE(buffer,
                           arrow::AllocateResizableBuffer(size, options_.memory_pool));
@@ -646,7 +643,6 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
 
     raw_partition_lengths_[partition_id] += raw_size;
     if (!options_.data_file.empty()) {
-      std::cerr << "Error Entrance for fallback shuffle." << std::endl;
       auto payload = std::make_shared<arrow::ipc::IpcPayload>();
 #ifndef SKIPCOMPRESS
       if (num_rows <= options_.batch_compress_threshold) {
@@ -701,7 +697,6 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         std::shared_ptr<arrow::Buffer> offset_buffer;
         std::shared_ptr<arrow::Buffer> validity_buffer = nullptr;
         auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size + 1024;
-        std::cerr<< "Init entrance: value_buffer." << std::endl;
         ARROW_ASSIGN_OR_RAISE(
             std::shared_ptr<arrow::Buffer> value_buffer,
             arrow::AllocateResizableBuffer(value_buf_size, options_.memory_pool));
@@ -736,12 +731,8 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       case arrow::LargeListType::type_id:
       case arrow::ListType::type_id: {
         std::unique_ptr<arrow::ArrayBuilder> array_builder;
-        std::cerr<< "Init entrance: array_builder." << std::endl;
         RETURN_NOT_OK(
             MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
-        if (array_builder == nullptr) {
-          std::cerr<< "array_builder is null." << std::endl;
-        }
         assert(array_builder != nullptr);
         RETURN_NOT_OK(array_builder->Reserve(new_size));
         partition_list_builders_[list_idx][partition_id] = std::move(array_builder);
@@ -1522,7 +1513,6 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
   std::fill(std::begin(partition_id_cnt_), std::end(partition_id_cnt_), 0);
 
   arrow::ArrayVector outputs;
-  std::cerr<< "Init entrance: outputs." << std::endl;
   TIME_NANO_OR_RAISE(total_compute_pid_time_,
                      projector_->Evaluate(rb, arrow::default_memory_pool(), &outputs));
   if (outputs.size() != 1) {

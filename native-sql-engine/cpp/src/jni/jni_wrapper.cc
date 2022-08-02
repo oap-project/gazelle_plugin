@@ -1100,58 +1100,6 @@ Java_com_intel_oap_vectorized_SplitIterator_nativeNextPartitionId(
   JNI_METHOD_END(-1L)
 }
 
-
-class MyMemoryPool : public arrow::MemoryPool {
- public:
-  explicit MyMemoryPool(int64_t capacity) : capacity_(capacity) {}
-
-  Status Allocate(int64_t size, uint8_t** out) override {
-    if (bytes_allocated() + size > capacity_) {
-      return Status::OutOfMemory("malloc of size ", size, " failed");
-    }
-    RETURN_NOT_OK(pool_->Allocate(size, out));
-    stats_.UpdateAllocatedBytes(size);
-    std::cout << "Allocate: size = " << size << " addr = " << std::hex <<
-    (uint64_t)*out << std::dec << std::endl;
-    print_trace();
-    return arrow::Status::OK();
-  }
-
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
-    if (new_size > capacity_) {
-      return Status::OutOfMemory("malloc of size ", new_size, " failed");
-    }
-    auto old_ptr = *ptr;
-    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
-    stats_.UpdateAllocatedBytes(new_size - old_size);
-    std::cout << "Reallocate: old_size = " << old_size << " old_ptr = " << std::hex <<
-    (uint64_t)old_ptr << std::dec << " new_size = " << new_size << " addr = " <<
-    std::hex << (uint64_t)*ptr << std::dec << std::endl;
-    print_trace();
-    return arrow::Status::OK();
-  }
-
-  void Free(uint8_t* buffer, int64_t size) override {
-    pool_->Free(buffer, size);
-    stats_.UpdateAllocatedBytes(-size);
-    std::cout << "Free: size = " << size << " addr = " << std::hex << (uint64_t)buffer
-    << std::dec << std::endl;
-    print_trace();
-  }
-
-  int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
-
-  int64_t max_memory() const override { return pool_->max_memory(); }
-
-  std::string backend_name() const override { return pool_->backend_name(); }
-
- private:
-  MemoryPool* pool_ = arrow::default_memory_pool();
-  int64_t capacity_;
-  arrow::internal::MemoryPoolStats stats_;
-};
-
-
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_initSplit(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
@@ -1182,10 +1130,6 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_initSplit(
 //    JniThrow("Memory pool does not exist or has been closed");
 //  }
 //  splitOptions.memory_pool = pool;
-
-   std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(36 * 1024 * 1024 * 1024);
-   std::cerr<< "Init entrance: MyMemoryPool." << std::endl;
-   splitOptions.memory_pool = pool.get();
 
   std::shared_ptr<arrow::Schema> schema;
   // ValueOrDie in MakeSchema
