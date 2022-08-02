@@ -533,6 +533,7 @@ object ConverterUtils extends Logging {
     case d: DateType =>
     case d: DecimalType =>
     case d: TimestampType =>
+    case _: BinaryType =>
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }

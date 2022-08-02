@@ -577,8 +577,15 @@ class ColumnarCast(
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castTIMESTAMP")
       }
+    } else if (dataType == BinaryType) {
+      val supported = List(StringType)
+      if (supported.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(s"${child.dataType}" +
+          s" is not supported in casting to binary.")
+      }
     } else {
-      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
+      throw new UnsupportedOperationException(s"not currently supported" +
+        s" data type in cast: ${dataType}.")
     }
   }
 
@@ -788,6 +795,15 @@ class ColumnarCast(
             intermediateType)
       }
       ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
+    } else if (dataType == BinaryType) {
+      val funcNode = child.dataType match {
+        case _: StringType =>
+          TreeBuilder.makeFunction("binary_string",
+            Lists.newArrayList(child_node0), new ArrowType.Binary())
+        case _ =>
+          throw new UnsupportedOperationException (s"not currently supported: ${dataType}.")
+      }
+      (funcNode, new ArrowType.Binary())
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }
