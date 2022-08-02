@@ -370,12 +370,23 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(u.child)
       case ss: Substring =>
         getAttrFromExpr(ss.children(0))
+      case strTrim: StringTrim =>
+        getAttrFromExpr(strTrim.children(0))
       case and: And =>
         getAttrFromExpr(and.children(0))
       case caseWhen: CaseWhen =>
         getAttrFromExpr(caseWhen.children(0))
       case greaterThanOrEqual: GreaterThanOrEqual =>
         getAttrFromExpr(greaterThanOrEqual.children(0))
+      case conv: Conv =>
+        getAttrFromExpr(conv.children(0))
+      case lpad: StringLPad =>
+        getAttrFromExpr(lpad.children(0))
+      case unaryExpr: UnaryExpression =>
+        getAttrFromExpr(unaryExpr.child)
+      // For leaf expression like CurrentTimestamp, CurrentDate, Now.
+      case leafExpr: LeafExpression =>
+        new AttributeReference(leafExpr.prettyName, leafExpr.dataType, leafExpr.nullable)()
       case other =>
         throw new UnsupportedOperationException(
           s"makeStructField is unable to parse from $other (${other.getClass}).")

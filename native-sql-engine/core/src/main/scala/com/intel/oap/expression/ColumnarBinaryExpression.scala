@@ -117,6 +117,45 @@ class ColumnarStringInstr(left: Expression, right: Expression, original: StringI
   }
 }
 
+class ColumnarPow(left: Expression, right: Expression, original: Pow) extends Pow(left, right)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("pow", Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarFindInSet(left: Expression, right: Expression, original: Expression)
+  extends FindInSet(left: Expression, right: Expression) with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Int(32, true)
+    val funcNode = TreeBuilder.makeFunction("find_in_set",
+      Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -135,11 +174,14 @@ object ColumnarBinaryExpression {
         new ColumnarFromUnixTime(left, right)
       case d: DateSub =>
         new ColumnarDateSub(left, right)
-      //TODO(): the current impl has poor perf
-       case g: GetJsonObject =>
+      case g: GetJsonObject =>
          new ColumnarGetJsonObject(left, right, g)
       case instr: StringInstr =>
         new ColumnarStringInstr(left, right, instr)
+      case pow: Pow =>
+        new ColumnarPow(left, right, pow)
+      case f: FindInSet =>
+        new ColumnarFindInSet(left, right, f)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

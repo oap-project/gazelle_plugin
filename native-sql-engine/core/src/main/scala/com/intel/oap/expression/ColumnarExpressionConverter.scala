@@ -287,9 +287,11 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             ss.pos,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             ss.len,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case st: StringTranslate =>
