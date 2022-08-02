@@ -985,8 +985,8 @@ class HashAggregateKernel::Impl {
               [](int) {}, &(indices[i]));
         }
       } else {
-        for (int i = 0; i < length; i++) {
-          if (typed_key_in->null_count() > 0) {
+        if (typed_key_in->null_count() > 0) {
+          for (int i = 0; i < length; i++) {
             aggr_key = typed_key_in->GetView(i);
 
             if (typed_key_in->IsNull(i)) {
@@ -995,7 +995,9 @@ class HashAggregateKernel::Impl {
               aggr_hash_table_->GetOrInsert(
                   aggr_key, [](int) {}, [](int) {}, &(indices[i]));
             }
-          } else {
+          }
+        } else {
+          for (int i = 0; i < length; i++) {
             aggr_key = typed_key_in->GetView(i);
 
             aggr_hash_table_->GetOrInsert(
