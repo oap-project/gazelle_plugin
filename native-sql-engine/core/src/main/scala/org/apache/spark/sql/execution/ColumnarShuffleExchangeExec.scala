@@ -496,7 +496,7 @@ object ColumnarShuffleExchangeExec extends Logging {
             isOrderSensitive = isOrderSensitive)
       }
     } else {
-      SparkEnv.get.conf.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.SortShuffleManager")
+      //SparkEnv.get.conf.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.SortShuffleManager")
       val options = new IteratorOptions
       options.setExpr("")
       options.setOffheapPerTask(offheapPerTask)

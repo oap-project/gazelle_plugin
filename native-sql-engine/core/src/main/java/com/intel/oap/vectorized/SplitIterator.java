@@ -113,6 +113,10 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   private void nativeCreateInstance() {
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
+      if (nativeSplitter != 0) {
+        SplitResult splitResult = jniWrapper.clear(nativeSplitter);
+        splitResult = null;
+      }
       nativeSplitter = jniWrapper.make(
               options.getNativePartitioning(),
               options.getOffheapPerTask(),
@@ -181,6 +185,7 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     byte[] serializedRecordBatch = nativeNext(nativeSplitter);
     ColumnarBatch cb = ConverterUtils.createRecordBatch(serializedRecordBatch,
             options.getNativePartitioning().getSchema());
+    serializedRecordBatch = null;
     return cb;
   }
 
@@ -193,7 +198,11 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   @Override
   protected void finalize() throws Throwable {
     try {
-      jniWrapper.clear(nativeSplitter);
+      if (nativeSplitter != 0) {
+        SplitResult splitResult = jniWrapper.clear(nativeSplitter);
+        splitResult = null;
+        jniWrapper.close(nativeSplitter);
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
