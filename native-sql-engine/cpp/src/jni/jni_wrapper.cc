@@ -50,34 +50,6 @@
 #include "shuffle/splitter.h"
 #include "utils/exception.h"
 
-
-#include <arrow/io/interfaces.h>
-#include <arrow/memory_pool.h>
-#include <arrow/record_batch.h>
-//#include <arrow/testing/gtest_util.h>
-#include <arrow/type.h>
-#include <arrow/util/io_util.h>
-//#include <gtest/gtest.h>
-#include <execinfo.h>
-#include <parquet/arrow/reader.h>
-#include <parquet/file_reader.h>
-#include <sched.h>
-#include <sys/mman.h>
-
-#include <chrono>
-
-void print_trace(void) {
-  char** strings;
-  size_t i, size;
-  enum Constexpr { MAX_SIZE = 1024 };
-  void* array[MAX_SIZE];
-  size = backtrace(array, MAX_SIZE);
-  strings = backtrace_symbols(array, size);
-  for (i = 0; i < size; i++) printf("    %s\n", strings[i]);
-  puts("");
-  free(strings);
-}
-
 namespace {
 
 #define JNI_METHOD_START try {
