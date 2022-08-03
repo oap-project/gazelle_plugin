@@ -975,29 +975,29 @@ class HashAggregateKernel::Impl {
         for (int i = 0; i < length; i++) {
           aggr_key_unsafe_row->reset();
 
-          for (auto payload_arr : payloads) {
+          for (const auto& payload_arr : payloads) {
             payload_arr->Append(i, &aggr_key_unsafe_row);
           }
-          aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
-                                              aggr_key_unsafe_row->cursor);
+
           // FIXME(): all keys are null?
           aggr_hash_table_->GetOrInsert(
-              aggr_key, [](int) {}, [](int) {}, &(indices[i]));
+              aggr_key_unsafe_row->data, aggr_key_unsafe_row->cursor, [](int) {},
+              [](int) {}, &(indices[i]));
         }
       } else {
-        for (int i = 0; i < length; i++) {
-          if (typed_key_in->null_count() > 0) {
+        if (typed_key_in->null_count() > 0) {
+          for (int i = 0; i < length; i++) {
             aggr_key = typed_key_in->GetView(i);
-            auto aggr_key_validity =
-                typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
 
-            if (!aggr_key_validity) {
+            if (typed_key_in->IsNull(i)) {
               indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
             } else {
               aggr_hash_table_->GetOrInsert(
                   aggr_key, [](int) {}, [](int) {}, &(indices[i]));
             }
-          } else {
+          }
+        } else {
+          for (int i = 0; i < length; i++) {
             aggr_key = typed_key_in->GetView(i);
 
             aggr_hash_table_->GetOrInsert(
@@ -1037,7 +1037,6 @@ class HashAggregateKernel::Impl {
 
     arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
       uint64_t out_length = 0;
-      int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
         action->Finish(offset_, batch_size_, &outputs);

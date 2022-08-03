@@ -529,7 +529,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         precompile/builder.cc
         precompile/array.cc
         precompile/type.cc
-        precompile/sort.cc
         precompile/hash_arrays_kernel.cc
         precompile/unsafe_array.cc
         precompile/gandiva_projector.cc

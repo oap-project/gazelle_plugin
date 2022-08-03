@@ -120,7 +120,7 @@ TEST_F(JniUtilsTest, TestRecordBatchConcatenate) {
   // int num_columns = batches.at(0)->num_columns();
   int num_columns = schema->num_fields();
   arrow::ArrayVector arrayColumns;
-  for (jint i = 0; i < num_columns; i++) {
+  for (int i = 0; i < num_columns; i++) {
     arrow::ArrayVector arrvec;
     for (const auto& batch : batches) {
       arrvec.push_back(batch->column(i));
