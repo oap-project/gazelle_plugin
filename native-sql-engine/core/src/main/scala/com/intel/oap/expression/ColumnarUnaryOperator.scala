@@ -973,7 +973,7 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
         (TreeBuilder.makeFunction("char_length", Lists.newArrayList(child_node),
           resultType), resultType)
       case BinaryType =>
-        (TreeBuilder.makeFunction("length", Lists.newArrayList(child_node),
+        (TreeBuilder.makeFunction("lengthUtf8", Lists.newArrayList(child_node),
           resultType), resultType)
       case _ =>
         throw new RuntimeException("Fix me. Either StringType or BinaryType is allowed!")
