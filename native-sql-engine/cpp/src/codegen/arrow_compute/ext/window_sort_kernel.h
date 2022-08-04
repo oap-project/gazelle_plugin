@@ -253,8 +253,8 @@ class TypedSorterImpl : public CodeGenBase {
 
     for (int i = 0; i < selected->length(); i++) {
       uint64_t encoded = selected->GetView(i);
-      uint16_t array_id = (encoded & 0xFFFF0000U) >> 16U;
-      uint16_t id = encoded & 0xFFFFU;
+      uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
+      uint32_t id = encoded & 0xFFFFFFFFU;
       (indices_begin + indices_i)->array_id = array_id;
       (indices_begin + indices_i)->id = id;
       indices_i++;
@@ -262,7 +262,7 @@ class TypedSorterImpl : public CodeGenBase {
     )" + sort_func_str +
            R"(
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
-    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
+    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int64_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total, indices_buf, out));
     return arrow::Status::OK();
   }
@@ -273,7 +273,7 @@ class TypedSorterImpl : public CodeGenBase {
     arrow::UInt64Builder builder;
     auto *index = (ArrayItemIndexS *) indices_out->value_data();
     for (int i = 0; i < indices_out->length(); i++) {
-      uint64_t encoded = ((uint64_t) (index->array_id) << 16U) ^ ((uint64_t) (index->id));
+      uint64_t encoded = ((uint64_t) (index->array_id) << 32U) ^ ((uint64_t) (index->id));
       RETURN_NOT_OK(builder.Append(encoded));
       index++;
     }
@@ -538,8 +538,8 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
         std::dynamic_pointer_cast<arrow::UInt64Array>(in);
     for (int i = 0; i < selected->length(); i++) {
       uint64_t encoded = selected->GetView(i);
-      uint16_t array_id = (encoded & 0xFFFF0000U) >> 16U;
-      uint16_t id = encoded & 0xFFFFU;
+      uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
+      uint32_t id = encoded & 0xFFFFFFFFU;
       auto key_clip = cached_key_.at(array_id);
       if (key_clip->IsNull(id)) {
         nulls_total++;
@@ -561,8 +561,8 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     // we should also support desc and asc here
     for (int i = 0; i < selected->length(); i++) {
       uint64_t encoded = selected->GetView(i);
-      uint16_t array_id = (encoded & 0xFFFF0000U) >> 16U;
-      uint16_t id = encoded & 0xFFFFU;
+      uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
+      uint32_t id = encoded & 0xFFFFFFFFU;
       auto key_clip = cached_key_.at(array_id);
       if (nulls_first_) {
         if (!key_clip->IsNull(id)) {
@@ -621,7 +621,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     arrow::UInt64Builder builder;
     auto* index = (ArrayItemIndexS*)indices_out->value_data();
     for (int i = 0; i < indices_out->length(); i++) {
-      uint64_t encoded = ((uint64_t)(index->array_id) << 16U) ^ ((uint64_t)(index->id));
+      uint64_t encoded = ((uint64_t)(index->array_id) << 32U) ^ ((uint64_t)(index->id));
       RETURN_NOT_OK(builder.Append(encoded));
       index++;
     }
