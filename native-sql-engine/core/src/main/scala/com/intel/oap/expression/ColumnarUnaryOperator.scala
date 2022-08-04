@@ -1036,6 +1036,23 @@ class ColumnarMd5(child: Expression) extends Md5(child) with ColumnarExpression
   }
 }
 
+class ColumnarSha1(child: Expression) extends Sha1(child) with ColumnarExpression
+  with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (childNode, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("sha1",
+      Lists.newArrayList(childNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -1113,6 +1130,8 @@ object ColumnarUnaryOperator {
       new ColumnarBin(child)
     case _: Md5 =>
       new ColumnarMd5(child)
+    case _: Sha1 =>
+      new ColumnarSha1(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
