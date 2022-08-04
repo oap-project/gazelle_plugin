@@ -43,7 +43,7 @@ class ColumnarBoundReference(ordinal: Int, dataType: DataType, nullable: Boolean
       dataType match {
         case at: ArrayType =>
         case _ =>
-          ConverterUtils.checkIfTypeSupported(dataType)
+          ConverterUtils.checkIfTypeSupportedInProjection(dataType)
       }
     } catch {
       case e: UnsupportedOperationException =>

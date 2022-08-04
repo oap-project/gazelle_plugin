@@ -71,7 +71,7 @@ case class ColumnarConditionProjectExec(
     // check datatype
     originalInputAttributes.toList.foreach(attr => {
       try {
-        ConverterUtils.checkIfTypeSupported(attr.dataType)
+        ConverterUtils.checkIfTypeSupportedInProjection(attr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -81,7 +81,7 @@ case class ColumnarConditionProjectExec(
     // check expr
     if (condExpr != null) {
       try {
-        ConverterUtils.checkIfTypeSupported(condExpr.dataType)
+        ConverterUtils.checkIfTypeSupportedInProjection(condExpr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -92,7 +92,7 @@ case class ColumnarConditionProjectExec(
     if (projectList != null) {
       for (expr <- projectList) {
         try {
-          ConverterUtils.checkIfTypeSupported(expr.dataType)
+          ConverterUtils.checkIfTypeSupportedInProjection(expr.dataType)
         } catch {
           case e : UnsupportedOperationException =>
             throw new UnsupportedOperationException(

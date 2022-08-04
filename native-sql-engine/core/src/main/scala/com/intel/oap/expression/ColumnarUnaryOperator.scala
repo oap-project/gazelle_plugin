@@ -498,7 +498,7 @@ class ColumnarCast(
   def buildCheck(): Unit = {
     if (!datatype.isInstanceOf[DecimalType]) {
       try {
-        ConverterUtils.checkIfTypeSupported(datatype)
+        ConverterUtils.checkIfTypeSupportedInProjection(datatype)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(s"${datatype} is not supported in ColumnarCast")
