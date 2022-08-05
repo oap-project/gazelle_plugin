@@ -113,9 +113,16 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   private void nativeCreateInstance() {
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
-      if (nativeSplitter != 0) {
-        SplitResult splitResult = jniWrapper.clear(nativeSplitter);
-        splitResult = null;
+      //        if (nativeSplitter != 0) {
+      //          SplitResult splitResult = jniWrapper.clear(nativeSplitter);
+      //          splitResult = null;
+      //        }
+      if (nativeSplitter == 0) {
+        nativeSplitter = jniWrapper.make(
+                options.getNativePartitioning(),
+                options.getOffheapPerTask(),
+                options.getBufferSize());
+
       }
       nativeSplitter = jniWrapper.make(
               options.getNativePartitioning(),

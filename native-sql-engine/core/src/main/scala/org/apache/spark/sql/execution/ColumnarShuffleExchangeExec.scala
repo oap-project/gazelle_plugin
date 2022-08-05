@@ -52,7 +52,7 @@ case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
     child: SparkPlan,
     shuffleOrigin: ShuffleOrigin = ENSURE_REQUIREMENTS)
-    extends Exchange {
+    extends Exchange with Logging {
 
   private[sql] lazy val writeMetrics =
     SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)
@@ -561,7 +561,25 @@ object ColumnarShuffleExchangeExec extends Logging {
             isOrderSensitive = isOrderSensitive
           )
         case _ =>
-          throw new UnsupportedOperationException("Unsupported operations")
+          logError("Unsupported operations: newPartitioning")
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) => {
+//              options.setPartitionNum(n)
+//              options.setName("rr")
+              // ColumnarBatch Iterator
+              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+                val splitIterator = new SplitIterator(jniWrapper,
+                  cbIter.asJava, options)
+
+                override def hasNext: Boolean = splitIterator.hasNext
+
+                override def next(): Product2[Int, ColumnarBatch] =
+                  (splitIterator.nextPartitionId(), splitIterator.next());
+              }
+              new CloseablePartitionedBatchIterator(iter)
+            },
+            isOrderSensitive = isOrderSensitive
+          )
       }}
 
     val dependency =

@@ -234,8 +234,6 @@ arrow::Status Splitter::Init() {
   // the offset of each partition during record batch split
   partition_buffer_idx_offset_.resize(num_partitions_);
 
-  partition_cached_recordbatch_.resize(num_partitions_);
-  partition_cached_recordbatch_size_.resize(num_partitions_);
   // partition_cached_arb_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
   raw_partition_lengths_.resize(num_partitions_);
@@ -295,6 +293,8 @@ arrow::Status Splitter::Init() {
   }
 
   if (!options_.data_file.empty()) {
+    partition_cached_recordbatch_.resize(num_partitions_);
+    partition_cached_recordbatch_size_.resize(num_partitions_);
     partition_writer_.resize(num_partitions_);
 
     ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
