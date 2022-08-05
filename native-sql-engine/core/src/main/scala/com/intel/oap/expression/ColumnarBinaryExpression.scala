@@ -103,6 +103,14 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
 class ColumnarStringInstr(left: Expression, right: Expression, original: StringInstr)
     extends StringInstr(original.str, original.substr) with ColumnarExpression with Logging {
 
+  val gName = "locate"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (left_node, _): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

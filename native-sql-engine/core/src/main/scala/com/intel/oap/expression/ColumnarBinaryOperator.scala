@@ -103,6 +103,14 @@ class ColumnarStartsWith(left: Expression, right: Expression, original: Expressi
     extends StartsWith(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "starts_with"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -120,6 +128,14 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
     extends Like(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  val gName = "like"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -154,7 +170,14 @@ class ColumnarRLike(left: Expression, right: Expression, original: Expression)
     extends RLike(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "equal"
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+  
   buildCheck()
 
   def buildCheck(): Unit = {
@@ -162,10 +185,6 @@ class ColumnarRLike(left: Expression, right: Expression, original: Expression)
       throw new UnsupportedOperationException(
         s"Gandiva 'like' function requires a literal as the second parameter.")
     }
-  }
-
-  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    false
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
@@ -206,6 +225,14 @@ class ColumnarEqualTo(left: Expression, right: Expression, original: Expression)
     extends EqualTo(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "equal"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -305,8 +332,11 @@ class ColumnarLessThan(left: Expression, right: Expression, original: Expression
     with ColumnarExpression
     with Logging {
 
+  val gName = "less_than"
+
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
     right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 
@@ -352,6 +382,14 @@ class ColumnarLessThanOrEqual(left: Expression, right: Expression, original: Exp
     extends LessThanOrEqual(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "less_than_or_equal_to"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -396,6 +434,15 @@ class ColumnarGreaterThan(left: Expression, right: Expression, original: Express
     extends GreaterThan(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  val gName = "greater_than"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -440,6 +487,14 @@ class ColumnarGreaterThanOrEqual(left: Expression, right: Expression, original: 
     extends GreaterThanOrEqual(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "greater_than_or_equal_to"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -484,6 +539,15 @@ class ColumnarShiftLeft(left: Expression, right: Expression, original: Expressio
     extends ShiftLeft(left: Expression, right: Expression)
         with ColumnarExpression
         with Logging {
+
+  val gName = "shift_left"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -506,6 +570,15 @@ class ColumnarShiftRight(left: Expression, right: Expression, original: Expressi
     extends ShiftRight(left: Expression, right: Expression)
         with ColumnarExpression
         with Logging {
+
+  val gName = "shift_right"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

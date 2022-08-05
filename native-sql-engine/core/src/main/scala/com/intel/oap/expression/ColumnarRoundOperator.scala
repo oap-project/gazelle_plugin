@@ -38,6 +38,13 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
   extends Round(child: Expression, scale: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "round"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    scale.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 

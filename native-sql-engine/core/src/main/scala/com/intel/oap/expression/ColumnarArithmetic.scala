@@ -39,6 +39,13 @@ class ColumnarAdd(left: Expression, right: Expression, original: Expression)
     extends Add(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "add"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   // If casting between DecimalType, unnecessary cast is skipped to avoid data loss,
   // because actually res type of "cast" is the res type in "add/subtract",
@@ -103,6 +110,14 @@ class ColumnarSubtract(left: Expression, right: Expression, original: Expression
     with ColumnarExpression
     with Logging {
 
+  val gName = "subtract"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   val left_val: Any = left match {
     case c: ColumnarCast =>
       if (c.child.dataType.isInstanceOf[DecimalType] &&
@@ -162,6 +177,14 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
     extends Multiply(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  val gName = "multiply"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   val left_val: Any = left match {
     case c: ColumnarCast =>
@@ -247,9 +270,6 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
     }
   }
 
-  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    return left_val.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right_val.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
-  }
 }
 
 class ColumnarDivide(left: Expression, right: Expression,
@@ -257,6 +277,13 @@ class ColumnarDivide(left: Expression, right: Expression,
     extends Divide(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "divide"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   val left_val: Any = left match {
     case c: ColumnarCast =>
@@ -349,6 +376,15 @@ class ColumnarBitwiseAnd(left: Expression, right: Expression, original: Expressi
     extends BitwiseAnd(left: Expression, right: Expression)
         with ColumnarExpression
         with Logging {
+
+  val gName = "bitwise_and"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -370,6 +406,15 @@ class ColumnarBitwiseOr(left: Expression, right: Expression, original: Expressio
     extends BitwiseOr(left: Expression, right: Expression)
         with ColumnarExpression
         with Logging {
+
+  val gName = "bitwise_or"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

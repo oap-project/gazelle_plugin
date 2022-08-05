@@ -28,7 +28,7 @@ import scala.collection.mutable.ListBuffer
 trait ColumnarExpression {
 
   val codegenFuncList: List[String] = List(
-   "less_than",
+    "less_than",
     "less_than_with_nan",
     "greater_than",
     "greater_than_with_nan",
