@@ -453,6 +453,8 @@ object ColumnarDateTimeExpressions {
       extends UnixTimestamp(left, right, timeZoneId, failOnError) with
       ColumnarExpression {
 
+    val gName = "unix_seconds"
+
     val yearMonthDayFormat = "yyyy-MM-dd"
     val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
     val yearMonthDayTimeNoSepFormat = "yyyyMMddHHmmss"
@@ -486,7 +488,8 @@ object ColumnarDateTimeExpressions {
     }
 
     override def supportColumnarCodegen(args: Object): Boolean = {
-      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      codegenFuncList.contains(gName) &&
+        left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
         right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
     }
 
