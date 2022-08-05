@@ -133,10 +133,12 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       }
       jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, false);
       jniWrapper.collect(nativeSplitter, cb.numRows());
-      ConverterUtils.releaseArrowRecordBatch(recordBatch);
-      cb.close();
+
     } catch (IOException e) {
       throw new RuntimeException(e);
+    } finally {
+      ConverterUtils.releaseArrowRecordBatch(recordBatch);
+      cb.close();
     }
 
   }
@@ -148,6 +150,15 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       cb = iterator.next();
       if (cb.numRows() != 0 && cb.numCols() != 0) {
         return true;
+      }
+    }
+    if (nativeSplitter != 0) {
+      try {
+        jniWrapper.clear(nativeSplitter);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      } finally {
+//       jniWrapper.close(nativeSplitter);
       }
     }
     return false;
