@@ -521,6 +521,14 @@ object ConverterUtils extends Logging {
     builder.build.toByteArray
   }
 
+  // Currently, we enable projection to support BinaryType.
+  // TODO: support BinaryType in all other operators.
+  def checkIfTypeSupportedInProjection(dt: DataType): Unit = dt match {
+    case _: BinaryType =>
+    case other =>
+      checkIfTypeSupported(other)
+  }
+
   def checkIfTypeSupported(dt: DataType): Unit = dt match {
     case d: BooleanType =>
     case d: ByteType =>

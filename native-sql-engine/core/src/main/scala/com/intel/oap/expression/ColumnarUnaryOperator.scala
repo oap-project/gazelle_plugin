@@ -498,7 +498,7 @@ class ColumnarCast(
   def buildCheck(): Unit = {
     if (!datatype.isInstanceOf[DecimalType]) {
       try {
-        ConverterUtils.checkIfTypeSupported(datatype)
+        ConverterUtils.checkIfTypeSupportedInProjection(datatype)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(s"${datatype} is not supported in ColumnarCast")
@@ -577,8 +577,15 @@ class ColumnarCast(
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castTIMESTAMP")
       }
+    } else if (dataType == BinaryType) {
+      val supported = List(StringType)
+      if (supported.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(s"${child.dataType}" +
+          s" is not supported in casting to binary.")
+      }
     } else {
-      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
+      throw new UnsupportedOperationException(s"not currently supported" +
+        s" data type in cast: ${dataType}.")
     }
   }
 
@@ -788,6 +795,15 @@ class ColumnarCast(
             intermediateType)
       }
       ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
+    } else if (dataType == BinaryType) {
+      val funcNode = child.dataType match {
+        case _: StringType =>
+          TreeBuilder.makeFunction("binary_string",
+            Lists.newArrayList(child_node0), new ArrowType.Binary())
+        case _ =>
+          throw new UnsupportedOperationException (s"not currently supported: ${dataType}.")
+      }
+      (funcNode, new ArrowType.Binary())
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }
@@ -957,7 +973,7 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
         (TreeBuilder.makeFunction("char_length", Lists.newArrayList(child_node),
           resultType), resultType)
       case BinaryType =>
-        (TreeBuilder.makeFunction("length", Lists.newArrayList(child_node),
+        (TreeBuilder.makeFunction("lengthUtf8", Lists.newArrayList(child_node),
           resultType), resultType)
       case _ =>
         throw new RuntimeException("Fix me. Either StringType or BinaryType is allowed!")
@@ -999,6 +1015,40 @@ class ColumnarBin(child: Expression) extends Bin(child: Expression)
     val toBaseNode = TreeBuilder.makeLiteral(new java.lang.Integer(2))
     val funcNode = TreeBuilder.makeFunction("conv",
       Lists.newArrayList(castNode, fromBaseNode, toBaseNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarMd5(child: Expression) extends Md5(child) with ColumnarExpression
+  with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (childNode, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("md5",
+      Lists.newArrayList(childNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarSha1(child: Expression) extends Sha1(child) with ColumnarExpression
+  with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (childNode, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("sha1",
+      Lists.newArrayList(childNode), resultType)
     (funcNode, resultType)
   }
 }
@@ -1078,6 +1128,10 @@ object ColumnarUnaryOperator {
       new ColumnarHex(child)
     case _: Bin =>
       new ColumnarBin(child)
+    case _: Md5 =>
+      new ColumnarMd5(child)
+    case _: Sha1 =>
+      new ColumnarSha1(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {
