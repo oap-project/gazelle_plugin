@@ -28,7 +28,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Iterator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class SplitIterator implements Iterator<ColumnarBatch>{
+
+  private static final Logger logger = LoggerFactory.getLogger(SplitIterator.class);
 
   public static class IteratorOptions implements Serializable {
     private static final long serialVersionUID = -1L;
@@ -115,7 +120,8 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
         jniWrapper = new ShuffleSplitterJniWrapper();
       }
       if (nativeSplitter != 0) {
-        throw new Exception("NativeSplitter is not clear.");
+        logger.error("NativeSplitter is not clear.");
+        // throw new Exception("NativeSplitter is not clear.");
       }
       nativeSplitter = jniWrapper.make(
               options.getNativePartitioning(),
