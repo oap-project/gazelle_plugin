@@ -96,7 +96,7 @@ class Splitter {
   /**
    * Collect the rb.
    */
-  virtual std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>& Collect();
+  arrow::Status Collect();
 
 
   /**
@@ -264,10 +264,6 @@ class Splitter {
   std::shared_ptr<arrow::RecordBatch> next_batch = nullptr;
 
   std::stack<std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>>> output_rb_;
-
-  // partid
-  std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>
-      partition_cached_arb_;
 
   // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>

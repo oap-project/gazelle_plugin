@@ -95,27 +95,33 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
 
   }
 
-  ShuffleSplitterJniWrapper jniWrapper;
+  ShuffleSplitterJniWrapper jniWrapper = null;
 
   private long nativeSplitter = 0;
   private final Iterator<ColumnarBatch> iterator;
   private final IteratorOptions options;
 
-  public SplitIterator(ShuffleSplitterJniWrapper jniWrapper,
-                       Iterator<ColumnarBatch> iterator, IteratorOptions options)  {
-    this.jniWrapper = jniWrapper;
+  private ColumnarBatch cb = null;
+
+  public SplitIterator(Iterator<ColumnarBatch> iterator, IteratorOptions options)  {
     this.iterator = iterator;
     this.options = options;
   }
 
   private void nativeCreateInstance() {
-    ColumnarBatch cb = iterator.next();
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
+      if (jniWrapper == null) {
+        jniWrapper = new ShuffleSplitterJniWrapper();
+      }
+      if (nativeSplitter != 0) {
+        throw new Exception("NativeSplitter is not clear.");
+      }
       nativeSplitter = jniWrapper.make(
               options.getNativePartitioning(),
               options.getOffheapPerTask(),
               options.getBufferSize());
+
       int len = recordBatch.getBuffers().size();
       long[] bufAddrs = new long[len];
       long[] bufSizes = new long[len];
@@ -128,24 +134,43 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       }
       jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, false);
       jniWrapper.collect(nativeSplitter, cb.numRows());
-    } catch (IOException e) {
+    } catch (Exception e) {
       throw new RuntimeException(e);
+    } finally {
+      ConverterUtils.releaseArrowRecordBatch(recordBatch);
+      cb.close();
     }
 
   }
 
   private native boolean nativeHasNext(long instance);
 
-  /**
-   * First to check, 
-   * @return
-   */
+  public boolean hasRecordBatch(){
+    while (iterator.hasNext()) {
+      cb = iterator.next();
+      if (cb.numRows() != 0 && cb.numCols() != 0) {
+        return true;
+      }
+    }
+    if (nativeSplitter != 0) {
+      try {
+        jniWrapper.clear(nativeSplitter);
+        nativeSplitter = 0;
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      } finally {
+//       jniWrapper.close(nativeSplitter);
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean hasNext() {
-
     // 1. Init the native splitter
     if (nativeSplitter == 0) {
-      if (!iterator.hasNext()) {
+      boolean flag = hasRecordBatch();
+      if (!flag) {
         return false;
       } else {
         nativeCreateInstance();
@@ -154,9 +179,13 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     // 2. Call native hasNext
     if (nativeHasNext(nativeSplitter)) {
       return true;
-    } else if (iterator.hasNext()) {
-      // 3. Split next rb
-      nativeCreateInstance();
+    } else {
+      boolean flag = hasRecordBatch();
+      if (!flag) {
+        return false;
+      } else {
+        nativeCreateInstance();
+      }
     }
     return nativeHasNext(nativeSplitter);
   }
@@ -180,9 +209,14 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   @Override
   protected void finalize() throws Throwable {
     try {
-      jniWrapper.clear(nativeSplitter);
+      if (nativeSplitter != 0) {
+        jniWrapper.clear(nativeSplitter);
+        nativeSplitter = 0;
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
+    } finally {
+      jniWrapper.close(nativeSplitter);
     }
   }
 

@@ -362,9 +362,8 @@ object ColumnarShuffleExchangeExec extends Logging {
       compressTime: SQLMetric,
       prepareTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
     val arrowFields = outputAttributes.map(attr => ConverterUtils.createArrowField(attr))
-    var schema: Schema = null
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
-      schema = new Schema(fields.asJava)
+      val schema = new Schema(fields.asJava)
       ConverterUtils.getSchemaBytesBuf(schema)
     }
 
@@ -515,8 +514,7 @@ object ColumnarShuffleExchangeExec extends Logging {
               options.setName("hash")
               // ColumnarBatch Iterator
               val iter = new Iterator[Product2[Int, ColumnarBatch]] {
-                  val splitIterator = new SplitIterator(jniWrapper,
-                    cbIter.asJava, options)
+                  val splitIterator = new SplitIterator(cbIter.asJava, options)
 
                   override def hasNext: Boolean = splitIterator.hasNext
 
@@ -534,8 +532,7 @@ object ColumnarShuffleExchangeExec extends Logging {
               options.setName("rr")
               // ColumnarBatch Iterator
               val iter = new Iterator[Product2[Int, ColumnarBatch]] {
-                val splitIterator = new SplitIterator(jniWrapper,
-                  cbIter.asJava, options)
+                val splitIterator = new SplitIterator(cbIter.asJava, options)
 
                 override def hasNext: Boolean = splitIterator.hasNext
 
@@ -560,7 +557,21 @@ object ColumnarShuffleExchangeExec extends Logging {
             isOrderSensitive = isOrderSensitive
           )
         case _ =>
-          throw new UnsupportedOperationException("Unsupported operations")
+          logError("Unsupported operations: newPartitioning.")
+          rdd.mapPartitionsWithIndexInternal(
+            (_, cbIter) => {
+              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+                val splitIterator = new SplitIterator(cbIter.asJava, options)
+
+                override def hasNext: Boolean = splitIterator.hasNext
+
+                override def next(): Product2[Int, ColumnarBatch] =
+                  (splitIterator.nextPartitionId(), splitIterator.next());
+              }
+              new CloseablePartitionedBatchIterator(iter)
+            },
+            isOrderSensitive = isOrderSensitive
+          )
       }}
 
     val dependency =

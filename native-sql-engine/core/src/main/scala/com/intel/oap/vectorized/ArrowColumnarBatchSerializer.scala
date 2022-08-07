@@ -254,9 +254,6 @@ private class ArrowColumnarBatchSerializerInstance(
 
   override def serializeStream(out: OutputStream): SerializationStream = new SerializationStream {
 
-    // 32768
-    private[this] var writeBuffer: Array[Byte] = new Array[Byte](8196)
-
     override def writeKey[T: ClassTag](key: T): SerializationStream = {
       // The key is only needed on the map side when computing partition ids.
       // It does not need to be shuffled.
@@ -267,7 +264,15 @@ private class ArrowColumnarBatchSerializerInstance(
     override def writeValue[T: ClassTag](value: T): SerializationStream = {
       val cb = value.asInstanceOf[ColumnarBatch]
       val recordBatch = ConverterUtils.createArrowRecordBatch(cb)
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), recordBatch)
+      try {
+        MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), recordBatch)
+      } catch {
+        case e: Exception =>
+          logError("Failed to serialize current RecordBatch", e)
+      } finally {
+        ConverterUtils.releaseArrowRecordBatch(recordBatch)
+        cb.close
+      }
       this
     }
 
@@ -286,7 +291,6 @@ private class ArrowColumnarBatchSerializerInstance(
     }
 
     override def close(): Unit = {
-      writeBuffer = null
       out.close()
     }
   }
