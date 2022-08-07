@@ -120,17 +120,17 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
         jniWrapper = new ShuffleSplitterJniWrapper();
       }
       if (nativeSplitter != 0) {
-        logger.error("NativeSplitter is not clear.");
+        logger.warn("NativeSplitter is not clear.");
+        jniWrapper.clear(nativeSplitter);
+        nativeSplitter = 0;
         // throw new Exception("NativeSplitter is not clear.");
       }
       nativeSplitter = jniWrapper.make(
               options.getNativePartitioning(),
               options.getOffheapPerTask(),
               options.getBufferSize());
-
-      int len = recordBatch.getBuffers().size();
-      long[] bufAddrs = new long[len];
-      long[] bufSizes = new long[len];
+      long[] bufAddrs = new long[recordBatch.getBuffers().size()];
+      long[] bufSizes = new long[recordBatch.getBuffersLayout().size()];
       int i = 0, j = 0;
       for (ArrowBuf buffer: recordBatch.getBuffers()) {
         bufAddrs[i++] = buffer.memoryAddress();
@@ -216,6 +216,7 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   protected void finalize() throws Throwable {
     try {
       if (nativeSplitter != 0) {
+        logger.error("NativeSplitter is not clear.");
         jniWrapper.clear(nativeSplitter);
         nativeSplitter = 0;
       }
