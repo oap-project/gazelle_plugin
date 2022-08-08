@@ -143,7 +143,7 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       throw new RuntimeException(e);
     } finally {
       ConverterUtils.releaseArrowRecordBatch(recordBatch);
-      cb.close();
+      // cb.close();
     }
 
   }
@@ -190,9 +190,8 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   @Override
   public ColumnarBatch next() {
     byte[] serializedRecordBatch = nativeNext(nativeSplitter);
-    ColumnarBatch cb = ConverterUtils.createRecordBatch(serializedRecordBatch,
-            options.getNativePartitioning().getSchema());
-    return cb;
+    return ConverterUtils.createRecordBatch(serializedRecordBatch,
+    options.getNativePartitioning().getSchema());
   }
 
   private native int nativeNextPartitionId(long nativeSplitter);
