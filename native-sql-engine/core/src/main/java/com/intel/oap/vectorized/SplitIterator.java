@@ -120,7 +120,6 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
         jniWrapper = new ShuffleSplitterJniWrapper();
       }
       if (nativeSplitter != 0) {
-        logger.warn("NativeSplitter is not clear.");
         jniWrapper.clear(nativeSplitter);
         nativeSplitter = 0;
         // throw new Exception("NativeSplitter is not clear.");
@@ -155,6 +154,7 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
     while (iterator.hasNext()) {
       cb = iterator.next();
       if (cb.numRows() != 0 && cb.numCols() != 0) {
+        nativeCreateInstance();
         return true;
       }
     }
@@ -175,25 +175,14 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   public boolean hasNext() {
     // 1. Init the native splitter
     if (nativeSplitter == 0) {
-      boolean flag = hasRecordBatch();
-      if (!flag) {
-        return false;
-      } else {
-        nativeCreateInstance();
-      }
+      return hasRecordBatch() && nativeHasNext(nativeSplitter);
     }
     // 2. Call native hasNext
     if (nativeHasNext(nativeSplitter)) {
       return true;
     } else {
-      boolean flag = hasRecordBatch();
-      if (!flag) {
-        return false;
-      } else {
-        nativeCreateInstance();
-      }
+      return hasRecordBatch() && nativeHasNext(nativeSplitter);
     }
-    return nativeHasNext(nativeSplitter);
   }
 
   private native byte[] nativeNext(long instance);
