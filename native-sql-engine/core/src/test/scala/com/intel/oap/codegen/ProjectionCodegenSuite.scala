@@ -19,15 +19,13 @@ package com.intel.oap.codegen
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution.ColumnarWholeStageCodegenExec
-
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.test.SharedSparkSession
-
 
 class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
-  test("less than codegen") {
+  test("less than function in codegen") {
     val intData = Seq((7, 3), (10, 15)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
       val df = intData.selectExpr("a < b")
@@ -38,4 +36,113 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
       )
     }
   }
+
+  test("greater than function in codegen") {
+    val intData = Seq((7, 3), (10, 15)).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("a > b")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(true), Row(false))
+      )
+    }
+  }
+
+  test("equal function in codegen") {
+    val intData = Seq((7, 3), (10, 10)).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("a = b")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(false), Row(true))
+      )
+    }
+  }
+
+  test("translate function in codegen") {
+    val intData = Seq(("AaBbCc", "abc", "123")).toDF("a", "b", "c")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("translate(a, b, c)")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("A1B2C3"))
+      )
+    }
+  }
+
+  test("substr function in codegen") {
+    val intData = Seq(("Spark SQL", 5)).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("substr(a, b)")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("k SQL"))
+      )
+    }
+  }
+
+  // TODO: after locate is used in expression_codegen_visitor.cc.
+//  test("instr function in codegen") {
+//    val intData = Seq(("SparkSQL", "SQL")).toDF("a", "b")
+//    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+//      val df = intData.selectExpr("instr(a, b)")
+//      val executedPlan = df.queryExecution.executedPlan
+//      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+//      checkAnswer(
+//        df, Seq(Row(6))
+//      )
+//    }
+//  }
+
+  test("btrim/ltrim/rtrim function in codegen") {
+    val intData = Seq((" SparkSQL ")).toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      var df = intData.selectExpr("trim(a)")
+      var executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("SparkSQL"))
+      )
+
+      df = intData.selectExpr("ltrim(a)")
+      executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("SparkSQL "))
+      )
+
+      df = intData.selectExpr("rtrim(a)")
+      executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(" SparkSQL"))
+      )
+    }
+  }
+
+  test("upper/lower function in codegen") {
+    val intData = Seq(("SparkSQL")).toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      var df = intData.selectExpr("upper(a)")
+      var executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("SPARKSQL"))
+      )
+
+      df = intData.selectExpr("lower(a)")
+      executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row("sparksql"))
+      )
+    }
+  }
+
+
+
 }
