@@ -246,8 +246,9 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
 
   // To enable the codegen for projection without the requirement for join existence.
   // This config is just for test use.
+  val enableProjectionCodegenKey: String = "spark.oap.sql.columnar.projection.codegen"
   val enableProjectionCodegen: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.projection.codegen", "false").toBoolean
+    conf.getConfString(enableProjectionCodegenKey, "false").toBoolean
 }
 
 object GazellePluginConfig {
