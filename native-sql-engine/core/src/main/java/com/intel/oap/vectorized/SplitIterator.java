@@ -114,6 +114,10 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
   }
 
   private void nativeCreateInstance() {
+    for (int i = 0; i < cb.numCols(); i++) {
+      ArrowWritableColumnVector vector = (ArrowWritableColumnVector)(cb.column(i));
+      vector.getValueVector().setValueCount(cb.numRows());
+    }
     ArrowRecordBatch recordBatch = ConverterUtils.createArrowRecordBatch(cb);
     try {
       if (jniWrapper == null) {
@@ -137,9 +141,20 @@ public class SplitIterator implements Iterator<ColumnarBatch>{
       for (ArrowBuffer buffer: recordBatch.getBuffersLayout()) {
         bufSizes[j++] = buffer.getSize();
       }
+      if (i != j || i < 1) {
+        logger.warn("bufAddrs and  BuffersLayout have different lengths, and buffer sizes is " + i + " --  " + j);
+      }
       jniWrapper.split(nativeSplitter, cb.numRows(), bufAddrs, bufSizes, false);
       jniWrapper.collect(nativeSplitter, cb.numRows());
     } catch (Exception e) {
+      if (nativeSplitter != 0) {
+        try {
+          jniWrapper.clear(nativeSplitter);
+        } catch (IOException ex) {
+          throw new RuntimeException(ex);
+        }
+        nativeSplitter = 0;
+      }
       throw new RuntimeException(e);
     } finally {
       ConverterUtils.releaseArrowRecordBatch(recordBatch);

@@ -559,19 +559,31 @@ object ColumnarShuffleExchangeExec extends Logging {
         case _ =>
           logError("Unsupported operations: newPartitioning.")
           rdd.mapPartitionsWithIndexInternal(
-            (_, cbIter) => {
-              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
-                val splitIterator = new SplitIterator(cbIter.asJava, options)
-
-                override def hasNext: Boolean = splitIterator.hasNext
-
-                override def next(): Product2[Int, ColumnarBatch] =
-                  (splitIterator.nextPartitionId(), splitIterator.next());
-              }
-              new CloseablePartitionedBatchIterator(iter)
-            },
+            (_, cbIter) =>
+              cbIter.map { cb =>
+                (0 until cb.numCols).foreach(
+                  cb.column(_)
+                    .asInstanceOf[ArrowWritableColumnVector]
+                    .getValueVector
+                    .setValueCount(cb.numRows))
+                (0, cb)
+              },
             isOrderSensitive = isOrderSensitive
           )
+//          rdd.mapPartitionsWithIndexInternal(
+//            (_, cbIter) => {
+//              val iter = new Iterator[Product2[Int, ColumnarBatch]] {
+//                val splitIterator = new SplitIterator(cbIter.asJava, options)
+//
+//                override def hasNext: Boolean = splitIterator.hasNext
+//
+//                override def next(): Product2[Int, ColumnarBatch] =
+//                  (splitIterator.nextPartitionId(), splitIterator.next());
+//              }
+//              new CloseablePartitionedBatchIterator(iter)
+//            },
+//            isOrderSensitive = isOrderSensitive
+//          )
       }}
 
     val dependency =

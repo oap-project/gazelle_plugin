@@ -271,7 +271,7 @@ private class ArrowColumnarBatchSerializerInstance(
           logError("Failed to serialize current RecordBatch", e)
       } finally {
         ConverterUtils.releaseArrowRecordBatch(recordBatch)
-        cb.close
+        // cb.close
       }
       this
     }
