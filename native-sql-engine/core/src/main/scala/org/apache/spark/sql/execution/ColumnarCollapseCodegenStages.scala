@@ -19,6 +19,7 @@ package org.apache.spark.sql.execution
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution._
 import com.intel.oap.expression.ColumnarExpressionConverter
 import org.apache.spark._
@@ -117,6 +118,8 @@ case class ColumnarCollapseCodegenStages(
     columnarWholeStageEnabled: Boolean,
     codegenStageCounter: AtomicInteger = new AtomicInteger(0))
     extends Rule[SparkPlan] {
+
+  val enableProjectionCodegen = GazellePluginConfig.getSessionConf.enableProjectionCodegen
 
   private def supportCodegen(plan: SparkPlan): Boolean = plan match {
     case plan: ColumnarCodegenSupport =>
@@ -315,6 +318,10 @@ case class ColumnarCollapseCodegenStages(
       case s: ColumnarSortExec =>
         /*If ColumnarSort is not ahead of ColumnarSMJ, we should not do wscg for it*/
         s.withNewChildren(s.children.map(insertWholeStageCodegen))
+      // For testing projection codegen.
+      case plan: ColumnarCodegenSupport if enableProjectionCodegen && supportCodegen(plan) =>
+        ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
+          codegenStageCounter.incrementAndGet())
       case plan: ColumnarCodegenSupport if supportCodegen(plan) && existsJoins(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())

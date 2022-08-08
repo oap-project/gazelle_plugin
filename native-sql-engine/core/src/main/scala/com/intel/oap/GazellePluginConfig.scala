@@ -243,6 +243,11 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val enableUDFKey: String = "spark.oap.sql.columnar.enable.udf"
   val enableUDF: Boolean =
     conf.getConfString(enableUDFKey, "false").toBoolean
+
+  // To enable the codegen for projection without the requirement for join existence.
+  // This config is just for test use.
+  val enableProjectionCodegen: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.projection.codegen", "false").toBoolean
 }
 
 object GazellePluginConfig {
