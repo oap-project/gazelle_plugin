@@ -485,6 +485,11 @@ object ColumnarDateTimeExpressions {
       }
     }
 
+    override def supportColumnarCodegen(args: Object): Boolean = {
+      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+        right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
@@ -617,6 +622,11 @@ object ColumnarDateTimeExpressions {
   class ColumnarFromUnixTime(left: Expression, right: Expression)
       extends FromUnixTime(left, right) with
       ColumnarExpression {
+        
+    override def supportColumnarCodegen(args: Object): Boolean = {
+      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+        right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
 
     var formatLiteral: String = null
     val yearMonthDayFormat = "yyyy-MM-dd"
