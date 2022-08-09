@@ -557,7 +557,7 @@ object ColumnarShuffleExchangeExec extends Logging {
             isOrderSensitive = isOrderSensitive
           )
         case _ =>
-          logError("Unsupported operations: newPartitioning.")
+          logError("Unsupported operations: " + nativePartitioning.getShortName)
           rdd.mapPartitionsWithIndexInternal(
             (_, cbIter) =>
               cbIter.map { cb =>
