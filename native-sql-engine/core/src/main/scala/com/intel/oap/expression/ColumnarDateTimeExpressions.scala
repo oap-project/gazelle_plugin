@@ -456,6 +456,7 @@ object ColumnarDateTimeExpressions {
     val yearMonthDayFormat = "yyyy-MM-dd"
     val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
     val yearMonthDayTimeNoSepFormat = "yyyyMMddHHmmss"
+    val yearMonthDayNoSepFormat = "yyyyMMdd"
     var formatLiteral: String = null
 
     buildCheck()
@@ -474,7 +475,8 @@ object ColumnarDateTimeExpressions {
             // Only support yyyy-MM-dd or yyyy-MM-dd HH:mm:ss.
             if (!this.formatLiteral.equals(yearMonthDayFormat) &&
               !this.formatLiteral.equals(yearMonthDayTimeFormat) &&
-              !this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
+              !this.formatLiteral.equals(yearMonthDayTimeNoSepFormat) &&
+              !this.formatLiteral.equals(yearMonthDayNoSepFormat)) {
               throw new UnsupportedOperationException(
                 s"$formatLiteral is not supported in ColumnarUnixTimestamp.")
             }
@@ -513,7 +515,8 @@ object ColumnarDateTimeExpressions {
           TreeBuilder.makeFunction("divide", Lists.newArrayList(
             ConverterUtils.subtractTimestampOffset(castNode),
             TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
-        } else if (this.formatLiteral.equals(yearMonthDayTimeNoSepFormat)) {
+        } else if (this.formatLiteral.equals(yearMonthDayTimeNoSepFormat) ||
+          this.formatLiteral.equals(yearMonthDayNoSepFormat)) {
           val timestampType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")
           val timestampNode = TreeBuilder.makeFunction("castTIMESTAMP_withCarrying_withoutSep",
             Lists.newArrayList(leftNode), timestampType)
