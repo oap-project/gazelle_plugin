@@ -286,6 +286,35 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
   }
 
+  test("read and write with case sensitive or insensitive") {
+    val caseSensitiveAnalysisEnabled = Seq[Boolean](true, false)
+    val v1SourceList = Seq[String]("", "arrow")
+    caseSensitiveAnalysisEnabled.foreach{ caseSensitiveAnalysis =>
+      v1SourceList.foreach{v1Source =>
+        withSQLConf(
+          SQLConf.CASE_SENSITIVE.key -> caseSensitiveAnalysis.toString,
+          SQLConf.USE_V1_SOURCE_LIST.key -> v1Source) {
+          withTempPath { tempPath =>
+            spark.range(0, 100)
+              .withColumnRenamed("id", "Id")
+              .write
+              .mode("overwrite")
+              .arrow(tempPath.getPath)
+            val selectColName = if (caseSensitiveAnalysis) {
+              "Id"
+            } else {
+              "id"
+            }
+            val df = spark.read
+              .arrow(tempPath.getPath)
+              .filter(s"$selectColName <= 2")
+            checkAnswer(df, Row(0) :: Row(1) :: Row(2) :: Nil)
+          }
+        }
+      }
+    }
+  }
+
   test("file descriptor leak") {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
     val frame = spark.read

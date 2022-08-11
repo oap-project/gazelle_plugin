@@ -118,3 +118,4 @@
 - SPARK-23786: warning should be printed if CSV header doesn't conform to schema *** FAILED ***
 - SPARK-30886 Deprecate two-parameter TRIM/LTRIM/RTRIM *** FAILED ***
 - test log level *** FAILED ***
+- SPARK-25602: SparkPlan.getByteArrayRdd should not consume the input when not necessary *** FAILED ***

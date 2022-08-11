@@ -32,6 +32,7 @@ import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.expression.ExpressionTree
 import org.apache.arrow.gandiva.ipc.GandivaTypes
 import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
+import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
@@ -61,7 +62,7 @@ import org.apache.arrow.vector.types.TimeUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
-import org.apache.spark.sql.catalyst.util.DateTimeConstants
+import org.apache.spark.sql.catalyst.util.{DateTimeConstants, DateTimeUtils}
 import org.apache.spark.sql.catalyst.util.DateTimeConstants.MICROS_PER_SECOND
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
@@ -356,12 +357,23 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(u.child)
       case ss: Substring =>
         getAttrFromExpr(ss.children(0))
+      case strTrim: StringTrim =>
+        getAttrFromExpr(strTrim.children(0))
       case and: And =>
         getAttrFromExpr(and.children(0))
       case caseWhen: CaseWhen =>
         getAttrFromExpr(caseWhen.children(0))
       case greaterThanOrEqual: GreaterThanOrEqual =>
         getAttrFromExpr(greaterThanOrEqual.children(0))
+      case conv: Conv =>
+        getAttrFromExpr(conv.children(0))
+      case lpad: StringLPad =>
+        getAttrFromExpr(lpad.children(0))
+      case unaryExpr: UnaryExpression =>
+        getAttrFromExpr(unaryExpr.child)
+      // For leaf expression like CurrentTimestamp, CurrentDate, Now.
+      case leafExpr: LeafExpression =>
+        new AttributeReference(leafExpr.prettyName, leafExpr.dataType, leafExpr.nullable)()
       case other =>
         throw new UnsupportedOperationException(
           s"makeStructField is unable to parse from $other (${other.getClass}).")
@@ -507,6 +519,14 @@ object ConverterUtils extends Logging {
     val builder: ExpressionList.Builder = GandivaTypes.ExpressionList.newBuilder
     exprs.foreach { expr => builder.addExprs(expr.toProtobuf) }
     builder.build.toByteArray
+  }
+
+  // Currently, we enable projection to support BinaryType.
+  // TODO: support BinaryType in all other operators.
+  def checkIfTypeSupportedInProjection(dt: DataType): Unit = dt match {
+    case _: BinaryType =>
+    case other =>
+      checkIfTypeSupported(other)
   }
 
   def checkIfTypeSupported(dt: DataType): Unit = dt match {
@@ -697,6 +717,30 @@ object ConverterUtils extends Logging {
   def toSparkTimestamp(inNode: TreeNode, inType: ArrowType,
       timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
     throw new UnsupportedOperationException()
+  }
+
+  /**
+    * Add an offset (can be negative) in millisecond for given timestamp node to
+    * align with spark's timezone awareness. It can be used in converting timestamp
+    * counted from unix epoch (UTC) to local date/time.
+    */
+  def addTimestampOffset(timestampNode: TreeNode): TreeNode = {
+    val offset = DateTimeUtils.getTimeZone(SparkSchemaUtils.getLocalTimezoneID()).getOffset(0)
+    val offsetNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(offset))
+    TreeBuilder.makeFunction("add", Lists.newArrayList(timestampNode, offsetNode),
+      new ArrowType.Int(64, true))
+  }
+
+  /**
+    * Subtract an offset (can be negative) in millisecond for given timestamp node.
+    * It can be used in getting timestamp counted from unix epoch (UTC) for a given
+    * local date/time.
+    */
+  def subtractTimestampOffset(timestampNode: TreeNode): TreeNode = {
+    val offset = DateTimeUtils.getTimeZone(SparkSchemaUtils.getLocalTimezoneID()).getOffset(0)
+    val offsetNode = TreeBuilder.makeLiteral(java.lang.Long.valueOf(offset))
+    TreeBuilder.makeFunction("subtract", Lists.newArrayList(timestampNode, offsetNode),
+      new ArrowType.Int(64, true))
   }
 
   def powerOfTen(pow: Int): (String, Int, Int) = {

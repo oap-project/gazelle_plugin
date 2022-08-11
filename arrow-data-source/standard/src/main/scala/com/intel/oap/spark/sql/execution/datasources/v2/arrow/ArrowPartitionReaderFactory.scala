@@ -19,12 +19,14 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 import java.net.URLDecoder
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowPartitionReaderFactory.ColumnarBatchRetainer
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
-import org.apache.spark.TaskContext
+import org.apache.arrow.vector.types.pojo.Schema
 
+import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader}
@@ -48,6 +50,7 @@ case class ArrowPartitionReaderFactory(
 
   private val batchSize = sqlConf.parquetVectorizedReaderBatchSize
   private val enableFilterPushDown: Boolean = sqlConf.arrowFilterPushDown
+  private val caseSensitive: Boolean = sqlConf.caseSensitiveAnalysis
 
   override def supportColumnarReads(partition: InputPartition): Boolean = true
 
@@ -61,9 +64,27 @@ case class ArrowPartitionReaderFactory(
     val path = partitionedFile.filePath
     val factory = ArrowUtils.makeArrowDiscovery(URLDecoder.decode(path, "UTF-8"),
       partitionedFile.start, partitionedFile.length, options)
-    val dataset = factory.finish(ArrowUtils.toArrowSchema(readDataSchema))
+    val parquetFileFields = factory.inspect().getFields.asScala
+    val caseInsensitiveFieldMap = mutable.Map[String, String]()
+    val requiredFields = if (caseSensitive) {
+      new Schema(readDataSchema.map { field =>
+        parquetFileFields.find(_.getName.equals(field.name))
+          .getOrElse(ArrowUtils.toArrowField(field))
+      }.asJava)
+    } else {
+      new Schema(readDataSchema.map { readField =>
+        parquetFileFields.find(_.getName.equalsIgnoreCase(readField.name))
+          .map{ field =>
+            caseInsensitiveFieldMap += (readField.name -> field.getName)
+            field
+          }.getOrElse(ArrowUtils.toArrowField(readField))
+      }.asJava)
+    }
+    val dataset = factory.finish(requiredFields)
     val filter = if (enableFilterPushDown) {
-      ArrowFilters.translateFilters(ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema))
+      ArrowFilters.translateFilters(
+        ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema),
+        caseInsensitiveFieldMap.toMap)
     } else {
       org.apache.arrow.dataset.filter.Filter.EMPTY
     }

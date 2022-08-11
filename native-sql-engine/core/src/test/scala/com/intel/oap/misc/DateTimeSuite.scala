@@ -782,9 +782,9 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
           .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
       checkAnswer(
         frame,
-        Seq(Row(java.lang.Long.valueOf(1248912000L)),
-          Row(java.lang.Long.valueOf(1248998400L)),
-          Row(java.lang.Long.valueOf(1249084800L))))
+        Seq(Row(java.lang.Long.valueOf(1248940800L)),
+          Row(java.lang.Long.valueOf(1249027200L)),
+          Row(java.lang.Long.valueOf(1249113600L))))
     }
   }
 }

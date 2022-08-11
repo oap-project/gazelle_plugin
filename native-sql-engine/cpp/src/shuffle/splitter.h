@@ -202,6 +202,8 @@ class Splitter {
 
   class PartitionWriter;
 
+  // Check whether support AVX512 instructions
+  bool support_avx512_;
   // partid
   std::vector<int32_t> partition_buffer_size_;
   // partid, value is reducer batch's offset, output rb rownum < 64k

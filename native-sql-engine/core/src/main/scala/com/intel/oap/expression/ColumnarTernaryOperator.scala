@@ -56,24 +56,22 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
     val (len_node, lenType): (TreeNode, ArrowType) =
       len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    //FIXME(): gandiva only support pos and len with int64 type
-    val lit_pos :ColumnarLiteral= pos.asInstanceOf[ColumnarLiteral]
-    val lit_pos_val = lit_pos.value
-    val long_pos_node = TreeBuilder.makeLiteral(lit_pos_val.asInstanceOf[Integer].longValue() :java.lang.Long)
+    // FIXME(): gandiva only support pos and len with int64 type
+    val long_pos_node = TreeBuilder.makeFunction(
+      "castBIGINT", Lists.newArrayList(pos_node), new ArrowType.Int(64, true))
 
-    val lit_len :ColumnarLiteral= len.asInstanceOf[ColumnarLiteral]
-    val lit_len_val = lit_len.value
-    val long_len_node = TreeBuilder.makeLiteral(lit_len_val.asInstanceOf[Integer].longValue() :java.lang.Long)
+    val long_len_node = TreeBuilder.makeFunction(
+      "castBIGINT", Lists.newArrayList(len_node), new ArrowType.Int(64, true))
 
     val resultType = new ArrowType.Utf8()
-    val funcNode =
-      TreeBuilder.makeFunction("substr", Lists.newArrayList(str_node, long_pos_node, long_len_node), resultType)
+    val funcNode = TreeBuilder.makeFunction(
+      "substr", Lists.newArrayList(str_node, long_pos_node, long_len_node), resultType)
     (funcNode, resultType)
   }
 }
 
 // StringSplit, not functionality ready, need array type support.
-class ColumnarStringSplit(child: Expression, regex: Expression,
+class ColumnarStringSplitPart(child: Expression, regex: Expression,
                           limit: Expression, original: Expression)
     extends StringSplit(child: Expression,
       regex: Expression, limit: Expression)
@@ -86,10 +84,15 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
     val supportedTypes = List(
       StringType
     )
-    if (supportedTypes.indexOf(child.dataType) == -1) {
+    if (supportedTypes.indexOf(dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"${child.dataType} is not supported in ColumnarStringSplit.")
+        s"${child} | ${child.dataType} is not supported in ColumnarStringSplitPart.")
     }
+  }
+  override def dataType: DataType = StringType
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
   }
 
   override def doColumnarCodeGen(args: java.lang.Object)
@@ -101,7 +104,7 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
     val (limit_node, limitType): (TreeNode, ArrowType) =
       limit.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = new ArrowType.Bool()
+    val resultType = new ArrowType.Utf8()
     val funcNode =
       TreeBuilder.makeFunction(
         "split_part", Lists.newArrayList(child_node, regex_node,
@@ -202,6 +205,76 @@ class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expres
   }
 }
 
+class ColumnarStringLPad(str: Expression, len: Expression, pad: Expression,
+                            original: Expression) extends StringLPad(str: Expression,
+  len: Expression, pad: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(str.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+
+    if (!pad.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (len_node, _): (TreeNode, ArrowType) =
+      len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (pad_node, _): (TreeNode, ArrowType) =
+      pad.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("lpad",
+      Lists.newArrayList(str_node, len_node, pad_node), resultType), resultType)
+  }
+}
+
+class ColumnarStringRPad(str: Expression, len: Expression, pad: Expression,
+                            original: Expression) extends StringRPad(str: Expression,
+  len: Expression, pad: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(str.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+
+    if (!pad.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (len_node, _): (TreeNode, ArrowType) =
+      len.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (pad_node, _): (TreeNode, ArrowType) =
+      pad.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("rpad",
+      Lists.newArrayList(str_node, len_node, pad_node), resultType), resultType)
+  }
+}
+
 class ColumnarSubstringIndex(strExpr: Expression, delimExpr: Expression,
                              countExpr: Expression, original: Expression)
   extends SubstringIndex(strExpr, delimExpr, countExpr) with ColumnarExpression {
@@ -264,25 +337,61 @@ class ColumnarStringReplace(
   }
 }
 
+class ColumnarConv(numExpr: Expression, fromBaseExpr: Expression, toBaseExpr: Expression)
+  extends Conv(numExpr, fromBaseExpr, toBaseExpr) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(numExpr.dataType) == -1) {
+      throw new RuntimeException(s"${numExpr.dataType}" +
+        s" is not supported in ColumnarConv!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (num_node, _): (TreeNode, ArrowType) =
+      numExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (from_node, _): (TreeNode, ArrowType) =
+      fromBaseExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (to_node, _): (TreeNode, ArrowType) =
+      toBaseExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("conv",
+      Lists.newArrayList(num_node, from_node, to_node), resultType), resultType)
+  }
+
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
              original: Expression): Expression = original match {
     case ss: Substring =>
       new ColumnarSubString(src, arg1, arg2, ss)
-      // Currently not supported.
-//    case a: StringSplit =>
-//      new ColumnarStringSplit(str, a.regex, a.limit, a)
+    case ssp: StringSplit =>
+     new ColumnarStringSplitPart(src, arg1, arg2, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
     case sl: StringLocate =>
       new ColumnarStringLocate(src, arg1, arg2, sl)
     case re: RegExpExtract =>
       new ColumnarRegExpExtract(src, arg1, arg2, re)
+    case slpad: StringLPad =>
+      new ColumnarStringLPad(src, arg1, arg2, slpad)
+    case slpad: StringRPad =>
+      new ColumnarStringRPad(src, arg1, arg2, slpad)
     case substrIndex: SubstringIndex =>
       new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
     case _: StringReplace =>
       new ColumnarStringReplace(src, arg1, arg2)
+    case _: Conv =>
+      new ColumnarConv(src, arg1, arg2)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }

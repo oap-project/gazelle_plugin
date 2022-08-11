@@ -277,10 +277,12 @@ arrow::Status ExprVisitor::MakeWindow(
   for (const auto& child : node.children()) {
     auto child_function = std::dynamic_pointer_cast<gandiva::FunctionNode>(child);
     auto child_func_name = child_function->descriptor()->name();
+
     if (child_func_name == "sum" || child_func_name == "avg" ||
         child_func_name == "min" || child_func_name == "max" ||
         child_func_name == "count" || child_func_name == "count_literal" ||
-        child_func_name == "rank_asc" || child_func_name == "rank_desc") {
+        child_func_name == "rank_asc" || child_func_name == "rank_desc" ||
+        child_func_name == "row_number_desc" || child_func_name == "row_number_asc") {
       window_functions.push_back(child_function);
     } else if (child_func_name == "partitionSpec") {
       partition_spec = child_function;

@@ -82,6 +82,11 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
     with ColumnarExpression
     with Logging {
 
+  // TODO: currently we have a codegen implementation, but needs to be optimized.
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -112,6 +117,64 @@ class ColumnarStringInstr(left: Expression, right: Expression, original: StringI
   }
 }
 
+class ColumnarPow(left: Expression, right: Expression, original: Pow) extends Pow(left, right)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("pow", Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarFindInSet(left: Expression, right: Expression, original: Expression)
+  extends FindInSet(left: Expression, right: Expression) with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Int(32, true)
+    val funcNode = TreeBuilder.makeFunction("find_in_set",
+      Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarSha2(left: Expression, right: Expression) extends Sha2(left, right)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("sha2",
+      Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -121,7 +184,7 @@ object ColumnarBinaryExpression {
       case s: DateDiff =>
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
-        new ColumnarUnixTimestamp(left, right)
+        new ColumnarUnixTimestamp(left, right, a.timeZoneId, a.failOnError)
       // To match GetTimestamp (a private class).
       case _ if (original.isInstanceOf[ToTimestamp] && original.dataType == TimestampType) =>
         // Convert a string to Timestamp. Default timezone is used.
@@ -130,11 +193,16 @@ object ColumnarBinaryExpression {
         new ColumnarFromUnixTime(left, right)
       case d: DateSub =>
         new ColumnarDateSub(left, right)
-      //TODO(): the current impl has poor perf
-      // case g: GetJsonObject =>
-      //   new ColumnarGetJsonObject(left, right, g)
+      case g: GetJsonObject =>
+         new ColumnarGetJsonObject(left, right, g)
       case instr: StringInstr =>
         new ColumnarStringInstr(left, right, instr)
+      case pow: Pow =>
+        new ColumnarPow(left, right, pow)
+      case f: FindInSet =>
+        new ColumnarFindInSet(left, right, f)
+      case _: Sha2 =>
+        new ColumnarSha2(left, right)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

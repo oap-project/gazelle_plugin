@@ -14,28 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cstdint>
-#include <functional>
-#include <string>
 
-#include "codegen/arrow_compute/ext/array_item_index.h"
+package com.intel.oap;
 
-using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
-namespace sparkcolumnarplugin {
-namespace precompile {
-#define TYPED_ASC_SORT_DEFINE(CTYPE) \
-  void sort_asc(ArrayItemIndex*, ArrayItemIndex*, std::function<CTYPE(ArrayItemIndex)>);
+import java.net.URLDecoder;
+import org.apache.hadoop.hive.ql.exec.UDF;
 
-TYPED_ASC_SORT_DEFINE(int32_t)
-TYPED_ASC_SORT_DEFINE(uint32_t)
-TYPED_ASC_SORT_DEFINE(int64_t)
-TYPED_ASC_SORT_DEFINE(uint64_t)
-TYPED_ASC_SORT_DEFINE(float)
-TYPED_ASC_SORT_DEFINE(double)
-TYPED_ASC_SORT_DEFINE(std::string)
+public class URLDecoderNew extends UDF {
 
-void sort_desc(ArrayItemIndex*, ArrayItemIndex*,
-               std::function<bool(ArrayItemIndex, ArrayItemIndex)>);
-
-}  // namespace precompile
-}  // namespace sparkcolumnarplugin
+  public String evaluate(String b) {
+    if (b == null) {
+      return null;
+    }
+    try {
+      return URLDecoder.decode(b, "utf-8");
+    } catch (Exception e) {
+      e.printStackTrace();
+      return b;
+    }
+  }
+}

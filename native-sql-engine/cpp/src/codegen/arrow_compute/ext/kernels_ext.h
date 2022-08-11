@@ -315,7 +315,8 @@ class WindowRankKernel : public KernalBase {
  public:
   WindowRankKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc);
+                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                   bool is_row_number = false);
   static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out, bool desc);
@@ -324,13 +325,13 @@ class WindowRankKernel : public KernalBase {
 
   arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
   arrow::Status SortToIndicesFinish(
-      std::vector<std::shared_ptr<ArrayItemIndex>> elements_to_sort,
-      std::vector<std::shared_ptr<ArrayItemIndex>>* offsets);
+      std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
+      std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets);
 
   template <typename ArrayType>
   arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
-                                std::shared_ptr<ArrayItemIndex> i,
-                                std::shared_ptr<ArrayItemIndex> j, bool* out);
+                                std::shared_ptr<ArrayItemIndexS> i,
+                                std::shared_ptr<ArrayItemIndexS> j, bool* out);
 
  private:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
@@ -338,6 +339,7 @@ class WindowRankKernel : public KernalBase {
   std::vector<ArrayList> input_cache_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
   bool desc_;
+  bool is_row_number_;
 };
 
 /*class UniqueArrayKernel : public KernalBase {

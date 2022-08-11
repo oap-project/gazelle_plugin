@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -103,6 +103,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     try {
       breakable {
         for (func <- validateWindowFunctions()) {
+          if (func._1.startsWith("row_number")) {
+            allLiteral = false
+            break
+          }
           for (child <- func._2.children) {
             if (!child.isInstanceOf[Literal]) {
               allLiteral = false
@@ -191,9 +195,34 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case Some(false) => "rank_asc"
                   case None => "rank_asc"
                 }
+              case rw: RowNumber =>
+                val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                  (desc, s) =>
+                    val currentDesc = s.direction match {
+                      case Ascending => false
+                      case Descending => true
+                      case _ => throw new IllegalStateException
+                    }
+                    if (desc.isEmpty) {
+                      Some(currentDesc)
+                    } else if (currentDesc == desc.get) {
+                      Some(currentDesc)
+                    } else {
+                      throw new UnsupportedOperationException("row_number: clashed rank order found")
+                    }
+                }
+                desc match {
+                  case Some(true) => "row_number_desc"
+                  case Some(false) => "row_number_asc"
+                  case None => "row_number_asc"
+                }
               case f => throw new UnsupportedOperationException("unsupported window function: " + f)
             }
-            (name, func)
+            if (name.startsWith("row_number")) {
+              (name, orderSpec.head.child)
+            } else {
+              (name, func)
+            }
         }
     if (windowFunctions.isEmpty) {
       throw new UnsupportedOperationException("zero window functions" +
@@ -210,7 +239,17 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         Iterator.empty
       } else {
         val prev1 = System.nanoTime()
-        val gWindowFunctions = windowFunctions.map { case (n, f) =>
+        val gWindowFunctions = windowFunctions.map {
+          case (row_number_func, spec) if row_number_func.startsWith("row_number") =>
+            //TODO(): should get attr from orderSpec
+            val attr = ConverterUtils.getAttrFromExpr(orderSpec.head.child, true)
+            TreeBuilder.makeFunction(row_number_func,
+              List(TreeBuilder.makeField(
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
+             NoneType.NONE_TYPE 
+            )
+          case (n, f) =>
           TreeBuilder.makeFunction(n,
             f.children
               .flatMap {
@@ -218,19 +257,27 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   Some(TreeBuilder.makeField(
                     Field.nullable(a.name,
                       CodeGeneration.getResultType(a.dataType))))
-                case c: Cast =>
+                case c: Cast if c.child.isInstanceOf[AttributeReference] =>
                   Some(TreeBuilder.makeField(
                     Field.nullable(c.child.asInstanceOf[AttributeReference].name,
-                      CodeGeneration.getResultType(c.dataType))
-                  ))
-                case _: Literal =>
+                      CodeGeneration.getResultType(c.dataType))))
+                case _: Cast | _ : Literal =>
                   None
                 case _ =>
                   throw new IllegalStateException()
               }.toList.asJava,
             NoneType.NONE_TYPE)
         }
-        val groupingExpressions = partitionSpec.map(e => e.asInstanceOf[AttributeReference])
+        val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
+          case a: AttributeReference =>
+            a
+          case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+            c.child.asInstanceOf[AttributeReference]
+          case _: Cast | _ : Literal =>
+            null
+          case _ =>
+            throw new IllegalStateException()
+        }.filter(_ != null)
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
           groupingExpressions.map(e => TreeBuilder.makeField(
@@ -242,8 +289,12 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         val returnType = ArrowType.Binary.INSTANCE
         val fieldType = new FieldType(false, returnType, null)
         val resultField = new Field("window_res", fieldType,
-          windowFunctions.map { case (_, f) =>
-            CodeGeneration.getResultType(f.dataType)
+          windowFunctions.map {
+            case (row_number_func, f) if row_number_func.startsWith("row_number")=>
+              // row_number will return int32 based indicies
+              new ArrowType.Int(32, true)
+            case (_, f) =>
+              CodeGeneration.getResultType(f.dataType)
           }.zipWithIndex.map { case (t, i) =>
             Field.nullable(s"window_res_" + i, t)
           }.asJava)

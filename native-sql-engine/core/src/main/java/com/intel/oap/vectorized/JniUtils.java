@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -41,13 +42,15 @@ public class JniUtils {
   private static final String LIBRARY_NAME = "spark_columnar_jni";
   private static final String ARROW_LIBRARY_NAME = "libarrow.so.400.0.0";
   private static final String ARROW_PARENT_LIBRARY_NAME = "libarrow.so.400";
+  private static final String ARROW_PARENT_LIBRARY_SHORT = "libarrow.so";
   private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.400.0.0";
-  private static final String GANDIVA_PARENT_LIBRARY_NAME = "libgandiva.so.400"; 
-  private static boolean isLoaded = false;
-  private static boolean isCodegenDependencyLoaded = false;
+  private static final String GANDIVA_PARENT_LIBRARY_NAME = "libgandiva.so.400";
+  private static final String GANDIVA_PARENT_LIBRARY_SHORT = "libgandiva.so";
+  private static AtomicBoolean isLoaded = new AtomicBoolean(false);
+  private static AtomicBoolean isCodegenDependencyLoaded = new AtomicBoolean(false);
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
   private static volatile JniUtils INSTANCE;
-  private String tmp_dir;
+  private static String tmp_dir;
 
   public static JniUtils getInstance() throws IOException {
     String tmp_dir = System.getProperty("java.io.tmpdir");
@@ -70,13 +73,15 @@ public class JniUtils {
   }
 
   private JniUtils(String _tmp_dir) throws IOException, IllegalAccessException, IllegalStateException {
-    if (!isLoaded) {
-      if (_tmp_dir.contains("nativesql")) {
-        tmp_dir = _tmp_dir;
-      } else {
-        Path folder = Paths.get(_tmp_dir);
-        Path path = Files.createTempDirectory(folder, "spark_columnar_plugin_");
-        tmp_dir = path.toAbsolutePath().toString();
+    if (!isLoaded.get()) {
+      if (tmp_dir == null) {
+        if (_tmp_dir.contains("nativesql")) {
+          tmp_dir = _tmp_dir;
+        } else {
+          Path folder = Paths.get(_tmp_dir);
+          Path path = Files.createTempDirectory(folder, "spark_columnar_plugin_");
+          tmp_dir = path.toAbsolutePath().toString();
+        }
       }
       try {
         loadLibraryFromJar(tmp_dir);
@@ -85,14 +90,14 @@ public class JniUtils {
         System.load(GANDIVA_LIBRARY_NAME);
         System.loadLibrary(LIBRARY_NAME);
       }
-      isLoaded = true;
+      isLoaded.set(true);
     }
   }
 
   public void setTempDir() throws IOException, IllegalAccessException {
-    if (isCodegenDependencyLoaded == false) {
+    if (!isCodegenDependencyLoaded.get()) {
       loadIncludeFromJar(tmp_dir);
-      isCodegenDependencyLoaded = true;
+      isCodegenDependencyLoaded.set(true);
     }
   }
 
@@ -115,22 +120,14 @@ public class JniUtils {
         tmp_dir = System.getProperty("java.io.tmpdir");
       }
       final File arrowlibraryFile = moveFileFromJarToTemp(tmp_dir, ARROW_LIBRARY_NAME);
-      Path arrow_target = Paths.get(arrowlibraryFile.getPath());
-      Path arrow_link = Paths.get(tmp_dir, ARROW_PARENT_LIBRARY_NAME);
-      if (Files.exists(arrow_link)) {
-        Files.delete(arrow_link);
-      }
-      Path symLink = Files.createSymbolicLink(arrow_link, arrow_target);
-      System.load(arrowlibraryFile.getAbsolutePath());
+      Path arrowMiddleLink = createSoftLink(arrowlibraryFile, ARROW_PARENT_LIBRARY_NAME);
+      Path arrowShortLink = createSoftLink(new File(arrowMiddleLink.toString()), ARROW_PARENT_LIBRARY_SHORT);
+      System.load(arrowShortLink.toAbsolutePath().toString());
 
       final File gandivalibraryFile = moveFileFromJarToTemp(tmp_dir, GANDIVA_LIBRARY_NAME);
-      Path gandiva_target = Paths.get(gandivalibraryFile.getPath());
-      Path gandiva_link = Paths.get(tmp_dir, GANDIVA_PARENT_LIBRARY_NAME);
-      if (Files.exists(gandiva_link)) {
-        Files.delete(gandiva_link);
-      }
-      Files.createSymbolicLink(gandiva_link, gandiva_target);
-      System.load(gandivalibraryFile.getAbsolutePath());
+      Path gandivaMiddleLink = createSoftLink(gandivalibraryFile, GANDIVA_PARENT_LIBRARY_NAME);
+      Path gandivaShortLink = createSoftLink(new File(gandivaMiddleLink.toString()), GANDIVA_PARENT_LIBRARY_SHORT);
+      System.load(gandivaShortLink.toAbsolutePath().toString());
 
       final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
       final File libraryFile = moveFileFromJarToTemp(tmp_dir, libraryToLoad);
@@ -197,7 +194,8 @@ public class JniUtils {
     // final File temp = File.createTempFile(tmpDir, libraryToLoad);
     Path lib_path = Paths.get(tmpDir + "/" + libraryToLoad);
     if (Files.exists(lib_path)) {
-      return new File(tmpDir + "/" + libraryToLoad);
+      // origin lib file may load failed while using speculation, thus we delete it and create a new one
+      Files.delete(lib_path);
     }
     final File temp = new File(tmpDir + "/" + libraryToLoad);
     try (final InputStream is = JniUtils.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
@@ -210,6 +208,15 @@ public class JniUtils {
       }
     }
     return temp;
+  }
+
+  private static Path createSoftLink(File srcFile, String destFileName) throws IOException {
+    Path arrow_target = Paths.get(srcFile.getPath());
+    Path arrow_link = Paths.get(tmp_dir, destFileName);
+    if (Files.exists(arrow_link)) {
+      Files.delete(arrow_link);
+    }
+    return Files.createLink(arrow_link, arrow_target);
   }
 
   public static void extractResourcesToDirectory(JarFile origJar, String jarPath, String destPath) throws IOException {

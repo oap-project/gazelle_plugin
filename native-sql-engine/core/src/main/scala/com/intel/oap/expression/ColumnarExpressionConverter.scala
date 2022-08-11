@@ -287,9 +287,11 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             ss.pos,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             ss.len,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case st: StringTranslate =>
@@ -323,6 +325,26 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
+      case slpad: StringLPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(slpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(slpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
+      case srpad: StringRPad =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(srpad.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.len, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(srpad.pad, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
       case sr: StringReplace =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -333,9 +355,26 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.searchExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             sr.replaceExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr)
+      case conv: Conv =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            conv.numExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            conv.fromBaseExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            conv.toBaseExpr,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case u: UnaryExpression =>
@@ -375,6 +414,16 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef)
         }
         ColumnarConcatOperator.create(exps, expr)
+      case cws: ConcatWs =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        val exps = cws.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarConcatOperator.create(exps, expr)
       case r: Round =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -387,6 +436,26 @@ object ColumnarExpressionConverter extends Logging {
             r.scale,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case getArrayItem: GetArrayItem =>
+        getArrayItem.child match {
+          case strSplit: StringSplit =>
+            ColumnarTernaryOperator.create(
+              replaceWithColumnarExpression(
+                strSplit.str,
+                attributeSeq,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              replaceWithColumnarExpression(
+                strSplit.regex,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              replaceWithColumnarExpression(
+                getArrayItem.ordinal,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              new StringSplit(strSplit.str, strSplit.regex, getArrayItem.ordinal))
+          case other =>
+            throw new UnsupportedOperationException(
+              s" --> ${other.getClass} | ${other} is not currently" +
+                s" supported as child of GetArrayItem.")
+        }
       case b: BinaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         ColumnarBinaryExpression.create(
@@ -399,6 +468,15 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case hash: Murmur3Hash =>
+        val exps = hash.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarHashExpression.create(exps, hash.seed, hash)
+
       // Scala UDF.
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
@@ -464,6 +542,17 @@ object ColumnarExpressionConverter extends Logging {
         return true
       case c: Concat =>
         c.children.map(containsSubquery).exists(_ == true)
+      case c: ConcatWs =>
+        c.children.map(containsSubquery).exists(_ == true)
+      case getArrayItem: GetArrayItem =>
+        getArrayItem.child match {
+          case strSplit: StringSplit =>
+            strSplit.children.map(containsSubquery).exists(_ == true)
+          case other =>
+            throw new UnsupportedOperationException(
+              s" --> ${other.getClass} | ${other} is not currently" +
+                s" supported as child of GetArrayItem.")
+        }
       case b: BinaryExpression =>
         containsSubquery(b.left) || containsSubquery(b.right)
       case s: String2TrimExpression =>
@@ -483,6 +572,14 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
+      case conv: Conv =>
+        conv.children.map(containsSubquery).exists(_ == true)
+      case lpad: StringLPad =>
+        lpad.children.map(containsSubquery).exists(_ == true)
+      case rpad: StringRPad =>
+        rpad.children.map(containsSubquery).exists(_ == true)
+      case hash: Murmur3Hash =>
+        hash.children.map(containsSubquery).exists(_ == true)
       case expr: ScalaUDF if (expr.udfName match {
         case Some(name) =>
           ColumnarUDF.isSupportedUDF(name)

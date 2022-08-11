@@ -42,7 +42,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive.{ShuffleStageInfo, _}
-import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.aggregate.{HashAggregateExec, SortAggregateExec}
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
@@ -50,7 +50,6 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrowEvalPythonExec}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
-
 import org.apache.spark.util.ShufflePartitionUtils
 
 import scala.collection.mutable
@@ -122,6 +121,33 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
         plan.initialInputBufferOffset,
         plan.resultExpressions,
         child)
+    case plan: SortAggregateExec if (columnarConf.enableHashAggForStringType) =>
+      try {
+        val child = replaceWithColumnarPlan(plan.child)
+        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        ColumnarHashAggregateExec(
+          plan.requiredChildDistributionExpressions,
+          plan.groupingExpressions,
+          plan.aggregateExpressions,
+          plan.aggregateAttributes,
+          plan.initialInputBufferOffset,
+          plan.resultExpressions,
+          // If SortAggregateExec is forcibly replaced by ColumnarHashAggregateExec,
+          // Sort operator is useless. So just use its child to initialize.
+          child match {
+          case sort: ColumnarSortExec =>
+            sort.child
+          case sort: SortExec =>
+            sort.child
+          case other =>
+            other
+          })
+      } catch {
+        case _: Throwable =>
+          logInfo("Fallback to SortAggregateExec instead of forcibly" +
+            " using ColumnarHashAggregateExec!")
+          plan
+      }
     case plan: UnionExec =>
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")

@@ -29,7 +29,7 @@ import org.apache.spark.sql.catalyst.plans.FullOuter
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
-import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.aggregate.{HashAggregateExec, SortAggregateExec}
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
@@ -101,6 +101,15 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
         case plan: HashAggregateExec =>
           if (!enableColumnarHashAgg) return false
           new ColumnarHashAggregateExec(
+            plan.requiredChildDistributionExpressions,
+            plan.groupingExpressions,
+            plan.aggregateExpressions,
+            plan.aggregateAttributes,
+            plan.initialInputBufferOffset,
+            plan.resultExpressions,
+            plan.child)
+        case plan: SortAggregateExec if (columnarConf.enableHashAggForStringType) =>
+          ColumnarHashAggregateExec(
             plan.requiredChildDistributionExpressions,
             plan.groupingExpressions,
             plan.aggregateExpressions,

@@ -243,11 +243,12 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
 WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
-    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc) {
+    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, bool is_row_number) {
   ctx_ = ctx;
   type_list_ = type_list;
   sorter_ = sorter;
   desc_ = desc;
+  is_row_number_ = is_row_number;
 }
 
 arrow::Status WindowRankKernel::Make(
@@ -296,7 +297,12 @@ arrow::Status WindowRankKernel::Make(
       throw JniPendingException("Window Sort codegen failed");
     }
   }
-  *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
+  if (function_name.rfind("row_number", 0) == 0) {
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, true);
+  } else {
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
+  }
+
   return arrow::Status::OK();
 }
 
@@ -353,7 +359,7 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
 #endif
 
   // initialize partitions to be sorted
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> partitions_to_sort;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
   for (int i = 0; i <= max_group_id; i++) {
     partitions_to_sort.emplace_back();
   }
@@ -370,18 +376,18 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
       }
       uint64_t partition_id = slice->GetView(j);
       partitions_to_sort.at(partition_id)
-          .push_back(std::make_shared<ArrayItemIndex>(i, j));
+          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
     }
   }
 #ifdef DEBUG
   std::cout << "[window kernel] Finished. " << std::endl;
 #endif
 
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> sorted_partitions;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
   RETURN_NOT_OK(SortToIndicesPrepare(values));
   for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndex>> partition = partitions_to_sort.at(i);
-    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition;
+    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
 #ifdef DEBUG
     std::cout << "[window kernel] Sorting a single partition... " << std::endl;
 #endif
@@ -400,17 +406,17 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
     std::cout << "[window kernel] Generating rank result on a single partition... "
               << std::endl;
 #endif
-    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition =
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition =
         sorted_partitions.at(i);
     int assumed_rank = 0;
     for (int j = 0; j < sorted_partition.size(); j++) {
       ++assumed_rank;  // rank value starts from 1
-      std::shared_ptr<ArrayItemIndex> index = sorted_partition.at(j);
+      std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
       if (j == 0) {
         rank_array[index->array_id][index->id] = 1;  // rank value starts from 1
         continue;
       }
-      std::shared_ptr<ArrayItemIndex> last_index = sorted_partition.at(j - 1);
+      std::shared_ptr<ArrayItemIndexS> last_index = sorted_partition.at(j - 1);
       bool same = true;
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         bool s = false;
@@ -472,11 +478,11 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
-static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndex>> in,
+static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
                                    std::shared_ptr<arrow::Array>* out) {
   arrow::UInt64Builder builder;
   for (const auto& each : in) {
-    uint64_t encoded = ((uint64_t)(each->array_id) << 16U) ^ ((uint64_t)(each->id));
+    uint64_t encoded = ((uint64_t)(each->array_id) << 32U) ^ ((uint64_t)(each->id));
     RETURN_NOT_OK(builder.Append(encoded));
   }
   RETURN_NOT_OK(builder.Finish(out));
@@ -484,15 +490,15 @@ static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndex>> 
 }
 
 static arrow::Status DecodeIndices(std::shared_ptr<arrow::Array> in,
-                                   std::vector<std::shared_ptr<ArrayItemIndex>>* out) {
-  std::vector<std::shared_ptr<ArrayItemIndex>> v;
+                                   std::vector<std::shared_ptr<ArrayItemIndexS>>* out) {
+  std::vector<std::shared_ptr<ArrayItemIndexS>> v;
   std::shared_ptr<arrow::UInt64Array> selected =
       std::dynamic_pointer_cast<arrow::UInt64Array>(in);
   for (int i = 0; i < selected->length(); i++) {
     uint64_t encoded = selected->GetView(i);
-    uint16_t array_id = (encoded & 0xFFFF0000U) >> 16U;
-    uint16_t id = encoded & 0xFFFFU;
-    v.push_back(std::make_shared<ArrayItemIndex>(array_id, id));
+    uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
+    uint32_t id = encoded & 0xFFFFFFFFU;
+    v.push_back(std::make_shared<ArrayItemIndexS>(array_id, id));
   }
   *out = v;
   return arrow::Status::OK();
@@ -507,13 +513,13 @@ arrow::Status WindowRankKernel::SortToIndicesPrepare(std::vector<ArrayList> valu
 }
 
 arrow::Status WindowRankKernel::SortToIndicesFinish(
-    std::vector<std::shared_ptr<ArrayItemIndex>> elements_to_sort,
-    std::vector<std::shared_ptr<ArrayItemIndex>>* offsets) {
+    std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
+    std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets) {
   std::shared_ptr<arrow::Array> in;
   std::shared_ptr<arrow::Array> out;
   RETURN_NOT_OK(EncodeIndices(elements_to_sort, &in));
   RETURN_NOT_OK(sorter_->Finish(in, &out));
-  std::vector<std::shared_ptr<ArrayItemIndex>> decoded_out;
+  std::vector<std::shared_ptr<ArrayItemIndexS>> decoded_out;
   RETURN_NOT_OK(DecodeIndices(out, &decoded_out));
   *offsets = decoded_out;
   return arrow::Status::OK();
@@ -523,9 +529,13 @@ arrow::Status WindowRankKernel::SortToIndicesFinish(
 template <typename ArrayType>
 arrow::Status WindowRankKernel::AreTheSameValue(const std::vector<ArrayList>& values,
                                                 int column,
-                                                std::shared_ptr<ArrayItemIndex> i,
-                                                std::shared_ptr<ArrayItemIndex> j,
+                                                std::shared_ptr<ArrayItemIndexS> i,
+                                                std::shared_ptr<ArrayItemIndexS> j,
                                                 bool* out) {
+  if (is_row_number_) {
+    *out = false;
+    return arrow::Status::OK();
+  }
   auto typed_array_i =
       std::dynamic_pointer_cast<ArrayType>(values.at(i->array_id).at(column));
   auto typed_array_j =

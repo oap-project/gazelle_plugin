@@ -39,6 +39,11 @@ class ColumnarAnd(left: Expression, right: Expression, original: Expression)
     extends And(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -55,6 +60,11 @@ class ColumnarOr(left: Expression, right: Expression, original: Expression)
     extends Or(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: Object): Boolean = {
+    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -71,6 +81,11 @@ class ColumnarEndsWith(left: Expression, right: Expression, original: Expression
     extends EndsWith(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -131,6 +146,37 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
     val resultType = new ArrowType.Bool()
     val funcNode =
       TreeBuilder.makeFunction("like", Lists.newArrayList(left_node, right_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
+class ColumnarRLike(left: Expression, right: Expression, original: Expression)
+    extends RLike(left: Expression, right: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (!right.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException(
+        s"Gandiva 'like' function requires a literal as the second parameter.")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (left_node, left_type): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (right_node, right_type): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Bool()
+    val funcNode =
+      TreeBuilder.makeFunction("rlike", Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
 }
@@ -461,9 +507,9 @@ class ColumnarShiftRight(left: Expression, right: Expression, original: Expressi
         with ColumnarExpression
         with Logging {
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-    var (left_node, left_type): (TreeNode, ArrowType) =
+    val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    var (right_node, right_type): (TreeNode, ArrowType) =
+    val (right_node, right_type): (TreeNode, ArrowType) =
       right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     if (right_type.getTypeID != ArrowTypeID.Int) {
@@ -507,6 +553,8 @@ object ColumnarBinaryOperator {
         new ColumnarContains(left, right, c)
       case l: Like =>
         new ColumnarLike(left, right, l)
+      case rl: RLike =>
+        new ColumnarRLike(left, right, rl)
       case s: ShiftLeft =>
         new ColumnarShiftLeft(left, right, s)
       case s: ShiftRight =>

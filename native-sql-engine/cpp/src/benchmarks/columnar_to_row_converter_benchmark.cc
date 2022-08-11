@@ -33,7 +33,6 @@
 #include "codegen/code_generator_factory.h"
 #include "operators/columnar_to_row_converter.h"
 #include "tests/test_utils.h"
-#include "utils/memorypool.h"
 
 namespace sparkcolumnarplugin {
 namespace columnartorow {
@@ -42,10 +41,7 @@ const int batch_buffer_size = 32768;
 
 class GoogleBenchmarkColumnarToRow {
  public:
-  GoogleBenchmarkColumnarToRow(std::string file_name)
-      : largepage_pool(arrow::default_memory_pool()) {
-    GetRecordBatchReader(file_name);
-  }
+  GoogleBenchmarkColumnarToRow(std::string file_name) { GetRecordBatchReader(file_name); }
 
   void GetRecordBatchReader(const std::string& input_file) {
     std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
@@ -96,7 +92,6 @@ class GoogleBenchmarkColumnarToRow {
   std::vector<int> column_indices;
   std::shared_ptr<arrow::Schema> schema;
   parquet::ArrowReaderProperties properties;
-  LargePageMemoryPool largepage_pool;
 };
 class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
     : public GoogleBenchmarkColumnarToRow {
@@ -225,7 +220,7 @@ class GoogleBenchmarkColumnarToRow_IterateScan_Benchmark
         properties, &parquet_reader));
 
     std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
-        std::make_shared<ColumnarToRowConverter>(&largepage_pool);
+        std::make_shared<ColumnarToRowConverter>(arrow::default_memory_pool());
 
     for (auto _ : state) {
       ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(

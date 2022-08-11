@@ -90,7 +90,22 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
       setNullAt((*unsafe_row).get(), idx_);
     } else {
       auto v = typed_array_->GetView(i);
-      appendToUnsafeRow((*unsafe_row).get(), idx_, v);
+      switch (v.size()) {
+        case 1:
+          appendToUnsafeRow((*unsafe_row).get(), idx_, *(int8_t*)(v.data()));
+          break;
+        case 2:
+          appendToUnsafeRow((*unsafe_row).get(), idx_, *(int16_t*)(v.data()));
+          break;
+        case 4:
+          appendToUnsafeRow((*unsafe_row).get(), idx_, *(int32_t*)(v.data()));
+          break;
+        case 8:
+          appendToUnsafeRow((*unsafe_row).get(), idx_, *(int64_t*)(v.data()));
+          break;
+        default:
+          appendToUnsafeRow((*unsafe_row).get(), idx_, v);
+      }
     }
     return arrow::Status::OK();
   }

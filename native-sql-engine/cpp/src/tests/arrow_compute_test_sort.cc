@@ -1269,9 +1269,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
       "false, false, false, false, false, false, false, false, false, false, "
       "false, false, false, "
       "false, false, false, false, false, false, false]",
-      "[18, 22, 8, 41, 1, 12, 12, 6, 4, 5, 2, 4, 6, 5, 2, 6, 10, 32, 78, 78, "
-      "11, 12, 12, 45, 2, "
-      "11, 16, 12, 1, 0, 6, 7, 4, 3, 2]"};
+      "[1, 5, 6, 4, 2, 4, 6, 12, 41, 8, 22, 12, 18, 5, 2, 2, 3, 4, 7, 6, "
+      "0, 1, 12, 16, 10, "
+      "11, 2, 45, 12, 78, 32, 6, 78, 11, 12]"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
 
   for (auto batch : input_batch_list) {
@@ -1332,21 +1332,21 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   std::vector<std::string> input_data_string = {
       R"(["b", "q", "s", "t", null, null, "a"])",
-      R"(["a", "c", "e", "f", "g", null, "h"])"};
+      R"(["a", "1", "e", "f", "g", null, "h"])"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_2 = {
       R"([null, "f", "q", "d", "r", null, "g"])",
-      R"(["a", "c", "e", "f", null, "j", "h"])"};
+      R"(["a", "c", "2", "f", null, "j", "h"])"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_3 = {
       R"(["p", "q", "o", "e", null, null, "l"])",
-      R"(["a", "c", "e", "f", "g","j", null])"};
+      R"(["a", "3", "e", "f", "g","j", null])"};
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_4 = {
-      R"(["q", "w", "z", "x", "y", null, "u"])", R"(["a", "c", "e", "f", "g","j", "h"])"};
+      R"(["q", "w", "z", "x", "y", null, "u"])", R"(["4", "c", "e", "f", "g","j", "h"])"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_5 = {
@@ -1359,7 +1359,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
       R"(["a","a","b","b","c","d","d","e","f","g","l","o","p","q","q","q","q","r","s","t","u","w","x","y","z",null,null,null,null,null,null,null,null,null,null])",
-      R"(["h","a","e","a",null,"f","f","f","c","h",null,"e","a","c","a","e","c",null,"e","f","h","c","f","g","e","g",null,"a","j","g","j","j","g","j","h"])"};
+      R"(["h","a","a","e",null,"f","f","f","c","h",null,"e","a","1","2","3","4",null,"e","f","h","c","f","g","e","g",null,"a","j","g","j","j","g","j","h"])"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
   for (auto batch : input_batch_list) {
     ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
@@ -1444,8 +1444,8 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   //////////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      R"(["a","a","b","B","C","D","d","E","F","g","l","o","p","q","q","Q","q","r","s","T","u","W","x","y","Z",null,null,null,null,null,null,null,null,null,null])",
-      R"(["h","a","e","a",null,"f","f","f","c","h",null,"e","a","c","a","e","c",null,"e","f","h","c","f","g","e","g",null,"a","j","g","j","j","g","j","h"])"};
+      R"(["a","a","B","b","C","d","D","E","F","g","l","o","p","q","Q","q","q","r","s","T","u","W","x","y","Z",null,null,null,null,null,null,null,null,null,null])",
+      R"(["h","a","a","e",null,"f","f","f","c","h",null,"e","a","c","e","c","a",null,"e","f","h","c","f","g","e","g",null,"a","j","g","j","j","g","j","h"])"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
   for (auto batch : input_batch_list) {
     ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
