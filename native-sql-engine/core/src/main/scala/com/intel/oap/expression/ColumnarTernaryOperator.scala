@@ -368,6 +368,42 @@ class ColumnarConv(numExpr: Expression, fromBaseExpr: Expression, toBaseExpr: Ex
 
 }
 
+class ColumnarParseUrl(children: Seq[Expression], failOnError: Boolean)
+  extends ParseUrl(children, failOnError) with ColumnarExpression {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    children.foreach(expr =>
+      if (expr.dataType != StringType) {
+        throw new UnsupportedOperationException(
+          s"${expr.dataType} is not supported in ColumnarParseUrl")
+      })
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (url_node, _) =
+      children.head.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (extract_part_node, _) =
+      children(1).asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+
+    if (children.size == 2) {
+      (TreeBuilder.makeFunction("parse_url",
+        Lists.newArrayList(url_node, extract_part_node), resultType), resultType)
+    } else {
+      val (pattern_node, _) =
+        children(2).asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      (TreeBuilder.makeFunction("parse_url",
+        Lists.newArrayList(url_node, extract_part_node, pattern_node), resultType), resultType)
+    }
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -392,6 +428,13 @@ object ColumnarTernaryOperator {
       new ColumnarStringReplace(src, arg1, arg2)
     case _: Conv =>
       new ColumnarConv(src, arg1, arg2)
+    case other =>
+      throw new UnsupportedOperationException(s"not currently supported: $other.")
+  }
+
+  def create(children: Seq[Expression], original: Expression): Expression = original match {
+    case parseUrl: ParseUrl =>
+      new ColumnarParseUrl(children, parseUrl.failOnError)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
