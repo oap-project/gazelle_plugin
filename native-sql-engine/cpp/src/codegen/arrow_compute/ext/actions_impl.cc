@@ -448,7 +448,8 @@ class CountAction : public ActionBase {
 template <typename DataType>
 class CountDistinctAction : public ActionBase {
  public:
-  CountDistinctAction(arrow::compute::ExecContext* ctx, int arg) : ctx_(ctx), localGid_(arg) {
+  CountDistinctAction(arrow::compute::ExecContext* ctx, int arg)
+      : ctx_(ctx), localGid_(arg) {
 #ifdef DEBUG
     std::cout << "Construct CountDistinctAction" << std::endl;
 #endif
@@ -463,9 +464,7 @@ class CountDistinctAction : public ActionBase {
     std::cout << "Destruct CountDistinctAction" << std::endl;
 #endif
   }
-  std::string getName() {
-    return "CountDistinctAction";
-  }
+  std::string getName() { return "CountDistinctAction"; }
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -510,16 +509,21 @@ class CountDistinctAction : public ActionBase {
       cache_.resize(1, 0);
       length_ = 1;
     }
-     //at least two arrays, count attrs and gid
+    // at least two arrays, count attrs and gid
     assert(in.size() > 1);
     int gid = in.size() - 1;
-    auto gidArray = const_cast<int32_t*>(in[gid]->data()->GetValues<int32_t>(1));
+    std::shared_ptr<arrow::BooleanArray> typed_key_in =
+        std::dynamic_pointer_cast<arrow::BooleanArray>(in[gid]);
     int length = in[0]->length();
     int count_non_null = 0;
     int count_null = 0;
     for (size_t id = 0; id < length; id++) {
+      if (typed_key_in->GetView(id) == 0) {
+        count_null++;
+        continue;
+      }
       for (int colId = 0; colId < in.size() - 1; colId++) {
-        if (in[colId]->IsNull(id) || gidArray[id] != localGid_) {
+        if (in[colId]->IsNull(id)) {
           count_null++;
           break;
         }
@@ -583,6 +587,7 @@ class CountDistinctAction : public ActionBase {
   using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
+  // for debug only
   int32_t localGid_ = -1;
   // result
   using CType = typename arrow::TypeTraits<DataType>::CType;

@@ -156,7 +156,7 @@ class ColumnarHashAggregation(
             case Partial =>
               val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
-              if (aggregateFunc.children(0).isInstanceOf[Literal]) {
+              if (aggregateFunc.children(0).isInstanceOf[Literal] && !aggregateExpression.filter.isDefined) {
                 TreeBuilder.makeFunction(
                   s"action_countLiteral_${aggregateFunc.children(0)}",
                   Lists.newArrayList(),

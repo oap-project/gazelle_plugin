@@ -151,7 +151,8 @@ class HashAggregateKernel::Impl {
     std::shared_ptr<GandivaProjector> pre_process_projector;
     if (!prepare_function_list_.empty()) {
 #ifdef DEBUG
-      std::cout << "gandiva schema: " << arrow::schema(input_field_list_)->ToString() << std::endl;
+      std::cout << "gandiva schema: " << arrow::schema(input_field_list_)->ToString()
+                << std::endl;
 #endif
       auto pre_process_expr_list = GetGandivaKernel(prepare_function_list_);
       pre_process_projector = std::make_shared<GandivaProjector>(
@@ -819,9 +820,7 @@ class HashAggregateKernel::Impl {
         for (int i = 0; i < action_impl_list_.size(); i++) {
           auto action = action_impl_list_[i];
           cols.clear();
-          std::cout << "XXX: " << action_prepare_index_list_[i].size() << std::endl;
           for (auto idx : action_prepare_index_list_[i]) {
-            std::cout << "XXX using: " << idx << std::endl;
             cols.push_back(in[idx]);
           }
           if (cols.empty()) {
@@ -829,7 +828,7 @@ class HashAggregateKernel::Impl {
             // literal
             RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
 
-          } else if (action->getName() == "CountDistinctAction")  {
+          } else if (action->getName() == "CountDistinctAction") {
             RETURN_NOT_OK(action->EvaluateCountDistinct(cols));
           } else {
             RETURN_NOT_OK(action->Evaluate(cols));
