@@ -156,7 +156,8 @@ case class ColumnarCollapseCodegenStages(
         if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
       false
     case p: ColumnarCodegenSupport if p.supportColumnarCodegen =>
-      plan.children.map(existsJoins(_, count)).exists(_ == true)
+      if (count >= 1) true
+      else plan.children.map(existsJoins(_, count)).exists(_ == true)
     case _ =>
       false
   }
