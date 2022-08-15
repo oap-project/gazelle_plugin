@@ -504,10 +504,10 @@ case class ColumnarHashAggregateExec(
     var res_index = 0
     for (expIdx <- aggregateExpressions.indices) {
       val exp: AggregateExpression = aggregateExpressions(expIdx)
-      if (exp.filter.isDefined) {
-        throw new UnsupportedOperationException(
-          "filter is not supported in AggregateExpression")
-      }
+      // if (exp.filter.isDefined) {
+      //   throw new UnsupportedOperationException(
+      //     "filter is not supported in AggregateExpression")
+      // }
       val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {

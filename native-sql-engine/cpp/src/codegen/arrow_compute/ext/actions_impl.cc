@@ -79,6 +79,10 @@ arrow::Status ActionBase::EvaluateCountLiteral(const int& len) {
   return arrow::Status::NotImplemented("ActionBase EvaluateCountLiteral is abstract.");
 }
 
+arrow::Status ActionBase::EvaluateCountDistinct(const arrow::ArrayVector& in) {
+  return arrow::Status::NotImplemented("ActionBase EvaluateCountDistinct is abstract.");
+}
+
 arrow::Status ActionBase::Evaluate(int dest_group_id) {
   return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
 }
@@ -117,6 +121,8 @@ arrow::Status ActionBase::FinishAndReset(ArrayList* out) {
 }
 
 uint64_t ActionBase::GetResultLength() { return 0; }
+
+std::string ActionBase::getName() { return ""; }
 
 //////////////// UniqueAction ///////////////
 template <typename DataType, typename CType>
@@ -433,6 +439,153 @@ class CountAction : public ActionBase {
   int32_t row_id;
   // result
   using CType = typename arrow::TypeTraits<arrow::Int64Type>::CType;
+  std::vector<CType> cache_;
+  std::unique_ptr<ResBuilderType> builder_;
+  uint64_t length_ = 0;
+};
+
+//////////////// CountDistinctAction ///////////////
+template <typename DataType>
+class CountDistinctAction : public ActionBase {
+ public:
+  CountDistinctAction(arrow::compute::ExecContext* ctx, int arg) : ctx_(ctx), localGid_(arg) {
+#ifdef DEBUG
+    std::cout << "Construct CountDistinctAction" << std::endl;
+#endif
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
+                       &array_builder);
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+  }
+  ~CountDistinctAction() {
+#ifdef DEBUG
+    std::cout << "Destruct CountDistinctAction" << std::endl;
+#endif
+  }
+  std::string getName() {
+    return "CountDistinctAction";
+  }
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_.size() <= max_group_id) {
+      cache_.resize(max_group_id + 1, 0);
+      length_ = cache_.size();
+    }
+
+    // prepare evaluate lambda
+    *on_valid = [this](int dest_group_id) {
+      cache_[dest_group_id] += 1;
+      return arrow::Status::OK();
+    };
+
+    *on_null = [this]() { return arrow::Status::OK(); };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status GrowByFactor(int dest_group_id) {
+    int max_group_id;
+    if (cache_.size() < 128) {
+      max_group_id = 128;
+    } else {
+      max_group_id = cache_.size() * 2;
+    }
+    cache_.resize(max_group_id, 0);
+    return arrow::Status::OK();
+  }
+
+  arrow::Status EvaluateCountLiteral(const int& len) {
+    if (cache_.empty()) {
+      cache_.resize(1, 0);
+      length_ = 1;
+    }
+    cache_[0] += len;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status EvaluateCountDistinct(const arrow::ArrayVector& in) {
+    if (cache_.empty()) {
+      cache_.resize(1, 0);
+      length_ = 1;
+    }
+     //at least two arrays, count attrs and gid
+    assert(in.size() > 1);
+    int gid = in.size() - 1;
+    auto gidArray = const_cast<int32_t*>(in[gid]->data()->GetValues<int32_t>(1));
+    int length = in[0]->length();
+    int count_non_null = 0;
+    int count_null = 0;
+    for (size_t id = 0; id < length; id++) {
+      for (int colId = 0; colId < in.size() - 1; colId++) {
+        if (in[colId]->IsNull(id) || gidArray[id] != localGid_) {
+          count_null++;
+          break;
+        }
+      }
+    }
+    count_non_null = length - count_null;
+    cache_[0] += count_non_null;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    return arrow::Status::NotImplemented(
+        "CountDistinctAction Non-Groupby Evaluate is unsupported.");
+  }
+
+  arrow::Status Evaluate(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (length_ < target_group_size) length_ = target_group_size;
+    cache_[dest_group_id] += 1;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status EvaluateNull(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (length_ < target_group_size) length_ = target_group_size;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    std::shared_ptr<arrow::Array> arr_out;
+    builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+      builder_->Append(cache_[i]);
+    }
+    RETURN_NOT_OK(builder_->Finish(&arr_out));
+    out->push_back(arr_out);
+
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return length_; }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    std::shared_ptr<arrow::Array> arr_out;
+    builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      builder_->Append(cache_[offset + i]);
+    }
+
+    RETURN_NOT_OK(builder_->Finish(&arr_out));
+    out->push_back(arr_out);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ResArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+  // input
+  arrow::compute::ExecContext* ctx_;
+  int32_t localGid_ = -1;
+  // result
+  using CType = typename arrow::TypeTraits<DataType>::CType;
   std::vector<CType> cache_;
   std::unique_ptr<ResBuilderType> builder_;
   uint64_t length_ = 0;
@@ -5864,6 +6017,15 @@ arrow::Status MakeCountLiteralAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   auto action_ptr = std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
+  *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+  return arrow::Status::OK();
+}
+
+arrow::Status MakeCountDistinctAction(
+    arrow::compute::ExecContext* ctx, int arg,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
+  auto action_ptr = std::make_shared<CountDistinctAction<arrow::Int64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
