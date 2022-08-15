@@ -719,7 +719,8 @@ static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values, int c
         }
       } else {
         auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(index->array_id).at(column));
-        lag_array[index->array_id][index->id] = typed_array->GetView(index->id);
+        // It is supposed (index->id - offset_) is equavialent with (j - offset_)
+        lag_array[index->array_id][index->id] = typed_array->GetView(index->id - offset_);
         validity[i][j] = true;
       }
     }
