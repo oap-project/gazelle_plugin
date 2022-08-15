@@ -279,13 +279,13 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
         val res = new Iterator[ColumnarBatch] {
           private val converters = new RowToColumnConverter(localSchema)
           private var last_cb: ColumnarBatch = null
-          private var elapse: Long = 0
 
           override def hasNext: Boolean = {
             rowIterator.hasNext
           }
 
           override def next(): ColumnarBatch = {
+            var elapse: Long = 0
             val vectors: Seq[WritableColumnVector] =
               ArrowWritableColumnVector.allocateColumns(numRows, schema)
             var rowCount = 0
