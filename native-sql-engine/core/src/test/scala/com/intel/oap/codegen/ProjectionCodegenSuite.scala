@@ -37,6 +37,18 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  test("less than or equal to function in codegen") {
+    val intData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("a <= b")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(true), Row(true), Row(false))
+      )
+    }
+  }
+
   test("greater than function in codegen") {
     val intData = Seq((7, 3), (10, 15)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
@@ -45,6 +57,18 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row(true), Row(false))
+      )
+    }
+  }
+
+  test("greater than or equal to function in codegen") {
+    val intData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("a >= b")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(true), Row(false), Row(true))
       )
     }
   }
@@ -139,6 +163,37 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row("sparksql"))
+      )
+    }
+  }
+
+  test("cast INT/BIGINT function in codegen") {
+    val intData = Seq(("123")).toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      var df = intData.selectExpr("cast(a as INT)")
+      var executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(123))
+      )
+
+      df = intData.selectExpr("cast(a as BIGINT)")
+      executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(123L))
+      )
+    }
+  }
+
+  test("cast FLOAT function in codegen") {
+    val intData = Seq(("123.456")).toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      var df = intData.selectExpr("cast(a as float)")
+      var executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(123.456f))
       )
     }
   }
