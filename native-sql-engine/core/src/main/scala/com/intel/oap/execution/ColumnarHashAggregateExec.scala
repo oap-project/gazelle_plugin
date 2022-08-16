@@ -688,6 +688,9 @@ case class ColumnarHashAggregateExec(
   override def supportColumnarCodegen: Boolean = {
     for (expr <- aggregateExpressions) {
       // TODO: close the gap in supporting code gen.
+      if (expr.filter.isDefined) {
+        return false
+      }
       expr.aggregateFunction match {
         case _: First =>
           return false

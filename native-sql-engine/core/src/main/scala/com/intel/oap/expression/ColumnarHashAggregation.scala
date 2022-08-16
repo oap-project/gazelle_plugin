@@ -165,6 +165,7 @@ class ColumnarHashAggregation(
                 if (aggregateExpression.filter.isDefined) {
                   val filterColumnarFuncNodeList = List(getColumnarFuncNode(aggregateExpression.filter.get))
                   distIndex += 1
+                  // TODO(): rename this to coundFilter?
                   TreeBuilder
                   .makeFunction(s"action_countDistinct_${distIndex}",
                     (childrenColumnarFuncNodeList ::: filterColumnarFuncNodeList).asJava,
