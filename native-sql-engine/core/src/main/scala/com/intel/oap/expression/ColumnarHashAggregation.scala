@@ -71,6 +71,7 @@ class ColumnarHashAggregation(
   var inputAttrQueue: scala.collection.mutable.Queue[Attribute] = _
   val resultType = CodeGeneration.getResultType()
   val NaN_check : Boolean = GazellePluginConfig.getConf.enableColumnarNaNCheck
+  var distIndex = 0
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
     try {
@@ -155,14 +156,25 @@ class ColumnarHashAggregation(
             case Partial =>
               val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
-              if (aggregateFunc.children(0).isInstanceOf[Literal]) {
+              if (aggregateFunc.children(0).isInstanceOf[Literal] && !aggregateExpression.filter.isDefined) {
                 TreeBuilder.makeFunction(
                   s"action_countLiteral_${aggregateFunc.children(0)}",
                   Lists.newArrayList(),
                   resultType)
               } else {
-                TreeBuilder
-                  .makeFunction("action_count", childrenColumnarFuncNodeList.asJava, resultType)
+                if (aggregateExpression.filter.isDefined) {
+                  val filterColumnarFuncNodeList = List(getColumnarFuncNode(aggregateExpression.filter.get))
+                  distIndex += 1
+                  // TODO(): rename this to coundFilter?
+                  TreeBuilder
+                  .makeFunction(s"action_countDistinct_${distIndex}",
+                    (childrenColumnarFuncNodeList ::: filterColumnarFuncNodeList).asJava,
+                    resultType)
+                } else {
+                  TreeBuilder
+                    .makeFunction("action_count", childrenColumnarFuncNodeList.asJava, resultType)
+                }
+
               }
             case Final | PartialMerge =>
               val childrenColumnarFuncNodeList =

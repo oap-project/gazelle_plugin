@@ -56,6 +56,9 @@ class HashAggregateKernel::Impl {
        std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
        std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list)
       : ctx_(ctx), action_list_(action_list) {
+#ifdef DEBUG
+    std::cout << "============ make hashagg kernel ============ " << std::endl;
+#endif
     // if there is projection inside aggregate, we need to extract them into
     // projector_list
     for (auto node : input_field_list) {
@@ -147,6 +150,10 @@ class HashAggregateKernel::Impl {
     // 1. create pre project
     std::shared_ptr<GandivaProjector> pre_process_projector;
     if (!prepare_function_list_.empty()) {
+#ifdef DEBUG
+      std::cout << "gandiva schema: " << arrow::schema(input_field_list_)->ToString()
+                << std::endl;
+#endif
       auto pre_process_expr_list = GetGandivaKernel(prepare_function_list_);
       pre_process_projector = std::make_shared<GandivaProjector>(
           ctx_, arrow::schema(input_field_list_), pre_process_expr_list);
@@ -752,6 +759,11 @@ class HashAggregateKernel::Impl {
         result_id += 1;
         RETURN_NOT_OK(
             MakeFirstFinalAction(ctx_, action_input_type, res_type_list, &action));
+      } else if (action_name.compare(0, 21, "action_countDistinct_") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        int arg = std::stol(action_name.substr(21));
+        RETURN_NOT_OK(MakeCountDistinctAction(ctx_, arg, res_type_list, &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }
@@ -783,6 +795,9 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
+#ifdef DEBUG
+      std::cout << "using numberic hashagg res" << std::endl;
+#endif
       batch_size_ = GetBatchSize();
       aggr_hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
     }
@@ -813,6 +828,8 @@ class HashAggregateKernel::Impl {
             // literal
             RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
 
+          } else if (action->getName() == "CountDistinctAction") {
+            RETURN_NOT_OK(action->EvaluateCountDistinct(cols));
           } else {
             RETURN_NOT_OK(action->Evaluate(cols));
           }

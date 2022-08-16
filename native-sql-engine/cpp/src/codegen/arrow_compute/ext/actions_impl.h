@@ -54,6 +54,7 @@ class ActionBase {
                                std::function<arrow::Status()>* on_null);
   virtual arrow::Status EvaluateCountLiteral(const int& len);
   virtual arrow::Status Evaluate(const arrow::ArrayVector& in);
+  virtual arrow::Status EvaluateCountDistinct(const arrow::ArrayVector& in);
   virtual arrow::Status Evaluate(int dest_group_id);
   virtual arrow::Status Evaluate(int dest_group_id, void* data);
   virtual arrow::Status Evaluate(int dest_group_id, void* data1, void* data2);
@@ -64,6 +65,7 @@ class ActionBase {
   virtual arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out);
   virtual arrow::Status FinishAndReset(ArrayList* out);
   virtual uint64_t GetResultLength();
+  virtual std::string getName();
 };
 
 arrow::Status MakeUniqueAction(
@@ -76,6 +78,11 @@ arrow::Status MakeCountAction(arrow::compute::ExecContext* ctx,
                               std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeCountLiteralAction(
+    arrow::compute::ExecContext* ctx, int arg,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
+
+arrow::Status MakeCountDistinctAction(
     arrow::compute::ExecContext* ctx, int arg,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out);
