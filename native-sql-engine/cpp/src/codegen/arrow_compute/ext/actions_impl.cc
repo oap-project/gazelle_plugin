@@ -3005,7 +3005,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
       };
     } else {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
           cache_sum_[dest_group_id] += data_[row_id];
           cache_count_[dest_group_id] += 1;
@@ -3185,7 +3185,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     row_id = 0;
     if (in_null_count_) {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
           cache_sum_[dest_group_id] += in_->GetView(row_id);
           cache_count_[dest_group_id] += 1;
@@ -5059,8 +5059,9 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       return arrow::Status::OK();
     }
     auto input_array = std::make_shared<ArrayType>(in[0]);
+    int in_null_count = input_array->null_count();
     for (int id = 0; id < input_array->length(); id++) {
-      if (input_array->IsNull(id)) {
+      if (in_null_count > 0 && input_array->IsNull(id)) {
         if (ignore_nulls_) {
           continue;
         } else {
@@ -5296,8 +5297,9 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       return arrow::Status::OK();
     }
     auto input_array = std::make_shared<ArrayType>(in[0]);
+    int in_null_count = input_array->null_count();
     for (int id = 0; id < input_array->length(); id++) {
-      if (input_array->IsNull(id)) {
+      if (in_null_count > 0 && input_array->IsNull(id)) {
         if (ignore_nulls_) {
           continue;
         } else {
