@@ -50,14 +50,14 @@ struct FindAccumulatorType<I, arrow::enable_if_floating_point<I>> {
   using Type = arrow::DoubleType;
 };
 
-arrow::Status ActionBase::Submit(ArrayList in, int max_group_id,
+arrow::Status ActionBase::Submit(const ArrayList& in, int max_group_id,
                                  std::function<arrow::Status(int)>* on_valid,
                                  std::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
 arrow::Status ActionBase::Submit(
-    std::vector<std::shared_ptr<arrow::Array>> in,
+    const std::vector<std::shared_ptr<arrow::Array>>& in,
     std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
     std::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
@@ -143,7 +143,7 @@ class UniqueAction : public ActionBase {
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -302,7 +302,7 @@ class CountAction : public ActionBase {
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -465,7 +465,7 @@ class CountDistinctAction : public ActionBase {
 #endif
   }
   std::string getName() { return "CountDistinctAction"; }
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -616,7 +616,7 @@ class CountLiteralAction : public ActionBase {
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -740,7 +740,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1022,7 +1022,7 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1179,7 +1179,7 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1350,7 +1350,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1627,7 +1627,7 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1783,7 +1783,7 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -1956,7 +1956,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2117,7 +2117,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   int RequiredColNum() { return 1; }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2284,7 +2284,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
   int RequiredColNum() { return 1; }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2450,7 +2450,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2621,7 +2621,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2792,7 +2792,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -2979,7 +2979,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -3168,7 +3168,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -3353,7 +3353,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -3534,7 +3534,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -3704,7 +3704,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -3884,7 +3884,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -4079,7 +4079,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -4313,7 +4313,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -4540,7 +4540,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -4747,7 +4747,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -4986,7 +4986,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -5225,7 +5225,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -5461,7 +5461,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
@@ -5721,7 +5721,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  arrow::Status Submit(ArrayList in_list, int max_group_id,
+  arrow::Status Submit(const ArrayList& in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
