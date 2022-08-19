@@ -2302,7 +2302,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     if (in_null_count_) {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
           cache_validity_[dest_group_id] = true;
           cache_[dest_group_id] += data_[row_id];
@@ -2467,7 +2467,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     if (in_null_count_) {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
           cache_validity_[dest_group_id] = true;
           cache_[dest_group_id] += in_->GetView(row_id);
