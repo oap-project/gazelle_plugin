@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.util
+package org.apache.spark.sql.util
 
 import java.io.File
 
@@ -69,5 +69,9 @@ object ShimUtils {
   def doFetchFile(urlString: String, targetDirHandler: File,
                   targetFileName: String, sparkConf: SparkConf): Unit = {
     Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
+  }
+
+  def toAttributes(fileIndex: PartitioningAwareFileIndex): Seq[AttributeReference] = {
+    fileIndex.partitionSchema.toAttributes
   }
 }

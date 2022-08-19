@@ -34,7 +34,7 @@ import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
-import org.apache.spark.sql.execution.datasources.OutputWriter
+import org.apache.spark.sql.execution.datasources.{OutputWriter, PartitioningAwareFileIndex}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ShuffleOrigin}
@@ -121,4 +121,6 @@ trait SparkShims {
   def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
 
   def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
+
+  def toAttributes(fileIndex: PartitioningAwareFileIndex): Seq[AttributeReference]
 }

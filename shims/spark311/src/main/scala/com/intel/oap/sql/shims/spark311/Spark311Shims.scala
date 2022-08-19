@@ -27,7 +27,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.MigratableResolver
 import org.apache.spark.shuffle.ShuffleHandle
-import org.apache.spark.util.ShimUtils
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.SQLContext
@@ -43,6 +42,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.util.ShimUtils
 
 class Spark311Shims extends SparkShims {
 
@@ -205,4 +205,7 @@ class Spark311Shims extends SparkShims {
     throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
+  override def toAttributes(fileIndex: PartitioningAwareFileIndex): Seq[AttributeReference] = {
+    ShimUtils.toAttributes(fileIndex)
+  }
 }
