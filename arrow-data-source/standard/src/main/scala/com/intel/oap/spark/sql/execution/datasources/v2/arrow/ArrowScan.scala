@@ -82,14 +82,14 @@ case class ArrowScan(
     //  .getOrElse(sparkSession.leafNodeDefaultParallelism)
     val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
       .getOrElse(SparkShimLoader.getSparkShims.leafNodeDefaultParallelism(sparkSession))
-    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 256 * 1024 * 1024
-    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 1024 * 1024 * 1024
+    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 128 * 1024 * 1024
+    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 512 * 1024 * 1024
     val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
     var maxBytesPerCore = totalBytes / minPartitionNum
     var bytesPerCoreFinal = maxBytesPerCore
     var bytesPerCore = maxBytesPerCore
     var i = 2
-    while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND && i < 4) {
+    while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
       bytesPerCore = maxBytesPerCore / i
       if (bytesPerCore > PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
         bytesPerCoreFinal = bytesPerCore
