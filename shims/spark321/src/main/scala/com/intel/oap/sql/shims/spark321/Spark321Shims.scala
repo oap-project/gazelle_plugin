@@ -30,8 +30,7 @@ import org.apache.spark.shuffle.ShuffleHandle
 import org.apache.spark.unsafe.map.BytesToBytesMap
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
@@ -46,7 +45,7 @@ import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITI
 import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.util.ShimUtils
+import org.apache.spark.util.ShimUtils
 
 class Spark321Shims extends SparkShims {
 
@@ -235,7 +234,4 @@ class Spark321Shims extends SparkShims {
     }
   }
 
-  override def toAttributes(fileIndex: PartitioningAwareFileIndex): Seq[AttributeReference] = {
-    ShimUtils.toAttributes(fileIndex)
-  }
 }
