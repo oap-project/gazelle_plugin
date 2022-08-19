@@ -121,5 +121,4 @@ trait SparkShims {
   def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
 
   def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
-
 }

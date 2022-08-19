@@ -18,6 +18,15 @@ package org.apache.spark.util
 
 import java.io.File
 
+import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
+import org.apache.spark.shuffle.BaseShuffleHandle
+import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.MigratableResolver
+import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
+import org.apache.spark.shuffle.sort.SortShuffleWriter
+
 object ShimUtils {
 
   /**
