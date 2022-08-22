@@ -26,6 +26,9 @@
 
 #include "third_party/row_wise_memory/native_memory.h"
 
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
 #define TEMP_UNSAFEROW_BUFFER_SIZE 8192
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
@@ -103,22 +106,27 @@ using is_number_alike =
 
 template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
+  if (unlikely(row->cursor + sizeof(T) > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   *((T*)(row->data + row->cursor)) = val;
   row->cursor += sizeof(T);
 }
 
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
-                                     const std::string& str) {
-  memcpy(row->data + row->cursor, str.data(), str.size());
-  row->cursor += str.size();
-}
-static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      arrow::util::string_view str) {
+  if (unlikely(row->cursor + str.size() > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   memcpy(row->data + row->cursor, str.data(), str.size());
   row->cursor += str.size();
 }
+
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      const arrow::Decimal128& dcm) {
+  if (unlikely(row->cursor + 16 > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   int numBytes = 16;
   zeroOutPaddingBytes(row, numBytes);
   memcpy(row->data + row->cursor, dcm.ToBytes().data(), numBytes);
