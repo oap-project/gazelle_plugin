@@ -76,51 +76,51 @@ case class ArrowScan(
     this.copy(partitionFilters = partitionFilters, dataFilters = dataFilters)
 
   // compute maxSplitBytes
-  def maxSplitBytes(sparkSession: SparkSession,
-                    selectedPartitions: Seq[PartitionDirectory]): Long = {
-    // TODO: unify it with PREFERRED_PARTITION_SIZE_UPPER_BOUND.
-    val defaultMaxSplitBytes = sparkSession.sessionState.conf.filesMaxPartitionBytes
-    val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
-    // val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
-    //  .getOrElse(sparkSession.leafNodeDefaultParallelism)
-    val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
-      .getOrElse(SparkShimLoader.getSparkShims.leafNodeDefaultParallelism(sparkSession))
-    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 256 * 1024 * 1024
-    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 1024 * 1024 * 1024
-    val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
-    var maxBytesPerCore = totalBytes / minPartitionNum
-    var bytesPerCoreFinal = maxBytesPerCore
-    var bytesPerCore = maxBytesPerCore
-
-    if (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
-      // Adjust partition size.
-      var i = 2
-      while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
-        bytesPerCore = maxBytesPerCore / i
-        if (bytesPerCore > PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
-          bytesPerCoreFinal = bytesPerCore
-        }
-        i = i + 1
-      }
-      Math.min(PREFERRED_PARTITION_SIZE_UPPER_BOUND, bytesPerCoreFinal)
-      // Math.min(defaultMaxSplitBytes, Math.max(openCostInBytes, bytesPerCore))
-    } else {
-      // adjust open cost.
-      var i = 2
-      while (bytesPerCore < PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
-        val dynamicOpenCostInBytes = openCostInBytesFinal * i
-        val totalBytes =
-          selectedPartitions.flatMap(_.files.map(_.getLen + dynamicOpenCostInBytes)).sum
-        maxBytesPerCore = totalBytes / minPartitionNum
-        if (maxBytesPerCore < PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
-          openCostInBytesFinal = dynamicOpenCostInBytes
-          bytesPerCoreFinal = maxBytesPerCore
-        }
-        i = i + 1
-      }
-      Math.max(PREFERRED_PARTITION_SIZE_LOWER_BOUND, bytesPerCoreFinal)
-    }
-  }
+//  def maxSplitBytes(sparkSession: SparkSession,
+//                    selectedPartitions: Seq[PartitionDirectory]): Long = {
+//    // TODO: unify it with PREFERRED_PARTITION_SIZE_UPPER_BOUND.
+//    val defaultMaxSplitBytes = sparkSession.sessionState.conf.filesMaxPartitionBytes
+//    val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
+//    // val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
+//    //  .getOrElse(sparkSession.leafNodeDefaultParallelism)
+//    val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
+//      .getOrElse(SparkShimLoader.getSparkShims.leafNodeDefaultParallelism(sparkSession))
+//    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 256 * 1024 * 1024
+//    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 1024 * 1024 * 1024
+//    val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
+//    var maxBytesPerCore = totalBytes / minPartitionNum
+//    var bytesPerCoreFinal = maxBytesPerCore
+//    var bytesPerCore = maxBytesPerCore
+//
+//    if (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+//      // Adjust partition size.
+//      var i = 2
+//      while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+//        bytesPerCore = maxBytesPerCore / i
+//        if (bytesPerCore > PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
+//          bytesPerCoreFinal = bytesPerCore
+//        }
+//        i = i + 1
+//      }
+//      Math.min(PREFERRED_PARTITION_SIZE_UPPER_BOUND, bytesPerCoreFinal)
+//      // Math.min(defaultMaxSplitBytes, Math.max(openCostInBytes, bytesPerCore))
+//    } else {
+//      // adjust open cost.
+//      var i = 2
+//      while (bytesPerCore < PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
+//        val dynamicOpenCostInBytes = openCostInBytesFinal * i
+//        val totalBytes =
+//          selectedPartitions.flatMap(_.files.map(_.getLen + dynamicOpenCostInBytes)).sum
+//        maxBytesPerCore = totalBytes / minPartitionNum
+//        if (maxBytesPerCore < PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+//          openCostInBytesFinal = dynamicOpenCostInBytes
+//          bytesPerCoreFinal = maxBytesPerCore
+//        }
+//        i = i + 1
+//      }
+//      Math.max(PREFERRED_PARTITION_SIZE_LOWER_BOUND, bytesPerCoreFinal)
+//    }
+//  }
 
   // This implementation is ported from spark FilePartition.scala with changes for
   // adjusting openCost.
@@ -142,8 +142,7 @@ case class ArrowScan(
       currentSize = 0
     }
 
-    // val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
-    val openCostInBytes = openCostInBytesFinal
+    val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
     // Assign files to partitions using "Next Fit Decreasing"
     partitionedFiles.foreach { file =>
       if (currentSize + file.length > maxSplitBytes) {
@@ -159,54 +158,54 @@ case class ArrowScan(
 
   // This implementation is ported from spark FileScan with only changes for computing
   // maxSplitBytes.
-  override def partitions: Seq[FilePartition] = {
-    val selectedPartitions = fileIndex.listFiles(partitionFilters, dataFilters)
-    // val maxSplitBytes = FilePartition.maxSplitBytes(sparkSession, selectedPartitions)
-    val maxSplitBytes = this.maxSplitBytes(sparkSession, selectedPartitions)
-    // val partitionAttributes = fileIndex.partitionSchema.toAttributes
-    val partitionAttributes = ScanUtils.toAttributes(fileIndex)
-    val attributeMap = partitionAttributes.map(a => normalizeName(a.name) -> a).toMap
-    val readPartitionAttributes = readPartitionSchema.map { readField =>
-      attributeMap.get(normalizeName(readField.name)).getOrElse {
-        // throw QueryCompilationErrors.cannotFindPartitionColumnInPartitionSchemaError(
-        //  readField, fileIndex.partitionSchema)
-        throw new RuntimeException(s"Can't find required partition column ${readField.name} " +
-          s"in partition schema ${fileIndex.partitionSchema}")
-      }
-    }
-    lazy val partitionValueProject =
-      GenerateUnsafeProjection.generate(readPartitionAttributes, partitionAttributes)
-    val splitFiles = selectedPartitions.flatMap { partition =>
-      // Prune partition values if part of the partition columns are not required.
-      val partitionValues = if (readPartitionAttributes != partitionAttributes) {
-        partitionValueProject(partition.values).copy()
-      } else {
-        partition.values
-      }
-      partition.files.flatMap { file =>
-        val filePath = file.getPath
-        PartitionedFileUtil.splitFiles(
-          sparkSession = sparkSession,
-          file = file,
-          filePath = filePath,
-          isSplitable = isSplitable(filePath),
-          maxSplitBytes = maxSplitBytes,
-          partitionValues = partitionValues
-        )
-      }.toArray.sortBy(_.length)(implicitly[Ordering[Long]].reverse)
-    }
-
-    if (splitFiles.length == 1) {
-      val path = new Path(splitFiles(0).filePath)
-      if (!isSplitable(path) && splitFiles(0).length >
-        IO_WARNING_LARGEFILETHRESHOLD) {
-        logWarning(s"Loading one large unsplittable file ${path.toString} with only one " +
-          s"partition, the reason is: ${getFileUnSplittableReason(path)}")
-      }
-    }
-
-    FilePartition.getFilePartitions(sparkSession, splitFiles, maxSplitBytes)
-  }
+//  override def partitions: Seq[FilePartition] = {
+//    val selectedPartitions = fileIndex.listFiles(partitionFilters, dataFilters)
+//    // val maxSplitBytes = FilePartition.maxSplitBytes(sparkSession, selectedPartitions)
+//    val maxSplitBytes = this.maxSplitBytes(sparkSession, selectedPartitions)
+//    // val partitionAttributes = fileIndex.partitionSchema.toAttributes
+//    val partitionAttributes = ScanUtils.toAttributes(fileIndex)
+//    val attributeMap = partitionAttributes.map(a => normalizeName(a.name) -> a).toMap
+//    val readPartitionAttributes = readPartitionSchema.map { readField =>
+//      attributeMap.get(normalizeName(readField.name)).getOrElse {
+//        // throw QueryCompilationErrors.cannotFindPartitionColumnInPartitionSchemaError(
+//        //  readField, fileIndex.partitionSchema)
+//        throw new RuntimeException(s"Can't find required partition column ${readField.name} " +
+//          s"in partition schema ${fileIndex.partitionSchema}")
+//      }
+//    }
+//    lazy val partitionValueProject =
+//      GenerateUnsafeProjection.generate(readPartitionAttributes, partitionAttributes)
+//    val splitFiles = selectedPartitions.flatMap { partition =>
+//      // Prune partition values if part of the partition columns are not required.
+//      val partitionValues = if (readPartitionAttributes != partitionAttributes) {
+//        partitionValueProject(partition.values).copy()
+//      } else {
+//        partition.values
+//      }
+//      partition.files.flatMap { file =>
+//        val filePath = file.getPath
+//        PartitionedFileUtil.splitFiles(
+//          sparkSession = sparkSession,
+//          file = file,
+//          filePath = filePath,
+//          isSplitable = isSplitable(filePath),
+//          maxSplitBytes = maxSplitBytes,
+//          partitionValues = partitionValues
+//        )
+//      }.toArray.sortBy(_.length)(implicitly[Ordering[Long]].reverse)
+//    }
+//
+//    if (splitFiles.length == 1) {
+//      val path = new Path(splitFiles(0).filePath)
+//      if (!isSplitable(path) && splitFiles(0).length >
+//        IO_WARNING_LARGEFILETHRESHOLD) {
+//        logWarning(s"Loading one large unsplittable file ${path.toString} with only one " +
+//          s"partition, the reason is: ${getFileUnSplittableReason(path)}")
+//      }
+//    }
+//
+//    FilePartition.getFilePartitions(sparkSession, splitFiles, maxSplitBytes)
+//  }
 
   private val isCaseSensitive = sparkSession.sessionState.conf.caseSensitiveAnalysis
 
