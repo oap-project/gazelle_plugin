@@ -17,7 +17,6 @@
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import com.intel.oap.sql.shims.SparkShimLoader
-
 import java.util.Locale
 
 import scala.collection.JavaConverters._
@@ -27,7 +26,7 @@ import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.connector.read.PartitionReaderFactory
 import org.apache.spark.sql.execution.PartitionedFileUtil
-import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionDirectory, PartitioningAwareFileIndex}
+import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionDirectory, PartitionedFile, PartitioningAwareFileIndex}
 import org.apache.spark.sql.execution.datasources.v2.FileScan
 import org.apache.spark.sql.execution.datasources.v2.arrow.ScanUtils
 import org.apache.spark.sql.internal.SQLConf
@@ -35,6 +34,8 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.util.SerializableConfiguration
+
+import scala.collection.mutable.ArrayBuffer
 
 case class ArrowScan(
     sparkSession: SparkSession,
@@ -49,6 +50,7 @@ case class ArrowScan(
 
   // Use the default value for org.apache.spark.internal.config.IO_WARNING_LARGEFILETHRESHOLD.
   val IO_WARNING_LARGEFILETHRESHOLD: Long = 1024 * 1024 * 1024
+  var openCostInBytesFinal = sparkSession.sessionState.conf.filesOpenCostInBytes
 
   override def isSplitable(path: Path): Boolean = {
     ArrowUtils.isOriginalFormatSplitable(
@@ -76,30 +78,87 @@ case class ArrowScan(
   // compute maxSplitBytes
   def maxSplitBytes(sparkSession: SparkSession,
                     selectedPartitions: Seq[PartitionDirectory]): Long = {
+    // TODO: unify it with PREFERRED_PARTITION_SIZE_UPPER_BOUND.
     val defaultMaxSplitBytes = sparkSession.sessionState.conf.filesMaxPartitionBytes
-     val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
+    val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
     // val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
     //  .getOrElse(sparkSession.leafNodeDefaultParallelism)
     val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
       .getOrElse(SparkShimLoader.getSparkShims.leafNodeDefaultParallelism(sparkSession))
-    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 128 * 1024 * 1024
-    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 512 * 1024 * 1024
+    val PREFERRED_PARTITION_SIZE_LOWER_BOUND: Long = 256 * 1024 * 1024
+    val PREFERRED_PARTITION_SIZE_UPPER_BOUND: Long = 1024 * 1024 * 1024
     val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
     var maxBytesPerCore = totalBytes / minPartitionNum
     var bytesPerCoreFinal = maxBytesPerCore
     var bytesPerCore = maxBytesPerCore
-    var i = 2
-    while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
-      bytesPerCore = maxBytesPerCore / i
-      if (bytesPerCore > PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
-        bytesPerCoreFinal = bytesPerCore
+
+    if (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+      // Adjust partition size.
+      var i = 2
+      while (bytesPerCore > PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+        bytesPerCore = maxBytesPerCore / i
+        if (bytesPerCore > PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
+          bytesPerCoreFinal = bytesPerCore
+        }
+        i = i + 1
       }
-      i = i + 1
+      Math.min(PREFERRED_PARTITION_SIZE_UPPER_BOUND, bytesPerCoreFinal)
+      // Math.min(defaultMaxSplitBytes, Math.max(openCostInBytes, bytesPerCore))
+    } else {
+      // adjust open cost.
+      var i = 2
+      while (bytesPerCore < PREFERRED_PARTITION_SIZE_LOWER_BOUND) {
+        val dynamicOpenCostInBytes = openCostInBytesFinal * i
+        val totalBytes =
+          selectedPartitions.flatMap(_.files.map(_.getLen + dynamicOpenCostInBytes)).sum
+        maxBytesPerCore = totalBytes / minPartitionNum
+        if (maxBytesPerCore < PREFERRED_PARTITION_SIZE_UPPER_BOUND) {
+          openCostInBytesFinal = dynamicOpenCostInBytes
+          bytesPerCoreFinal = maxBytesPerCore
+        }
+        i = i + 1
+      }
+      Math.max(PREFERRED_PARTITION_SIZE_LOWER_BOUND, bytesPerCoreFinal)
     }
-    Math.min(PREFERRED_PARTITION_SIZE_UPPER_BOUND, bytesPerCoreFinal)
-    // Math.min(defaultMaxSplitBytes, Math.max(openCostInBytes, bytesPerCore))
   }
 
+  // This implementation is ported from spark FilePartition.scala with changes for
+  // adjusting openCost.
+  def getFilePartitions(sparkSession: SparkSession,
+                        partitionedFiles: Seq[PartitionedFile],
+                        maxSplitBytes: Long): Seq[FilePartition] = {
+    val partitions = new ArrayBuffer[FilePartition]
+    val currentFiles = new ArrayBuffer[PartitionedFile]
+    var currentSize = 0L
+
+    /** Close the current partition and move to the next. */
+    def closePartition(): Unit = {
+      if (currentFiles.nonEmpty) {
+        // Copy to a new Array.
+        val newPartition = FilePartition(partitions.size, currentFiles.toArray)
+        partitions += newPartition
+      }
+      currentFiles.clear()
+      currentSize = 0
+    }
+
+    // val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
+    val openCostInBytes = openCostInBytesFinal
+    // Assign files to partitions using "Next Fit Decreasing"
+    partitionedFiles.foreach { file =>
+      if (currentSize + file.length > maxSplitBytes) {
+        closePartition()
+      }
+      // Add the given file to the current partition.
+      currentSize += file.length + openCostInBytes
+      currentFiles += file
+    }
+    closePartition()
+    partitions.toSeq
+  }
+
+  // This implementation is ported from spark FileScan with only changes for computing
+  // maxSplitBytes.
   override def partitions: Seq[FilePartition] = {
     val selectedPartitions = fileIndex.listFiles(partitionFilters, dataFilters)
     // val maxSplitBytes = FilePartition.maxSplitBytes(sparkSession, selectedPartitions)
