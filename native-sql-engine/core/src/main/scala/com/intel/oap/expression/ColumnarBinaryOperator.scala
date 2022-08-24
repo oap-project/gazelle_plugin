@@ -138,14 +138,16 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val (left_node, left_type): (TreeNode, ArrowType) =
+    val (left_node, _): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    val (right_node, right_type): (TreeNode, ArrowType) =
+    val (right_node, _): (TreeNode, ArrowType) =
       right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    // Currently, we only support "\" as the escape char, which is the default in spark.
+    val escapeNode = TreeBuilder.makeStringLiteral("\\")
 
     val resultType = new ArrowType.Bool()
-    val funcNode =
-      TreeBuilder.makeFunction("like", Lists.newArrayList(left_node, right_node), resultType)
+    val funcNode = TreeBuilder.makeFunction("like",
+      Lists.newArrayList(left_node, right_node, escapeNode), resultType)
     (funcNode, resultType)
   }
 }
