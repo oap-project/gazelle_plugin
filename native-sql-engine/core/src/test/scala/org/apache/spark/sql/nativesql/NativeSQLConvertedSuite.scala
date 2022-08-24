@@ -65,13 +65,19 @@ class NativeSQLConvertedSuite extends QueryTest
   }
 
   test("like") {
-    Seq(("google", "%oo%"),
-       ("facebook", "%oo%"),
-       ("linkedin", "%in"))
-      .toDF("company", "pat")
+    Seq(("google"),
+       ("facebook"),
+       ("linkedin"))
+      .toDF("company")
       .createOrReplaceTempView("like_all_table")
-    val df = sql("SELECT company FROM like_all_table WHERE company LIKE ALL ('%oo%', pat)")
+    var df = sql("SELECT company FROM like_all_table WHERE company LIKE '%oo%'")
     checkAnswer(df, Seq(Row("google"), Row("facebook")))
+
+    Seq(("http%3A%2F%2Fa%2Eb%2Ec%2Fd%2Fe"))
+      .toDF("url")
+      .createOrReplaceTempView("url_table")
+    df = sql("SELECT url LIKE '%a\\%2Eb\\%2Ec%' FROM url_table")
+    checkAnswer(df, Seq(Row(true)))
   }
 
   ignore("in-joins") {
