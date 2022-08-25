@@ -2280,8 +2280,6 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
-     std::cout << "###### origin size: " << cache_validity_.size() <<
-           " #### target size: " << max_group_id + 1 << std::endl;
      GrowByFactor(max_group_id + 1);
     }
 
