@@ -2280,7 +2280,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
-     GrowByFactor(max_group_id + 1);
+      GrowByFactor(max_group_id + 1);
     }
 
     in_ = in_list[0];
