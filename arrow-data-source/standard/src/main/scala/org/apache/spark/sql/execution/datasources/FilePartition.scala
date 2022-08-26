@@ -80,24 +80,33 @@ object FilePartition extends Logging {
 
     val sqlConf = sparkSession.sessionState.conf
     var openCostInBytes = sqlConf.filesOpenCostInBytes
-    val expectedFilePartitionNum = sqlConf.getConfString(
-      "spark.sql.files.expectedPartitionNum", taskParallelismNum.toString).toInt
-    var maxPartitionBytes = sqlConf.filesMaxPartitionBytes
-    if (partitionedFiles.size < expectedFilePartitionNum) {
-      openCostInBytes = maxPartitionBytes
+    var maxPartitionBytes = maxSplitBytes
+    val maxFilesInPartition = if (sqlConf.contains("spark.sql.files.expectedPartitionNum")) {
+      Some(sqlConf.getConfString("spark.sql.files.expectedPartitionNum").toInt)
     } else {
-      val totalSize = partitionedFiles.foldLeft(0L) {
-        (totalSize, file) => totalSize + file.length + openCostInBytes
-      }
-      val expectFilePartitionSize = totalSize / expectedFilePartitionNum
-      if (expectFilePartitionSize < maxPartitionBytes) {
-        maxPartitionBytes = expectFilePartitionSize
+      None
+    }
+    if (sqlConf.getConfString("spark.sql.files.dynamicMergeEnabled", "false").toBoolean) {
+      maxPartitionBytes = maxPartitionBytes
+      val expectedFilePartitionNum = sqlConf.getConfString(
+        "spark.sql.files.expectedPartitionNum", taskParallelismNum.toString).toInt
+      if (partitionedFiles.size < expectedFilePartitionNum) {
+        openCostInBytes = maxPartitionBytes
+      } else {
+        val totalSize = partitionedFiles.foldLeft(0L) {
+          (totalSize, file) => totalSize + file.length + openCostInBytes
+        }
+        val expectFilePartitionSize = totalSize / expectedFilePartitionNum
+        if (expectFilePartitionSize < maxPartitionBytes) {
+          maxPartitionBytes = expectFilePartitionSize
+        }
       }
     }
     logInfo(s"Using $openCostInBytes as openCost.")
     // Assign files to partitions using "Next Fit Decreasing"
     partitionedFiles.foreach { file =>
-      if (currentSize + file.length > maxPartitionBytes) {
+      if (currentSize + file.length > maxPartitionBytes ||
+        maxFilesInPartition.exists(fileNum => currentFiles.size >= fileNum)) {
         closePartition()
       }
       // Add the given file to the current partition.
@@ -114,7 +123,8 @@ object FilePartition extends Logging {
     val defaultMaxSplitBytes = sparkSession.sessionState.conf.filesMaxPartitionBytes
     val openCostInBytes = sparkSession.sessionState.conf.filesOpenCostInBytes
     val minPartitionNum = sparkSession.sessionState.conf.filesMinPartitionNum
-      .getOrElse(SparkShimLoader.getSparkShims.leafNodeDefaultParallelism(sparkSession))
+      .getOrElse(sparkSession.conf.get("spark.sql.leafNodeDefaultParallelism",
+        sparkSession.sparkContext.defaultParallelism.toString).toInt)
     val totalBytes = selectedPartitions.flatMap(_.files.map(_.getLen + openCostInBytes)).sum
     val bytesPerCore = totalBytes / minPartitionNum
 
