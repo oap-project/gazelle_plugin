@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import com.intel.oap.sql.shims.SparkShimLoader
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf
 
 import org.apache.spark.Partition
 import org.apache.spark.internal.{config, Logging}
@@ -79,17 +79,14 @@ object FilePartition extends Logging {
     }
 
     val sqlConf = sparkSession.sessionState.conf
+    val arrowSQLConf = new ArrowSQLConf(sqlConf)
     var openCostInBytes = sqlConf.filesOpenCostInBytes
     var maxPartitionBytes = maxSplitBytes
-    val maxFilesInPartition = if (sqlConf.contains("spark.sql.files.expectedPartitionNum")) {
-      Some(sqlConf.getConfString("spark.sql.files.expectedPartitionNum").toInt)
-    } else {
-      None
-    }
-    if (sqlConf.getConfString("spark.sql.files.dynamicMergeEnabled", "false").toBoolean) {
+    val maxFilesInPartition = arrowSQLConf.filesMaxNumInPartition
+    if (arrowSQLConf.filesDynamicMergeEnabled) {
       maxPartitionBytes = maxPartitionBytes
-      val expectedFilePartitionNum = sqlConf.getConfString(
-        "spark.sql.files.expectedPartitionNum", taskParallelismNum.toString).toInt
+      val expectedFilePartitionNum =
+        arrowSQLConf.filesExpectedPartitionNum.getOrElse(taskParallelismNum)
       if (partitionedFiles.size < expectedFilePartitionNum) {
         openCostInBytes = maxPartitionBytes
       } else {
