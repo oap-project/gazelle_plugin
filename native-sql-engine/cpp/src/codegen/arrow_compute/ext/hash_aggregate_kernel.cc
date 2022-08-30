@@ -876,6 +876,10 @@ class HashAggregateKernel::Impl {
         for (auto idx : action_prepare_index_list_[i]) {
           cols.push_back(in[idx]);
         }
+        if (action->getName() == "CountDistinctAction") {
+            RETURN_NOT_OK(action->EvaluateCountDistinct(cols));
+            continue;
+        }
         std::function<arrow::Status(int)> func;
         std::function<arrow::Status()> null_func;
         action->Submit(cols, max_group_id_, &func, &null_func);
@@ -1034,6 +1038,10 @@ class HashAggregateKernel::Impl {
         cols.clear();
         for (auto idx : action_prepare_index_list_[i]) {
           cols.push_back(in[idx]);
+        }
+        if (action->getName() == "CountDistinctAction") {
+            RETURN_NOT_OK(action->EvaluateCountDistinct(cols));
+            continue;
         }
         std::function<arrow::Status(int)> func;
         std::function<arrow::Status()> null_func;

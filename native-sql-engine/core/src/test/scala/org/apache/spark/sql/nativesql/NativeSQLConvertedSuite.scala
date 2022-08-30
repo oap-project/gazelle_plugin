@@ -418,6 +418,21 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row(2, 4)))
   }
 
+  test("2 count distinct with group by") {
+    Seq[(Integer, Integer)](
+      (1, 1),
+      (1, 2),
+      (2, 1),
+      (2, 2),
+      (3, 1),
+      (3, 3))
+      .toDF("a", "b")
+      .createOrReplaceTempView("testData")
+    val df = sql(
+      "SELECT COUNT(DISTINCT (CASE WHEN b > 1 THEN 1 END)), COUNT(DISTINCT (CASE WHEN b > 2 THEN 1 END)) FROM testData group by a")
+    checkAnswer(df, Seq(Row(1, 0), Row(1, 0), Row(1, 1)))
+  }
+
   test("left anti - 1") {
     Seq[(java.lang.Long, Double)](
       (null, 1.0),
