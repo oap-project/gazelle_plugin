@@ -102,6 +102,7 @@ object FilePartition extends Logging {
     logInfo(s"Using $openCostInBytes as openCost.")
     // Assign files to partitions using "Next Fit Decreasing"
     partitionedFiles.foreach { file =>
+      // TODO: find a better way to average the file count in each partition
       if (currentSize + file.length > maxPartitionBytes ||
         maxFilesInPartition.exists(fileNum => currentFiles.size >= fileNum)) {
         closePartition()
