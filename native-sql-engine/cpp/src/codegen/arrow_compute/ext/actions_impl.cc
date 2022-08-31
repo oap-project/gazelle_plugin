@@ -480,23 +480,25 @@ class CountDistinctAction : public ActionBase {
     typed_key_in = std::dynamic_pointer_cast<arrow::BooleanArray>(in_list[gid]);
     // prepare evaluate lambda
     *on_valid = [this](int dest_group_id) {
-      if (typed_key_in->GetView(row_id) != 0) {
-        bool foundNull = false;
-        for (int colId = 0; colId < in_list_.size() - 1; colId++) {
-          if (in_list_[colId]->IsNull(row_id)) {
-            foundNull = true;
-            break;
-          }
-        }
-        if (!foundNull) {
-          cache_[dest_group_id] += 1;
+      bool foundNull = false;
+      for (int colId = 0; colId < in_list_.size() - 1; colId++) {
+        if (in_list_[colId]->IsNull(row_id)) {
+          foundNull = true;
+          break;
         }
       }
+      if (!foundNull) {
+        cache_[dest_group_id] += 1;
+      }
+
       row_id++;
       return arrow::Status::OK();
     };
 
-    *on_null = [this]() { row_id++; return arrow::Status::OK(); };
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
     return arrow::Status::OK();
   }
 
