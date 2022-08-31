@@ -473,14 +473,30 @@ class CountDistinctAction : public ActionBase {
       cache_.resize(max_group_id + 1, 0);
       length_ = cache_.size();
     }
-
+    in_list_ = in_list;
+    row_id = 0;
+    assert(in_list.size() > 1);
+    int gid = in_list.size() - 1;
+    typed_key_in = std::dynamic_pointer_cast<arrow::BooleanArray>(in_list[gid]);
     // prepare evaluate lambda
     *on_valid = [this](int dest_group_id) {
-      cache_[dest_group_id] += 1;
+      if (typed_key_in->GetView(row_id) != 0) {
+        bool foundNull = false;
+        for (int colId = 0; colId < in_list_.size() - 1; colId++) {
+          if (in_list_[colId]->IsNull(row_id)) {
+            foundNull = true;
+            break;
+          }
+        }
+        if (!foundNull) {
+          cache_[dest_group_id] += 1;
+        }
+      }
+      row_id++;
       return arrow::Status::OK();
     };
 
-    *on_null = [this]() { return arrow::Status::OK(); };
+    *on_null = [this]() { row_id++; return arrow::Status::OK(); };
     return arrow::Status::OK();
   }
 
@@ -587,6 +603,7 @@ class CountDistinctAction : public ActionBase {
   using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
+  int row_id;
   // for debug only
   int32_t localGid_ = -1;
   // result
@@ -594,6 +611,8 @@ class CountDistinctAction : public ActionBase {
   std::vector<CType> cache_;
   std::unique_ptr<ResBuilderType> builder_;
   uint64_t length_ = 0;
+  std::shared_ptr<arrow::BooleanArray> typed_key_in;
+  ArrayList in_list_;
 };
 
 //////////////// CountLiteralAction ///////////////
