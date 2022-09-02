@@ -119,3 +119,5 @@
 - SPARK-30886 Deprecate two-parameter TRIM/LTRIM/RTRIM *** FAILED ***
 - test log level *** FAILED ***
 - SPARK-25602: SparkPlan.getByteArrayRdd should not consume the input when not necessary *** FAILED ***
+- Cancelling stage in a query with Range. (whole-stage-codegen on) *** FAILED ***
+- SPARK-20430 Initialize Range parameters in a driver side *** FAILED ***
