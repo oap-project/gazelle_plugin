@@ -58,7 +58,7 @@ object ColumnarExpressionConverter extends Logging {
           val b = bindReference.asInstanceOf[BoundReference]
           new ColumnarBoundReference(b.ordinal, b.dataType, b.nullable)
         } else {
-          return new ColumnarAttributeReference(a.name, a.dataType, a.nullable, a.metadata)(
+          return new ColumnarAttributeReference(a.name.toLowerCase, a.dataType, a.nullable, a.metadata)(
             a.exprId,
             a.qualifier)
         }

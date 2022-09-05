@@ -325,7 +325,7 @@ object ConverterUtils extends Logging {
       case a: AggregateExpression =>
         getAttrFromExpr(a.aggregateFunction.children(0))
       case a: AttributeReference =>
-        a
+        a.withName(a.name.toLowerCase)
       case a: Alias =>
         if (skipAlias) {
           if (a.child.isInstanceOf[AttributeReference] || a.child.isInstanceOf[Coalesce]) {
@@ -483,8 +483,7 @@ object ConverterUtils extends Logging {
 
   def toArrowSchema(attributes: Seq[Attribute]): Schema = {
     val fields = attributes.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      createArrowField(attr)
     })
     new Schema(fields.toList.asJava)
   }
@@ -618,7 +617,7 @@ object ConverterUtils extends Logging {
   }
 
   def createArrowField(attr: Attribute): Field =
-    createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
+    createArrowField(s"${attr.name.toLowerCase}#${attr.exprId.id}", attr.dataType)
 
   private def asTimestampType(inType: ArrowType): ArrowType.Timestamp = {
     if (inType.getTypeID != ArrowTypeID.Timestamp) {
