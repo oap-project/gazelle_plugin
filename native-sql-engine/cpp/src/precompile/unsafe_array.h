@@ -90,12 +90,10 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
       setNullAt((*unsafe_row).get(), idx_);
     } else {
       auto v = typed_array_->GetView(i);
-      if (v.size() == 0) {
-        arrow::util::string_view split = "\n";
-        appendToUnsafeRow((*unsafe_row).get(), idx_, *(int8_t*)(split.data()));
-        return arrow::Status::OK();
-      }
       switch (v.size()) {
+        case 0:
+          setEmptyAt((*unsafe_row).get(), idx_);
+          break;
         case 1:
           appendToUnsafeRow((*unsafe_row).get(), idx_, *(int8_t*)(v.data()));
           break;

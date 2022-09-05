@@ -47,12 +47,14 @@ struct UnsafeRow {
   char* data = nullptr;
   int cursor;
   int validity_size;
+  int is_empty_size;
   UnsafeRow() {}
   UnsafeRow(int numFields) : numFields(numFields) {
     validity_size = (numFields / 8) + 1;
-    cursor = validity_size;
+    is_empty_size = (numFields / 8) + 1;
+    cursor = validity_size + is_empty_size;
     data = (char*)nativeMalloc(TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
-    memset(data, 0, validity_size);
+    memset(data, 0, validity_size + is_empty_size);
   }
   ~UnsafeRow() {
     if (data) {
@@ -61,8 +63,10 @@ struct UnsafeRow {
   }
   int sizeInBytes() { return cursor; }
   void reset() {
+    validity_size = (numFields / 8) + 1;
+    is_empty_size = (numFields / 8) + 1;
     memset(data, 0, cursor);
-    cursor = validity_size;
+    cursor = validity_size + is_empty_size;
   }
   bool isNullExists() {
     for (int i = 0; i < ((numFields / 8) + 1); i++) {
@@ -97,6 +101,12 @@ static inline void setNullAt(UnsafeRow* row, int index) {
   assert((index >= 0) && (index < row->numFields));
   auto bitSetIdx = index >> 3;  // mod 8
   *(row->data + bitSetIdx) |= kBitmask[index % 8];
+}
+
+static inline void setEmptyAt(UnsafeRow* row, int index) {
+  assert((index >= 0) && (index < row->numFields));
+  auto bitSetIdx = index >> 3;  // mod 8
+  *(row->data + row->validity_size + bitSetIdx) |= kBitmask[index % 8];
 }
 
 template <typename T>
