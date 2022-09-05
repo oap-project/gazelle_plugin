@@ -245,8 +245,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             val attr = ConverterUtils.getAttrFromExpr(orderSpec.head.child, true)
             TreeBuilder.makeFunction(row_number_func,
               List(TreeBuilder.makeField(
-                    Field.nullable(attr.name,
-                      CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
+                    ConverterUtils.createArrowField(attr))).toList.asJava,
              NoneType.NONE_TYPE 
             )
           case (n, f) =>
@@ -255,8 +254,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               .flatMap {
                 case a: AttributeReference =>
                   Some(TreeBuilder.makeField(
-                    Field.nullable(a.name,
-                      CodeGeneration.getResultType(a.dataType))))
+                    ConverterUtils.createArrowField(a)))
                 case c: Cast if c.child.isInstanceOf[AttributeReference] =>
                   Some(TreeBuilder.makeField(
                     Field.nullable(c.child.asInstanceOf[AttributeReference].name,
@@ -281,8 +279,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
           groupingExpressions.map(e => TreeBuilder.makeField(
-            Field.nullable(e.name,
-              CodeGeneration.getResultType(e.dataType)))).toList.asJava,
+            ConverterUtils.createArrowField(e))).toList.asJava,
           NoneType.NONE_TYPE)
         // Workaround:
         // Gandiva doesn't support serializing Struct type so far. Use a fake Binary type instead.
