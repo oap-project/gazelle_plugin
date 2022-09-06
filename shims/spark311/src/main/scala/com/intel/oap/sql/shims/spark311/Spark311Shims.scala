@@ -205,4 +205,8 @@ class Spark311Shims extends SparkShims {
     throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
+  override def leafNodeDefaultParallelism(sparkSession: SparkSession): Int = {
+    sparkSession.sparkContext.defaultParallelism
+  }
+
 }

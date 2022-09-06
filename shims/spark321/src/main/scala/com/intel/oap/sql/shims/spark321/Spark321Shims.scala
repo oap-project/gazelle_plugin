@@ -235,4 +235,8 @@ class Spark321Shims extends SparkShims {
     }
   }
 
+  override def leafNodeDefaultParallelism(sparkSession: SparkSession): Int = {
+    org.apache.spark.sql.util.ShimUtils.leafNodeDefaultParallelism(sparkSession)
+  }
+
 }
