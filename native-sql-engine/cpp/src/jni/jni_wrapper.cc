@@ -1511,6 +1511,7 @@ Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToCol
 
   jbyteArray serialized_record_batch =
       JniGetOrThrow(ToBytes(env, rb), "Error deserializing message");
+  env->ReleaseLongArrayElements(row_length, in_row_length, JNI_ABORT);
   return serialized_record_batch;
 }
 

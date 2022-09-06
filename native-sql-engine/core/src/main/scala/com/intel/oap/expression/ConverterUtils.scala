@@ -504,14 +504,26 @@ object ConverterUtils extends Logging {
   @throws[IOException]
   def getSchemaBytesBuf(schema: Schema): Array[Byte] = {
     val out: ByteArrayOutputStream = new ByteArrayOutputStream
-    MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema)
-    out.toByteArray
+    var schemaBytes: Array[Byte] = null
+    try {
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema)
+      schemaBytes = out.toByteArray
+    } finally {
+      out.close()
+    }
+    schemaBytes
   }
 
   @throws[IOException]
   def getSchemaFromBytesBuf(schema: Array[Byte]): Schema = {
     val in: ByteArrayInputStream = new ByteArrayInputStream(schema)
-    MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)))
+    var result: Schema = null
+    try {
+      result = MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)))
+    } finally {
+      in.close()
+    }
+    result
   }
 
   @throws[GandivaException]
