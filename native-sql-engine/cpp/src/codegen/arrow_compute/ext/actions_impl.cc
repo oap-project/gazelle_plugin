@@ -2767,7 +2767,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  uint64_t GetResultLength() { return cache_sum_.size(); }
+  uint64_t GetResultLength() { return length_; }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
@@ -2945,7 +2945,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  uint64_t GetResultLength() { return cache_sum_.size(); }
+  uint64_t GetResultLength() { return length_; }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
