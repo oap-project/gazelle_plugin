@@ -82,6 +82,22 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
     with ColumnarExpression
     with Logging {
 
+  buildCheck
+
+  // Only literal json path is supported and wildcard is not supported.
+  def buildCheck: Unit = {
+    right match {
+      case literal: ColumnarLiteral =>
+        val jsonPath = literal.value.toString
+        if (jsonPath.contains("*")) {
+          throw new UnsupportedOperationException("Wildcard is NOT supported" +
+            " in json path for get_json_object.")
+        }
+      case _ =>
+        throw new UnsupportedOperationException("Only literal json path is supported!")
+    }
+  }
+
   // TODO: currently we have a codegen implementation, but needs to be optimized.
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
     false
