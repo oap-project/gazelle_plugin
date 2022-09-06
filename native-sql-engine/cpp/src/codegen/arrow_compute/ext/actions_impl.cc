@@ -124,6 +124,10 @@ uint64_t ActionBase::GetResultLength() { return 0; }
 
 std::string ActionBase::getName() { return ""; }
 
+arrow::Status ActionBase::GrowByFactor(int target_group_size) {
+  return arrow::Status::NotImplemented("ActionBase GrowByFactor is abstract.");
+}
+
 //////////////// UniqueAction ///////////////
 template <typename DataType, typename CType>
 class UniqueAction : public ActionBase {

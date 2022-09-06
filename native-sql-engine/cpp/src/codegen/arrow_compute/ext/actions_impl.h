@@ -66,6 +66,7 @@ class ActionBase {
   virtual arrow::Status FinishAndReset(ArrayList* out);
   virtual uint64_t GetResultLength();
   virtual std::string getName();
+  virtual arrow::Status GrowByFactor(int target_group_size);
 };
 
 arrow::Status MakeUniqueAction(
