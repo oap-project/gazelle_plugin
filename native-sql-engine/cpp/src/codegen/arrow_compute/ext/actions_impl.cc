@@ -211,7 +211,7 @@ class UniqueAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (cache_validity_[dest_group_id] == false) {
       cache_validity_[dest_group_id] = true;
@@ -222,7 +222,7 @@ class UniqueAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (cache_validity_[dest_group_id] == false) {
       cache_validity_[dest_group_id] = true;
@@ -397,7 +397,7 @@ class CountAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
 
     cache_[dest_group_id] += 1;
@@ -406,7 +406,7 @@ class CountAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -553,7 +553,7 @@ class CountDistinctAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_[dest_group_id] += 1;
     return arrow::Status::OK();
@@ -561,7 +561,7 @@ class CountDistinctAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -677,7 +677,7 @@ class CountLiteralAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_[dest_group_id] += 1;
     return arrow::Status::OK();
@@ -685,7 +685,7 @@ class CountLiteralAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -794,7 +794,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     GetMinResultWithGroupBy<CType>(dest_group_id, data);
     return arrow::Status::OK();
@@ -802,7 +802,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1106,7 +1106,7 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -1120,7 +1120,7 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1274,7 +1274,7 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -1288,7 +1288,7 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1410,7 +1410,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     GetMaxResultWithGroupBy<CType>(dest_group_id, data);
     return arrow::Status::OK();
@@ -1418,7 +1418,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1716,7 +1716,7 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -1730,7 +1730,7 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1885,7 +1885,7 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -1899,7 +1899,7 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2059,7 +2059,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -2068,7 +2068,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2216,7 +2216,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -2225,7 +2225,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2391,7 +2391,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -2400,7 +2400,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2555,7 +2555,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -2564,7 +2564,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2737,7 +2737,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_sum_[dest_group_id] += *(CType*)data;
@@ -2747,7 +2747,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2909,7 +2909,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_sum_[dest_group_id] += *(CType*)data;
@@ -2919,7 +2919,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3098,7 +3098,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += 1;
@@ -3108,7 +3108,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3281,7 +3281,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += 1;
@@ -3291,7 +3291,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3465,7 +3465,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -3475,7 +3475,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3640,7 +3640,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -3650,7 +3650,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_sum_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3818,7 +3818,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -3827,7 +3827,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3991,7 +3991,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -4000,7 +4000,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -4204,7 +4204,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto pre_avg = cache_sum_[dest_group_id] * 1.0 /
@@ -4219,7 +4219,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -4438,7 +4438,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto double_data = (*(CType*)data).ToDouble(scale);
@@ -4454,7 +4454,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -4662,7 +4662,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2, void* data3) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto pre_avg = cache_avg_[dest_group_id];
@@ -4678,7 +4678,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -4875,7 +4875,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2, void* data3) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto pre_avg = cache_avg_[dest_group_id];
@@ -4896,7 +4896,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() < target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -5127,7 +5127,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // For codegen.
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5145,7 +5145,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // For codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5366,7 +5366,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // For codegen.
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5384,7 +5384,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // For codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5616,7 +5616,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(int dest_group_id, void* data1, void* data2) {
     auto target_group_size = dest_group_id + 1;
     // cache_first_ size should be always as same as others (cache_value_set_, etc).
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5645,7 +5645,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     // cache_first_ size should be always as same as others, like cache_value_set_, etc.
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5671,7 +5671,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // Just for codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5870,7 +5870,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(int dest_group_id, void* data1, void* data2) {
     auto target_group_size = dest_group_id + 1;
     // cache_first_ size should be always as same as others (cache_value_set_, etc).
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5899,7 +5899,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     // cache_first_ size should be always as same as others, like cache_value_set_, etc.
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
@@ -5925,7 +5925,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // Just for codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_first_.size() < target_group_size) {
+    if (cache_first_.size() <= target_group_size) {
       GrowByFactor(target_group_size);
     }
     if (length_ < target_group_size) {
