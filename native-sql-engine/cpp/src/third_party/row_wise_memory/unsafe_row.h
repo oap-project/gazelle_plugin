@@ -125,6 +125,10 @@ static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& 
 
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      arrow::util::string_view str) {
+  if (unlikely(str.size() == 0)) {
+    setEmptyAt(row, index);
+    return;
+  }
   if (unlikely(row->cursor + str.size() > TEMP_UNSAFEROW_BUFFER_SIZE))
     row->data =
         (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);

@@ -91,9 +91,6 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
     } else {
       auto v = typed_array_->GetView(i);
       switch (v.size()) {
-        case 0:
-          setEmptyAt((*unsafe_row).get(), idx_);
-          break;
         case 1:
           appendToUnsafeRow((*unsafe_row).get(), idx_, *(int8_t*)(v.data()));
           break;
@@ -107,6 +104,7 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
           appendToUnsafeRow((*unsafe_row).get(), idx_, *(int64_t*)(v.data()));
           break;
         default:
+          // empty string will go here
           appendToUnsafeRow((*unsafe_row).get(), idx_, v);
       }
     }
