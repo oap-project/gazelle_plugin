@@ -555,7 +555,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def enableArrowColumnarToRow: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.columnartorow", defaultValue = true)
   def wholeStageFallbackThreshold: Int =
-    conf.getInt("spark.oap.sql.columnar.wholeStage.fallback.threshold", defaultValue = 4)
+    conf.getInt("spark.oap.sql.columnar.wholeStage.fallback.threshold", defaultValue = -1)
 
   var isSupportAdaptive: Boolean = true
 
