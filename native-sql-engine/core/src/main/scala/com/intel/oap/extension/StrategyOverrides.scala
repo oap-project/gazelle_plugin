@@ -20,6 +20,8 @@ package com.intel.oap.extension
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
 import com.intel.oap.execution.LocalPhysicalWindow
+
+import org.apache.spark.sql.LocalWindowExec
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SparkSessionExtensions, Strategy, execution}
 import org.apache.spark.sql.catalyst.{InternalRow, SQLConfHelper}
@@ -73,37 +75,6 @@ object JoinSelectionOverrides extends Strategy with JoinSelectionHelper with SQL
       Nil
     case _ => Nil
   }
-}
-
-case class LocalWindowExec(
-    windowExpression: Seq[NamedExpression],
-    partitionSpec: Seq[Expression],
-    orderSpec: Seq[SortOrder],
-    child: SparkPlan)
-    extends WindowExecBase {
-
-  override def output: Seq[Attribute] =
-    child.output ++ windowExpression.map(_.toAttribute)
-
-  override def requiredChildDistribution: Seq[Distribution] = {
-    super.requiredChildDistribution
-  }
-
-  override def requiredChildOrdering: Seq[Seq[SortOrder]] =
-    Seq(partitionSpec.map(SortOrder(_, Ascending)) ++ orderSpec)
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  protected override def doExecute(): RDD[InternalRow] = {
-    // todo implement this to fall back
-    throw new UnsupportedOperationException()
-  }
-
-  protected def withNewChildInternal(newChild: SparkPlan):
-  LocalWindowExec =
-    copy(child = newChild)
 }
 
 object LocalWindowApply extends Strategy {

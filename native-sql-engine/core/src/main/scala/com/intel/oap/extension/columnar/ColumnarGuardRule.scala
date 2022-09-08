@@ -19,10 +19,10 @@ package com.intel.oap.extension.columnar
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution._
-import com.intel.oap.extension.LocalWindowExec
 import com.intel.oap.sql.shims.SparkShimLoader
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.LocalWindowExec
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.FullOuter

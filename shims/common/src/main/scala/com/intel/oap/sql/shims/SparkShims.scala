@@ -37,7 +37,7 @@ import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
 import org.apache.spark.sql.execution.datasources.OutputWriter
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ShuffleOrigin}
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, Exchange, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
 
 sealed abstract class ShimDescriptor
@@ -121,4 +121,20 @@ trait SparkShims {
   def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
 
   def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
+
+  def isLeafPlanExchange (plan: SparkPlan): Boolean = {
+    plan match {
+      case e: Exchange => true
+      case other => false
+    }
+  }
+
+  def sanityCheck(plan: SparkPlan): Boolean =
+    plan.logicalLink.isDefined
+
+  def supportAdaptive(plan: SparkPlan): Boolean
+
+  def supportAdaptiveWithExchangeConsidered(plan: SparkPlan): Boolean = {
+    isLeafPlanExchange(plan) || supportAdaptive(plan)
+  }
 }
