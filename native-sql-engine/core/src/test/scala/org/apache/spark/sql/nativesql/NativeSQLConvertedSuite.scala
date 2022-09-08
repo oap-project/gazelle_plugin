@@ -368,6 +368,21 @@ class NativeSQLConvertedSuite extends QueryTest
       Row("val1a", Timestamp.valueOf("2014-04-04 01:02:00.001"))))
   }
 
+  test("groupby with empty string") {
+    Seq[(String, Integer, String, String)](
+      ("9", 1, "", "20220608"),
+      ("9", 2, "20220608", ""),
+      ("9", 2, "20220608", ""),
+      ("9", 1, "20220608", ""),
+      ("9", 2, "20220608", ""),
+      ("9", 1, "20220608", ""),
+      ("9", null, "20220608", ""),
+      ("9", 3, "20220608", "")).toDF("a", "b", "c", "d").createOrReplaceTempView("testData")
+    
+    val df1 = sql( "SELECT a,c,d, COUNT(*) FROM testData group by a, c, d")
+    checkAnswer(df1, Seq(Row("9","", "20220608", 1), Row("9","20220608","", 7)))
+  }
+
   test("groupby") {
     Seq[(Integer, java.lang.Boolean)](
       (1, true),

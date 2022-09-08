@@ -104,6 +104,7 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
           appendToUnsafeRow((*unsafe_row).get(), idx_, *(int64_t*)(v.data()));
           break;
         default:
+          // empty string will go here
           appendToUnsafeRow((*unsafe_row).get(), idx_, v);
       }
     }
