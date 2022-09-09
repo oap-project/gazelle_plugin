@@ -201,12 +201,11 @@ class UniqueAction : public ActionBase {
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     null_flag_.resize(max_group_size, false);
-    cache_.resize(max_group_size + 1);
+    cache_.resize(max_group_size);
     return arrow::Status::OK();
   }
 
@@ -365,8 +364,7 @@ class CountAction : public ActionBase {
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_.resize(max_group_size, 0);
     return arrow::Status::OK();
@@ -503,8 +501,7 @@ class CountDistinctAction : public ActionBase {
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_.resize(max_group_size, 0);
     return arrow::Status::OK();
@@ -658,8 +655,7 @@ class CountLiteralAction : public ActionBase {
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_.resize(max_group_size, 0);
     return arrow::Status::OK();
@@ -779,8 +775,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -1087,8 +1082,7 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -1247,8 +1241,7 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, "");
@@ -1398,8 +1391,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -1701,8 +1693,7 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -1861,8 +1852,7 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, "");
@@ -2042,8 +2032,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -2204,8 +2193,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -2377,8 +2365,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -2545,8 +2532,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_.resize(max_group_size, 0);
@@ -2718,8 +2704,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -2891,8 +2876,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3082,8 +3066,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3273,8 +3256,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3452,8 +3434,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3633,8 +3614,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3806,8 +3786,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -3986,8 +3965,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -4190,8 +4168,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -4425,8 +4402,7 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_sum_.resize(max_group_size, 0);
@@ -4655,8 +4631,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_count_.resize(max_group_size, 0);
@@ -4869,8 +4844,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_validity_.resize(max_group_size, false);
     cache_count_.resize(max_group_size, 0);
@@ -5108,8 +5082,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_first_.resize(max_group_size);
     cache_value_set_.resize(max_group_size, false);
@@ -5348,8 +5321,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_first_.resize(max_group_size);
     cache_value_set_.resize(max_group_size, false);
@@ -5591,8 +5563,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_first_.resize(max_group_size);
     cache_value_set_.resize(max_group_size, false);
@@ -5849,8 +5820,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (target_group_size < 128) {
       max_group_size = 128;
     } else {
-      int extra_size = 0.01 * target_group_size < 128 ? 128 : 0.01 * target_group_size;
-      max_group_size = target_group_size + extra_size;
+      max_group_size = target_group_size;
     }
     cache_first_.resize(max_group_size);
     cache_value_set_.resize(max_group_size, false);
