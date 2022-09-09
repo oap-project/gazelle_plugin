@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, KnownFloatingPointNormalized, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -230,7 +230,18 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               }.toList.asJava,
             NoneType.NONE_TYPE)
         }
-        val groupingExpressions = partitionSpec.map(e => e.asInstanceOf[AttributeReference])
+        val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
+          case a: AttributeReference =>
+            a
+          case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+            c.child.asInstanceOf[AttributeReference]
+          case _: Cast | _ : Literal =>
+            null
+          case n: KnownFloatingPointNormalized =>
+            ConverterUtils.getAttrFromExpr(n.child)
+          case nomatch =>
+            throw new IllegalStateException()
+        }.filter(_ != null)
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
           groupingExpressions.map(e => TreeBuilder.makeField(
