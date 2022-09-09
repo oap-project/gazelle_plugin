@@ -219,8 +219,8 @@ class ColumnarYear(child: Expression, original: Expression)
   }
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    if (child.dataType == StringType) {
-      //STRING Date type is not supported in codegen
+    if (child.isInstanceOf[ColumnarCast] && child.asInstanceOf[ColumnarCast].child.dataType == StringType) {
+      // The pattern is like year(cast col as date) STRING Date type is not supported in codegen
       return false
     }
     true && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
