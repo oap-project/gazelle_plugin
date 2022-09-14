@@ -333,7 +333,7 @@ class WindowRankKernel : public KernalBase {
                                 std::shared_ptr<ArrayItemIndexS> i,
                                 std::shared_ptr<ArrayItemIndexS> j, bool* out);
 
- private:
+ protected:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
   arrow::compute::ExecContext* ctx_ = nullptr;
   std::vector<ArrayList> input_cache_;
@@ -349,7 +349,19 @@ class WindowLagKernel: public WindowRankKernel {
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                    int offset,
-                   std::shared_ptr<arrow::DataType> return_type)
+                   std::shared_ptr<arrow::DataType> return_type);
+
+  static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type);
+
+  arrow::Status Finish(ArrayList* out) override;
+
+  template <typename CType, typename BuilderType, typename ArrayType>
+  arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
+                                      std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
+                                      std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> &sorted_partitions,
+                                      ArrayList* out);
 
   private:
    // positive offset means lag to the above row from the current row with an offset.
@@ -358,7 +370,7 @@ class WindowLagKernel: public WindowRankKernel {
    // TODO: use a scalar to keep default value?
 //    std::vector<ArrayList> default_value_;
    std::shared_ptr<arrow::DataType> return_type_;
-}
+};
 
 /*class UniqueArrayKernel : public KernalBase {
  public:

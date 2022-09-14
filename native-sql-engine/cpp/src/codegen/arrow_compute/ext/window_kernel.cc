@@ -483,12 +483,11 @@ WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                    int offset,
-                   std::shared_ptr<arrow::DataType> return_type) {
-  // The type_list size should be fixed, i.e. 3. The first is the input 
-  super(ctx, type_list, sorter, desc);
-  this.offset_ = offset;
+                   std::shared_ptr<arrow::DataType> return_type) : WindowRankKernel(ctx, type_list, sorter, desc, false) {
+  // The type_list size should be fixed, i.e. 3. The first is the input
+  offset_ = offset;
   // this.default_value_ = default_value;
-  this.return_type_ = return_type;
+  return_type_ = return_type;
 }
 
 arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::string function_name,
@@ -537,7 +536,7 @@ arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::strin
     }
   }
   // Hard coding in setting offset to 1, the default value. TODO: get offset from window function children. 
-  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, false, 1, return_type);
+  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, 1, return_type);
 
   return arrow::Status::OK();
 }
@@ -630,28 +629,45 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 
   ////// The above is as same as Rank's.///////////////
 
-    std::shared_ptr<arrow::DataType> value_type = result_type_;
+#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                             \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)             \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)                \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array)          \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)             \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array)          \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)             \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array)          \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)             \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)             \
+  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
+
+    std::shared_ptr<arrow::DataType> value_type = return_type_;
     switch (value_type->id()) {
-  #define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                        \
+#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                          \
     case VALUE_TYPE::type_id: {                                                                \
       using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                             \
-      RETURN_NOT_OK(HandleSortedPartition<CType, BUILDER_TYPE, ARRAY_TYPE>(                    \
-        vales, group_ids, sorted_partitions, out));                                            \
+      RETURN_NOT_OK((HandleSortedPartition<CType, BUILDER_TYPE, ARRAY_TYPE>(                   \
+        values, group_ids, max_group_id, sorted_partitions, out)));                            \
     } break;
-   }
-
-   PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
-  #undef PROCESS
-    default:
+      PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
+#undef PROCESS
+#undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
+    case arrow::StringType::type_id: {
+      RETURN_NOT_OK((HandleSortedPartition<std::string, arrow::StringBuilder, arrow::StringArray>(
+        values, group_ids, max_group_id, sorted_partitions, out)));
+    } break;
+    default: {
       return arrow::Status::Invalid("window function: unsupported input type: " +
                                     value_type->name());
+    } break;
+  }
   return arrow::Status::OK();
 }
 
 // TOOD: consider multiple columns or type_list_.
 template <typename CType, typename BuilderType, typename ArrayType>
-static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
- std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids,
+arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &values,
+ std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> &sorted_partitions, ArrayList* out) {
   CType** lag_array = new CType*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
@@ -659,7 +675,6 @@ static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
   }
 
   // Used to track whether a result is null.
-  // TODO: only create it when necessary.
   bool** validity = new bool*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
     *(validity + i) = new bool[group_ids.at(i)->length()];
@@ -680,7 +695,7 @@ static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
           validity[i][j] = false;
         } else {
           auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(index->array_id).at(column_id));
-          if (typed_array->null_count() > 0 && typed_array->IsNull(index->id - offset_) {
+          if (typed_array->null_count() > 0 && typed_array->IsNull(index->id - offset_)) {
             validity[i][j] = false;
           } else {
             // It is supposed (index->id - offset_) is equavialent with (j - offset_)
@@ -701,7 +716,7 @@ static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
       if (validity[i][j]) {
         RETURN_NOT_OK(lag_builder->Append(lag_array[i][j]));
       } else {
-        RETURN_NOT_OK(lag_builder->AppendNull();
+        RETURN_NOT_OK(lag_builder->AppendNull());
       }
     }
     std::shared_ptr<ArrayType> lag_slice;
@@ -717,6 +732,8 @@ static arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
     delete[] * (validity + i);
   }
   delete[] validity;
+
+  return arrow::Status::OK();
  }
 
 // TODO: use reference to avoid unnecessary copy?

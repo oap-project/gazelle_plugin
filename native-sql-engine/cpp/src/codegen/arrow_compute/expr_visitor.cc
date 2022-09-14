@@ -461,7 +461,7 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     std::vector<gandiva::FieldPtr> function_param_fields_of_each;
     // Specially handling for lag function to get the offset & default value.
     if (window_function_name.find("lag") != 0) {
-        auto field = std::dynamic_pointer_cast<gandiva::FieldNode>(node.children().at(0).get());
+        auto field = std::dynamic_pointer_cast<gandiva::FieldNode>(window_function->children().at(0));
         function_param_fields_of_each.push_back(field->field());
         // auto offset_node = dynamic_cast<LiteralNode*>(node.children().at(1).get());
         // auto offset_value = arrow::util::get<int32_t>(offset_node->holder());
