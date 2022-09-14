@@ -48,7 +48,7 @@ object ColumnarExpressionConverter extends Logging {
             BindReferences.bindReference(expr, attributeSeq, true)
           if (bindReference == expr) {
             if (expIdx == -1) {
-              return new ColumnarAttributeReference(a.name, a.dataType, a.nullable, a.metadata)(
+              return new ColumnarAttributeReference(a.name.toLowerCase, a.dataType, a.nullable, a.metadata)(
                 a.exprId,
                 a.qualifier)
             } else {
