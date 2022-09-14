@@ -188,11 +188,11 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       } else if (window_function_name == "lag_desc") {
         RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list,
-                                                    &function_kernel, true));
+                                                    &function_kernel, true, return_type));
       } else if (window_function_name == "lag_asc") {
         RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list,
-                                                    &function_kernel, false));
+                                                    &function_kernel, false, return_type));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);
