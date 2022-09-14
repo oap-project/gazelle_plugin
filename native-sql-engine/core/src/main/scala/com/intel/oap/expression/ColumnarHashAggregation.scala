@@ -455,8 +455,7 @@ class ColumnarHashAggregation(
     }
 
     val originalInputFieldList = originalInputAttributes.toList.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      ConverterUtils.createArrowField(attr)
     })
 
     //////////////// Project original input to aggregateExpression input //////////////////
@@ -501,7 +500,7 @@ class ColumnarHashAggregation(
     val inputAttrs = originalInputAttributes.zipWithIndex
       .filter {
         case (attr, i) =>
-          !groupingAttributes.contains(attr) && !partialProjectOrdinalList.toList.contains(i)
+          !groupingAttributes.contains(attr.withName(attr.name.toLowerCase)) && !partialProjectOrdinalList.toList.contains(i)
       }
       .map(_._1)
     inputAttrQueue = scala.collection.mutable.Queue(inputAttrs: _*)
@@ -516,10 +515,7 @@ class ColumnarHashAggregation(
 
     val aggregateAttributeFieldList =
       allAggregateResultAttributes.map(attr => {
-        Field
-          .nullable(
-            s"${attr.name}#${attr.exprId.id}",
-            CodeGeneration.getResultType(attr.dataType))
+        ConverterUtils.createArrowField(attr)
       })
 
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes

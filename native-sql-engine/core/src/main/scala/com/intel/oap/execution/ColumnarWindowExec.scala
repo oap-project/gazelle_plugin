@@ -254,13 +254,15 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             f.children
               .flatMap {
                 case a: AttributeReference =>
+                  val attr = ConverterUtils.getAttrFromExpr(a)
                   Some(TreeBuilder.makeField(
-                    Field.nullable(a.name,
-                      CodeGeneration.getResultType(a.dataType))))
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType))))
                 case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+                  val attr = ConverterUtils.getAttrFromExpr(c)
                   Some(TreeBuilder.makeField(
-                    Field.nullable(c.child.asInstanceOf[AttributeReference].name,
-                      CodeGeneration.getResultType(c.dataType))))
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType))))
                 case _: Cast | _ : Literal =>
                   None
                 case _ =>
@@ -271,9 +273,9 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         // TODO(yuan): using ConverterUtils.getAttrFromExpr 
         val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
           case a: AttributeReference =>
-            a
+            ConverterUtils.getAttrFromExpr(a)
           case c: Cast if c.child.isInstanceOf[AttributeReference] =>
-            c.child.asInstanceOf[AttributeReference]
+            ConverterUtils.getAttrFromExpr(c)
           case _: Cast | _ : Literal =>
             null
           case n: KnownFloatingPointNormalized =>
