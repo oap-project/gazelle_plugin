@@ -1243,11 +1243,13 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
         dst_addrs[pid].valueptr = value_buffer->mutable_data();
         dst_addrs[pid].value_capacity = capacity;
         dst_value_base = dst_addrs[pid].valueptr + value_offset - strlength;
+#ifdef DEBUG
         std::cout << " value buffer resized colid = " << binary_idx << " dst_start "
                   << dst_offset_base[x] << " dst_end " << dst_offset_base[x + 1]
                   << " old size = " << capacity << " new size = " << capacity
                   << " row = " << partition_buffer_idx_base_[pid]
                   << " strlen = " << strlength << std::endl;
+#endif
       }
       auto value_src_ptr = src_addr + src_offset_addr[src_offset];
 #ifdef __AVX512BW__
