@@ -56,12 +56,14 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
   }
 
   def setPredefinedConfigs(conf: SparkConf): Unit = {
-    if (conf.contains(SPARK_SESSION_EXTS_KEY)) {
-      throw new IllegalArgumentException("Spark extensions are already specified before " +
-          "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
+    val extensions = conf.getOption(SPARK_SESSION_EXTS_KEY).getOrElse("")
+    if (extensions.contains(GAZELLE_SESSION_EXTENSION_NAME) ||
+      extensions.contains(GAZELLE_WRITE_SESSION_EXTENSION_NAME)) {
+      throw new IllegalArgumentException("Spark gazelle extensions are already specified before " +
+        "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
     conf.set(SPARK_SESSION_EXTS_KEY,
-      String.format("%s,%s", GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME))
+      s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME,$extensions")
   }
 }
 

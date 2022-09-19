@@ -26,6 +26,9 @@
 
 #include "third_party/row_wise_memory/native_memory.h"
 
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
 #define TEMP_UNSAFEROW_BUFFER_SIZE 8192
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
@@ -44,12 +47,14 @@ struct UnsafeRow {
   char* data = nullptr;
   int cursor;
   int validity_size;
+  int is_empty_size;
   UnsafeRow() {}
   UnsafeRow(int numFields) : numFields(numFields) {
     validity_size = (numFields / 8) + 1;
-    cursor = validity_size;
+    is_empty_size = (numFields / 8) + 1;
+    cursor = validity_size + is_empty_size;
     data = (char*)nativeMalloc(TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
-    memset(data, 0, validity_size);
+    memset(data, 0, validity_size + is_empty_size);
   }
   ~UnsafeRow() {
     if (data) {
@@ -58,8 +63,10 @@ struct UnsafeRow {
   }
   int sizeInBytes() { return cursor; }
   void reset() {
+    validity_size = (numFields / 8) + 1;
+    is_empty_size = (numFields / 8) + 1;
     memset(data, 0, cursor);
-    cursor = validity_size;
+    cursor = validity_size + is_empty_size;
   }
   bool isNullExists() {
     for (int i = 0; i < ((numFields / 8) + 1); i++) {
@@ -96,6 +103,12 @@ static inline void setNullAt(UnsafeRow* row, int index) {
   *(row->data + bitSetIdx) |= kBitmask[index % 8];
 }
 
+static inline void setEmptyAt(UnsafeRow* row, int index) {
+  assert((index >= 0) && (index < row->numFields));
+  auto bitSetIdx = index >> 3;  // mod 8
+  *(row->data + row->validity_size + bitSetIdx) |= kBitmask[index % 8];
+}
+
 template <typename T>
 using is_number_alike =
     std::integral_constant<bool, std::is_arithmetic<T>::value ||
@@ -103,22 +116,31 @@ using is_number_alike =
 
 template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
+  if (unlikely(row->cursor + sizeof(T) > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   *((T*)(row->data + row->cursor)) = val;
   row->cursor += sizeof(T);
 }
 
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
-                                     const std::string& str) {
-  memcpy(row->data + row->cursor, str.data(), str.size());
-  row->cursor += str.size();
-}
-static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      arrow::util::string_view str) {
+  if (unlikely(str.size() == 0)) {
+    setEmptyAt(row, index);
+    return;
+  }
+  if (unlikely(row->cursor + str.size() > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   memcpy(row->data + row->cursor, str.data(), str.size());
   row->cursor += str.size();
 }
+
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      const arrow::Decimal128& dcm) {
+  if (unlikely(row->cursor + 16 > TEMP_UNSAFEROW_BUFFER_SIZE))
+    row->data =
+        (char*)nativeRealloc(row->data, 2 * TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
   int numBytes = 16;
   zeroOutPaddingBytes(row, numBytes);
   memcpy(row->data + row->cursor, dcm.ToBytes().data(), numBytes);

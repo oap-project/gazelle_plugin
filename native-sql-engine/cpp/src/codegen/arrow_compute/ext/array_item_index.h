@@ -29,10 +29,10 @@ struct ArrayItemIndex {
   ArrayItemIndex(uint16_t array_id, uint16_t id) : array_id(array_id), id(id) {}
 };
 struct ArrayItemIndexS {
-  uint16_t id = 0;
-  uint16_t array_id = 0;
+  uint32_t id = 0;
+  uint32_t array_id = 0;
   ArrayItemIndexS() : array_id(0), id(0) {}
-  ArrayItemIndexS(uint16_t array_id, uint16_t id) : array_id(array_id), id(id) {}
+  ArrayItemIndexS(uint32_t array_id, uint32_t id) : array_id(array_id), id(id) {}
 };
 
 }  // namespace extra

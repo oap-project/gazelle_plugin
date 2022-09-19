@@ -785,6 +785,21 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
         Seq(Row(java.lang.Long.valueOf(1248940800L)),
           Row(java.lang.Long.valueOf(1249027200L)),
           Row(java.lang.Long.valueOf(1249113600L))))
+
+      // Test date format: yyyyMMdd
+      val datesNoSep = Seq("20090730", "20090731", "20090801")
+        .map(s => Tuple1(s)).toDF("time")
+      datesNoSep.createOrReplaceTempView("dates_no_sep")
+      val frameNoSep = sql("SELECT unix_timestamp(time, 'yyyyMMdd') FROM dates_no_sep")
+      frameNoSep.explain()
+      frameNoSep.show()
+      assert(frameNoSep.queryExecution.executedPlan.find(p => p
+        .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+      checkAnswer(
+        frameNoSep,
+        Seq(Row(java.lang.Long.valueOf(1248940800L)),
+          Row(java.lang.Long.valueOf(1249027200L)),
+          Row(java.lang.Long.valueOf(1249113600L))))
     }
   }
 }

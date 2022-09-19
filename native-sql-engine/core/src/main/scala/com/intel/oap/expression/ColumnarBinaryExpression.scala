@@ -82,6 +82,22 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
     with ColumnarExpression
     with Logging {
 
+  buildCheck
+
+  // Only literal json path is supported and wildcard is not supported.
+  def buildCheck: Unit = {
+    right match {
+      case literal: ColumnarLiteral =>
+        val jsonPath = literal.value.toString
+        if (jsonPath.contains("*")) {
+          throw new UnsupportedOperationException("Wildcard is NOT supported" +
+            " in json path for get_json_object.")
+        }
+      case _ =>
+        throw new UnsupportedOperationException("Only literal json path is supported!")
+    }
+  }
+
   // TODO: currently we have a codegen implementation, but needs to be optimized.
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
     false
@@ -164,6 +180,25 @@ class ColumnarFindInSet(left: Expression, right: Expression, original: Expressio
   }
 }
 
+class ColumnarSha2(left: Expression, right: Expression) extends Sha2(left, right)
+  with ColumnarExpression with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (leftNode, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (rightNode, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    val funcNode = TreeBuilder.makeFunction("sha2",
+      Lists.newArrayList(leftNode, rightNode), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -190,6 +225,8 @@ object ColumnarBinaryExpression {
         new ColumnarPow(left, right, pow)
       case f: FindInSet =>
         new ColumnarFindInSet(left, right, f)
+      case _: Sha2 =>
+        new ColumnarSha2(left, right)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

@@ -26,11 +26,13 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.arrow.vector.types.pojo.Schema
 
+import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader}
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.v2.FilePartitionReaderFactory
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
@@ -99,11 +101,17 @@ case class ArrowPartitionReaderFactory(
     val vsrItrList = taskList
       .map(task => task.execute())
 
+    val partitionVectors = ArrowUtils.loadPartitionColumns(
+      batchSize, readPartitionSchema, partitionedFile.partitionValues)
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      partitionVectors.foreach(_.close())
+    })
+
     val batchItr = vsrItrList
       .toIterator
       .flatMap(itr => itr.asScala)
-      .map(batch => ArrowUtils.loadBatch(batch, partitionedFile.partitionValues,
-        readPartitionSchema, readDataSchema))
+      .map(batch => ArrowUtils.loadBatch(batch, readDataSchema, partitionVectors))
 
     new PartitionReader[ColumnarBatch] {
       val holder = new ColumnarBatchRetainer()

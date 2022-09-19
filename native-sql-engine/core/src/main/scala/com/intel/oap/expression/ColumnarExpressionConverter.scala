@@ -48,7 +48,7 @@ object ColumnarExpressionConverter extends Logging {
             BindReferences.bindReference(expr, attributeSeq, true)
           if (bindReference == expr) {
             if (expIdx == -1) {
-              return new ColumnarAttributeReference(a.name, a.dataType, a.nullable, a.metadata)(
+              return new ColumnarAttributeReference(a.name.toLowerCase, a.dataType, a.nullable, a.metadata)(
                 a.exprId,
                 a.qualifier)
             } else {
@@ -58,7 +58,7 @@ object ColumnarExpressionConverter extends Logging {
           val b = bindReference.asInstanceOf[BoundReference]
           new ColumnarBoundReference(b.ordinal, b.dataType, b.nullable)
         } else {
-          return new ColumnarAttributeReference(a.name, a.dataType, a.nullable, a.metadata)(
+          return new ColumnarAttributeReference(a.name.toLowerCase, a.dataType, a.nullable, a.metadata)(
             a.exprId,
             a.qualifier)
         }
@@ -424,6 +424,16 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef)
         }
         ColumnarConcatOperator.create(exps, expr)
+      case parseUrl: ParseUrl =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        val exprs = parseUrl.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarTernaryOperator.create(exprs, parseUrl)
       case r: Round =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -566,6 +576,8 @@ object ColumnarExpressionConverter extends Logging {
       case regexp: RegExpReplace =>
         containsSubquery(regexp.subject) || containsSubquery(
           regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
+      case parseUrl: ParseUrl =>
+        parseUrl.children.exists(containsSubquery)
       case substrIndex: SubstringIndex =>
         substrIndex.children.map(containsSubquery).exists(_ == true)
       case sr: StringReplace =>

@@ -325,7 +325,7 @@ object ConverterUtils extends Logging {
       case a: AggregateExpression =>
         getAttrFromExpr(a.aggregateFunction.children(0))
       case a: AttributeReference =>
-        a
+        a.withName(a.name.toLowerCase)
       case a: Alias =>
         if (skipAlias) {
           if (a.child.isInstanceOf[AttributeReference] || a.child.isInstanceOf[Coalesce]) {
@@ -483,8 +483,7 @@ object ConverterUtils extends Logging {
 
   def toArrowSchema(attributes: Seq[Attribute]): Schema = {
     val fields = attributes.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      createArrowField(attr)
     })
     new Schema(fields.toList.asJava)
   }
@@ -504,14 +503,26 @@ object ConverterUtils extends Logging {
   @throws[IOException]
   def getSchemaBytesBuf(schema: Schema): Array[Byte] = {
     val out: ByteArrayOutputStream = new ByteArrayOutputStream
-    MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema)
-    out.toByteArray
+    var schemaBytes: Array[Byte] = null
+    try {
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema)
+      schemaBytes = out.toByteArray
+    } finally {
+      out.close()
+    }
+    schemaBytes
   }
 
   @throws[IOException]
   def getSchemaFromBytesBuf(schema: Array[Byte]): Schema = {
     val in: ByteArrayInputStream = new ByteArrayInputStream(schema)
-    MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)))
+    var result: Schema = null
+    try {
+      result = MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)))
+    } finally {
+      in.close()
+    }
+    result
   }
 
   @throws[GandivaException]
@@ -519,6 +530,14 @@ object ConverterUtils extends Logging {
     val builder: ExpressionList.Builder = GandivaTypes.ExpressionList.newBuilder
     exprs.foreach { expr => builder.addExprs(expr.toProtobuf) }
     builder.build.toByteArray
+  }
+
+  // Currently, we enable projection to support BinaryType.
+  // TODO: support BinaryType in all other operators.
+  def checkIfTypeSupportedInProjection(dt: DataType): Unit = dt match {
+    case _: BinaryType =>
+    case other =>
+      checkIfTypeSupported(other)
   }
 
   def checkIfTypeSupported(dt: DataType): Unit = dt match {
@@ -610,7 +629,7 @@ object ConverterUtils extends Logging {
   }
 
   def createArrowField(attr: Attribute): Field =
-    createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
+    createArrowField(s"${attr.name.toLowerCase}#${attr.exprId.id}", attr.dataType)
 
   private def asTimestampType(inType: ArrowType): ArrowType.Timestamp = {
     if (inType.getTypeID != ArrowTypeID.Timestamp) {

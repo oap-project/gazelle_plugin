@@ -27,6 +27,7 @@ import com.intel.oap.sql.shims.SparkShimLoader
 
 import org.apache.spark.{MapOutputStatistics, SparkContext}
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.LocalWindowExec
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.optimizer.BuildLeft
@@ -548,30 +549,26 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def preOverrides = ColumnarPreOverrides(session)
   def postOverrides = ColumnarPostOverrides()
 
-  def columnarWholeStageEnabled = conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true) && !codegendisable
+  def columnarWholeStageEnabled = conf.getBoolean(
+    "spark.oap.sql.columnar.wholestagecodegen", defaultValue = true) && !codegendisable
   def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
+  def enableArrowColumnarToRow: Boolean =
+    conf.getBoolean("spark.oap.sql.columnar.columnartorow", defaultValue = true)
+  def wholeStageFallbackThreshold: Int =
+    conf.getInt("spark.oap.sql.columnar.wholeStage.fallback.threshold", defaultValue = -1)
 
   var isSupportAdaptive: Boolean = true
 
-  private def supportAdaptive(plan: SparkPlan): Boolean = {
-    // TODO migrate dynamic-partition-pruning onto adaptive execution.
-    // Only QueryStage will have Exchange as Leaf Plan
-    val isLeafPlanExchange = plan match {
-      case e: Exchange => true
-      case other => false
-    }
-    isLeafPlanExchange || (SQLConf.get.adaptiveExecutionEnabled && (sanityCheck(plan) &&
-    !plan.logicalLink.exists(_.isStreaming) &&
-    !plan.expressions.exists(_.find(_.isInstanceOf[DynamicPruningSubquery]).isDefined) &&
-    plan.children.forall(supportAdaptive)))
-  }
-
-  private def sanityCheck(plan: SparkPlan): Boolean =
-    plan.logicalLink.isDefined
+  var originalPlan: SparkPlan = _
+  var fallbacks = 0
 
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      isSupportAdaptive = supportAdaptive(plan)
+      // According to Spark's Columnar.scala, the plan is tackled one by one.
+      // By recording the original plan, we can easily let the whole stage
+      // fallback at #postColumnarTransitions.
+      originalPlan = plan
+      isSupportAdaptive = SparkShimLoader.getSparkShims.supportAdaptiveWithExchangeConsidered(plan)
       val rule = preOverrides
       rule.setAdaptiveSupport(isSupportAdaptive)
       rule(rowGuardOverrides(plan))
@@ -580,18 +577,82 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
     }
   }
 
+  def checkColumnarToRow(plan: SparkPlan): Unit = {
+    plan match {
+      case _: ColumnarToRowExec =>
+        fallbacks = fallbacks + 1
+      case _ =>
+    }
+    plan.children.map(plan => checkColumnarToRow(plan))
+  }
+
+  def fallbackWholeStage(plan: SparkPlan): Boolean = {
+    if (wholeStageFallbackThreshold == -1) {
+      return false
+    }
+    fallbacks = 0
+    checkColumnarToRow(plan)
+    if (fallbacks >= wholeStageFallbackThreshold) {
+      true
+    } else {
+      false
+    }
+  }
+
+  /**
+    * Ported from ApplyColumnarRulesAndInsertTransitions of Spark.
+    * Inserts an transition to columnar formatted data.
+    */
+  private def insertRowToColumnar(plan: SparkPlan): SparkPlan = {
+    if (!plan.supportsColumnar) {
+      // The tree feels kind of backwards
+      // Columnar Processing will start here, so transition from row to columnar
+      RowToColumnarExec(insertTransitions(plan, outputsColumnar = false))
+    } else if (!plan.isInstanceOf[RowToColumnarTransition]) {
+      plan.withNewChildren(plan.children.map(insertRowToColumnar))
+    } else {
+      plan
+    }
+  }
+
+  /**
+    * Ported from ApplyColumnarRulesAndInsertTransitions of Spark.
+    * Inserts RowToColumnarExecs and ColumnarToRowExecs where needed.
+    */
+  private def insertTransitions(plan: SparkPlan, outputsColumnar: Boolean): SparkPlan = {
+    if (outputsColumnar) {
+      insertRowToColumnar(plan)
+    } else if (plan.supportsColumnar) {
+      // `outputsColumnar` is false but the plan outputs columnar format, so add a
+      // to-row transition here.
+      ColumnarToRowExec(insertRowToColumnar(plan))
+    } else if (!plan.isInstanceOf[ColumnarToRowTransition]) {
+      plan.withNewChildren(plan.children.map(insertTransitions(_, outputsColumnar = false)))
+    } else {
+      plan
+    }
+  }
+
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      val rule = postOverrides
-      rule.setAdaptiveSupport(isSupportAdaptive)
-      val tmpPlan = rule(plan)
-      val ret = collapseOverrides(tmpPlan)
-      if (codegendisable)
-      {
-        logDebug("postColumnarTransitions: resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
-        session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "false")
+      if (isSupportAdaptive && fallbackWholeStage(plan)) {
+        // BatchScan with ArrowScan initialized can still connect
+        // to ColumnarToRow for transition.
+        insertTransitions(originalPlan, false)
+      } else {
+        val rule = postOverrides
+        rule.setAdaptiveSupport(isSupportAdaptive)
+        val tmpPlan = rule(plan)
+        val ret = collapseOverrides(tmpPlan)
+        if (codegendisable)
+        {
+          logDebug("postColumnarTransitions:" +
+            " resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
+          session.sqlContext.setConf(
+            "spark.oap.sql.columnar.codegendisableforsmallshuffles", "false")
+        }
+        ret
       }
-      ret
     } else {
       plan
     }

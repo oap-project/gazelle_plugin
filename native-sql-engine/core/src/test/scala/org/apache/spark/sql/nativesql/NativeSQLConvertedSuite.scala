@@ -65,13 +65,19 @@ class NativeSQLConvertedSuite extends QueryTest
   }
 
   test("like") {
-    Seq(("google", "%oo%"),
-       ("facebook", "%oo%"),
-       ("linkedin", "%in"))
-      .toDF("company", "pat")
+    Seq(("google"),
+       ("facebook"),
+       ("linkedin"))
+      .toDF("company")
       .createOrReplaceTempView("like_all_table")
-    val df = sql("SELECT company FROM like_all_table WHERE company LIKE ALL ('%oo%', pat)")
+    var df = sql("SELECT company FROM like_all_table WHERE company LIKE '%oo%'")
     checkAnswer(df, Seq(Row("google"), Row("facebook")))
+
+    Seq(("http%3A%2F%2Fa%2Eb%2Ec%2Fd%2Fe"))
+      .toDF("url")
+      .createOrReplaceTempView("url_table")
+    df = sql("SELECT url LIKE '%a\\%2Eb\\%2Ec%' FROM url_table")
+    checkAnswer(df, Seq(Row(true)))
   }
 
   ignore("in-joins") {
@@ -362,6 +368,21 @@ class NativeSQLConvertedSuite extends QueryTest
       Row("val1a", Timestamp.valueOf("2014-04-04 01:02:00.001"))))
   }
 
+  test("groupby with empty string") {
+    Seq[(String, Integer, String, String)](
+      ("9", 1, "", "20220608"),
+      ("9", 2, "20220608", ""),
+      ("9", 2, "20220608", ""),
+      ("9", 1, "20220608", ""),
+      ("9", 2, "20220608", ""),
+      ("9", 1, "20220608", ""),
+      ("9", null, "20220608", ""),
+      ("9", 3, "20220608", "")).toDF("a", "b", "c", "d").createOrReplaceTempView("testData")
+    
+    val df1 = sql( "SELECT a,c,d, COUNT(*) FROM testData group by a, c, d")
+    checkAnswer(df1, Seq(Row("9","", "20220608", 1), Row("9","20220608","", 7)))
+  }
+
   test("groupby") {
     Seq[(Integer, java.lang.Boolean)](
       (1, true),
@@ -410,6 +431,21 @@ class NativeSQLConvertedSuite extends QueryTest
     val df = sql(
       "SELECT COUNT(a) FILTER (WHERE a = 1), COUNT(b) FILTER (WHERE a > 1) FROM testData")
     checkAnswer(df, Seq(Row(2, 4)))
+  }
+
+  test("2 count distinct with group by") {
+    Seq[(Integer, Integer)](
+      (1, 1),
+      (1, 2),
+      (2, 1),
+      (2, 2),
+      (3, 1),
+      (3, 3))
+      .toDF("a", "b")
+      .createOrReplaceTempView("testData")
+    val df = sql(
+      "SELECT COUNT(DISTINCT (CASE WHEN b > 1 THEN 1 END)), COUNT(DISTINCT (CASE WHEN b > 2 THEN 1 END)) FROM testData group by a")
+    checkAnswer(df, Seq(Row(1, 0), Row(1, 0), Row(1, 1)))
   }
 
   test("left anti - 1") {

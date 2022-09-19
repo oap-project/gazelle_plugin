@@ -40,10 +40,10 @@ class ActionBase {
  public:
   virtual ~ActionBase() {}
 
-  virtual arrow::Status Submit(ArrayList in, int max_group_id,
+  virtual arrow::Status Submit(const ArrayList& in, int max_group_id,
                                std::function<arrow::Status(int)>* on_valid,
                                std::function<arrow::Status()>* on_null);
-  virtual arrow::Status Submit(std::vector<std::shared_ptr<arrow::Array>> in,
+  virtual arrow::Status Submit(const std::vector<std::shared_ptr<arrow::Array>>& in,
                                std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
                                std::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
@@ -54,6 +54,7 @@ class ActionBase {
                                std::function<arrow::Status()>* on_null);
   virtual arrow::Status EvaluateCountLiteral(const int& len);
   virtual arrow::Status Evaluate(const arrow::ArrayVector& in);
+  virtual arrow::Status EvaluateCountDistinct(const arrow::ArrayVector& in);
   virtual arrow::Status Evaluate(int dest_group_id);
   virtual arrow::Status Evaluate(int dest_group_id, void* data);
   virtual arrow::Status Evaluate(int dest_group_id, void* data1, void* data2);
@@ -64,6 +65,8 @@ class ActionBase {
   virtual arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out);
   virtual arrow::Status FinishAndReset(ArrayList* out);
   virtual uint64_t GetResultLength();
+  virtual std::string getName();
+  virtual arrow::Status GrowByFactor(int target_group_size);
 };
 
 arrow::Status MakeUniqueAction(
@@ -76,6 +79,11 @@ arrow::Status MakeCountAction(arrow::compute::ExecContext* ctx,
                               std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeCountLiteralAction(
+    arrow::compute::ExecContext* ctx, int arg,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
+
+arrow::Status MakeCountDistinctAction(
     arrow::compute::ExecContext* ctx, int arg,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out);

@@ -57,15 +57,14 @@ object ColumnarConditionedProbeJoin extends Logging {
       buildInputAttributes: Seq[Attribute],
       builder_type: Int = 1,
       is_broadcast: Boolean = false): TreeNode = {
-    val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    val buildInputAttrList: List[Attribute] = buildInputAttributes.toList.map(attr => {
+      attr.withName(attr.name.toLowerCase)
     })
     val buildKeysFunctionList: List[TreeNode] = buildKeys.toList.map(expr => {
       val (nativeNode, returnType) = if (!is_broadcast) {
         ConverterUtils.getColumnarFuncNode(expr)
       } else {
-        ConverterUtils.getColumnarFuncNode(expr, buildInputAttributes)
+        ConverterUtils.getColumnarFuncNode(expr, buildInputAttrList)
       }
       if (s"${nativeNode.toProtobuf}".contains("none#")) {
         throw new UnsupportedOperationException(
@@ -105,12 +104,10 @@ object ColumnarConditionedProbeJoin extends Logging {
       builder_type: Int = 0,
       isNullAwareAntiJoin: Boolean = false): TreeNode = {
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      ConverterUtils.createArrowField(attr)
     })
     val streamInputFieldList: List[Field] = streamInputAttributes.toList.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      ConverterUtils.createArrowField(attr)
     })
 
     val buildKeysFunctionList: List[TreeNode] = buildKeys.toList.map(expr => {
@@ -132,9 +129,7 @@ object ColumnarConditionedProbeJoin extends Logging {
     })
 
     val resultFunctionList: List[TreeNode] = output.toList.map(field => {
-      val field_node = Field.nullable(
-        s"${field.name}#${field.exprId.id}",
-        CodeGeneration.getResultType(field.dataType))
+      val field_node = ConverterUtils.createArrowField(field)
       TreeBuilder.makeField(field_node)
     })
 

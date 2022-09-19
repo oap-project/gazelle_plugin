@@ -88,6 +88,43 @@ object ArrowUtils {
     SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getLocalTimezoneID())
   }
 
+  def loadPartitionColumns(
+      rowCount: Int,
+      partitionSchema: StructType,
+      partitionValues: InternalRow): Array[ArrowWritableColumnVector] = {
+    val partitionColumns = ArrowWritableColumnVector.allocateColumns(rowCount, partitionSchema)
+    (0 until partitionColumns.length).foreach(i => {
+      ArrowColumnVectorUtils.populate(partitionColumns(i), partitionValues, i)
+      partitionColumns(i).setValueCount(rowCount)
+      partitionColumns(i).setIsConstant()
+    })
+    partitionColumns
+  }
+
+  def loadBatch(
+      input: ArrowRecordBatch,
+      dataSchema: StructType,
+      partitionVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
+    val rowCount: Int = input.getLength
+
+    val vectors = try {
+      ArrowWritableColumnVector.loadColumns(rowCount, toArrowSchema(dataSchema), input)
+    } finally {
+      input.close()
+    }
+
+    val batch = new ColumnarBatch(
+      vectors.map(_.asInstanceOf[ColumnVector]) ++
+        partitionVectors
+          .map { vector =>
+            // The vector should call retain() whenever reuse it.
+            vector.retain()
+            vector.asInstanceOf[ColumnVector]
+          },
+      rowCount)
+    batch
+  }
+
   def toArrowField(t: StructField): Field = {
     SparkSchemaUtils.toArrowField(
       t.name, t.dataType, t.nullable, SparkSchemaUtils.getLocalTimezoneID())

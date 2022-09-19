@@ -325,13 +325,13 @@ class WindowRankKernel : public KernalBase {
 
   arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
   arrow::Status SortToIndicesFinish(
-      std::vector<std::shared_ptr<ArrayItemIndex>> elements_to_sort,
-      std::vector<std::shared_ptr<ArrayItemIndex>>* offsets);
+      std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
+      std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets);
 
   template <typename ArrayType>
   arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
-                                std::shared_ptr<ArrayItemIndex> i,
-                                std::shared_ptr<ArrayItemIndex> j, bool* out);
+                                std::shared_ptr<ArrayItemIndexS> i,
+                                std::shared_ptr<ArrayItemIndexS> j, bool* out);
 
  private:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;

@@ -33,7 +33,7 @@ import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{DynamicPruningSubquery, Expression}
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
@@ -205,4 +205,14 @@ class Spark311Shims extends SparkShims {
     throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
+  /**
+    * Ported from InsertAdaptiveSparkPlan.
+    */
+  override def supportAdaptive(plan: SparkPlan): Boolean = {
+    // TODO migrate dynamic-partition-pruning onto adaptive execution.
+    sanityCheck(plan) &&
+      !plan.logicalLink.exists(_.isStreaming) &&
+      !plan.expressions.exists(_.find(_.isInstanceOf[DynamicPruningSubquery]).isDefined) &&
+      plan.children.forall(supportAdaptive)
+  }
 }
