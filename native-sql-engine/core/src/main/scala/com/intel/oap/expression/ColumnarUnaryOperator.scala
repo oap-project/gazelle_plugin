@@ -848,6 +848,13 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
     with ColumnarExpression
     with Logging {
 
+  val gName = "multiply"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) &&
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   buildCheck()
 
   def buildCheck(): Unit = {
