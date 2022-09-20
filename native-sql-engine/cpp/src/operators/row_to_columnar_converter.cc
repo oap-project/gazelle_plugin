@@ -185,9 +185,6 @@ inline arrow::Status CreateArrayData(
             null_count++;
           }
         }
-        std::cout << "array_offset[" << row_start + batch_rows << "]:" << array_offset[row_start + batch_rows] << std::endl;
-        std::cout << "array->buffers[2]->size()" << array->buffers[2]->size() << std::endl;
-        std::cout << "array->buffers[2]->capacity()" << array->buffers[2]->capacity() << std::endl;
         array->null_count += null_count;
         if (null_count == 0) {
           array->buffers[0] == nullptr;
@@ -295,8 +292,6 @@ arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* 
             AllocateBuffer(sizeof(offset_type) * (num_rows_ + 1), m_pool_));
         ARROW_ASSIGN_OR_RAISE(out_data.buffers[2],
                               AllocateResizableBuffer(20 * num_rows_, m_pool_));
-        std::cout << "out_data.buffers[2]->size():" << out_data.buffers[2]->size() << std::endl;
-        std::cout << "out_data.buffers[2]->capacity():" << out_data.buffers[2]->capacity() << std::endl;
         auto validity_buffer = out_data.buffers[0]->mutable_data();
         // initialize all true once allocated
         memset(validity_buffer, 0xff, out_data.buffers[0]->capacity());
