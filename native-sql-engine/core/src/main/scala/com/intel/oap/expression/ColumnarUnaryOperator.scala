@@ -480,7 +480,12 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
       original.nullOnOverflow: Boolean)
     with ColumnarExpression
     with Logging {
+  val gName = "castDECIMAL"
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
   buildCheck()
 
   def buildCheck(): Unit = {

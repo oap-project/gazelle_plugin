@@ -64,9 +64,6 @@ class ColumnarCaseWhen(
   }
   
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    logInfo(s"children: ${branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue}")
-    logInfo(s"branches: $branches")
-    logInfo(s"else: $elseValue")
     val i = 0
     val exprs = branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue
     val exprList = { exprs.filter(expr => !expr.isInstanceOf[Literal]) }
