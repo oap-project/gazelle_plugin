@@ -20,6 +20,7 @@
 #include <arrow/array.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
+#include <arrow/type_traits.h>
 #include <arrow/util/iterator.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
@@ -357,7 +358,13 @@ class WindowLagKernel: public WindowRankKernel {
 
   arrow::Status Finish(ArrayList* out) override;
 
-  template <typename CType, typename BuilderType, typename ArrayType>
+//   template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_number<VALUE_TYPE>>
+//   CType getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id);
+
+//   template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_string_like<VALUE_TYPE>>
+//   CType getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id);
+
+  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType>
   arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
                                       std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
                                       std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> &sorted_partitions,

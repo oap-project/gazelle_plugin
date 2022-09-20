@@ -645,16 +645,16 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 #define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                          \
     case VALUE_TYPE::type_id: {                                                                \
       using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                             \
-      RETURN_NOT_OK((HandleSortedPartition<CType, BUILDER_TYPE, ARRAY_TYPE>(                   \
+      RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>(       \
         values, group_ids, max_group_id, sorted_partitions, out)));                            \
     } break;
       PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
 #undef PROCESS
 #undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
-    case arrow::StringType::type_id: {
-      RETURN_NOT_OK((HandleSortedPartition<std::string, arrow::StringBuilder, arrow::StringArray>(
-        values, group_ids, max_group_id, sorted_partitions, out)));
-    } break;
+    // case arrow::StringType::type_id: {
+    //   RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string, arrow::StringBuilder, arrow::StringArray>(
+    //     values, group_ids, max_group_id, sorted_partitions, out)));
+    // } break;
     default: {
       return arrow::Status::Invalid("window function: unsupported input type: " +
                                     value_type->name());
@@ -663,8 +663,22 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
+// template <typename VALUE_TYPE, typename CType, typename ArrayType>
+// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id, typename Enable = void) {
+// }
+
+// template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_number<VALUE_TYPE>>
+// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id) {
+//   return (CType)typed_array->GetView(id);
+// }
+
+// template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_string_like<VALUE_TYPE>>
+// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id) {
+//   return (CType)typed_array->GetString(id);
+// }
+
 // TOOD: consider multiple columns or type_list_.
-template <typename CType, typename BuilderType, typename ArrayType>
+template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType>
 arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &values,
  std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> &sorted_partitions, ArrayList* out) {
@@ -699,6 +713,7 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
           } else {
             // It is supposed (index->id - offset_) is equavialent with (j - offset_)
             lag_array[index->array_id][index->id] = typed_array->GetView(index->id - offset_);
+            // lag_array[index->array_id][index->id] = getElement<VALUE_TYPE, CType, ArrayType>(typed_array, index->id - offset_);
             validity[i][j] = true;
           }
         }
