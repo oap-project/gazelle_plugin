@@ -478,7 +478,6 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
-static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
 WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
@@ -588,7 +587,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 #endif
 
   // initialize partitions to be sorted
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> partitions_to_sort;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
   for (int i = 0; i <= max_group_id; i++) {
     partitions_to_sort.emplace_back();
   }
@@ -605,18 +604,18 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
       }
       uint64_t partition_id = slice->GetView(j);
       partitions_to_sort.at(partition_id)
-          .push_back(std::make_shared<ArrayItemIndex>(i, j));
+          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
     }
   }
 #ifdef DEBUG
   std::cout << "[window kernel] Finished. " << std::endl;
 #endif
 
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> sorted_partitions;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
   RETURN_NOT_OK(SortToIndicesPrepare(values));
   for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndex>> partition = partitions_to_sort.at(i);
-    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition;
+    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
 #ifdef DEBUG
     std::cout << "[window kernel] Sorting a single partition... " << std::endl;
 #endif
@@ -668,7 +667,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 template <typename CType, typename BuilderType, typename ArrayType>
 arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &values,
  std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
- std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> &sorted_partitions, ArrayList* out) {
+ std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> &sorted_partitions, ArrayList* out) {
   CType** lag_array = new CType*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
     *(lag_array + i) = new CType[group_ids.at(i)->length()];
@@ -681,10 +680,10 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
   }
 
   for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition = sorted_partitions.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition = sorted_partitions.at(i);
 
     for (int j = 0; j < sorted_partition.size(); j++) {
-      std::shared_ptr<ArrayItemIndex> index = sorted_partition.at(j);
+      std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
       int res_index = j - offset_;
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         if (res_index < 0 || res_index > sorted_partition.size() - 1) {
@@ -737,7 +736,7 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
  }
 
 // TODO: use reference to avoid unnecessary copy?
-static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndex>> in,
+static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
                                    std::shared_ptr<arrow::Array>* out) {
   arrow::UInt64Builder builder;
   for (const auto& each : in) {

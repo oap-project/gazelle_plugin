@@ -360,7 +360,7 @@ class WindowLagKernel: public WindowRankKernel {
   template <typename CType, typename BuilderType, typename ArrayType>
   arrow::Status HandleSortedPartition(std::vector<ArrayList> &values,
                                       std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
-                                      std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> &sorted_partitions,
+                                      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> &sorted_partitions,
                                       ArrayList* out);
 
   private:
