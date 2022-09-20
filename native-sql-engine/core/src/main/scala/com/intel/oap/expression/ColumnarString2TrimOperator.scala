@@ -35,9 +35,14 @@ class ColumnarStringTrim(srcStr: Expression, trimStr: Option[Expression], origin
   val gName = "btrim"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    codegenFuncList.contains(gName) && 
-    srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
-    trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
   }
 
   buildCheck()
@@ -73,9 +78,14 @@ class ColumnarStringTrimLeft(srcStr: Expression, trimStr: Option[Expression], or
   val gName = "ltrim"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    codegenFuncList.contains(gName) && 
-    srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
-    trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
   }
   buildCheck()
 
@@ -109,9 +119,14 @@ class ColumnarStringTrimRight(child: Expression, trimStr: Option[Expression], or
   val gName = "rtrim"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    codegenFuncList.contains(gName) && 
-    srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
-    trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
   }
   buildCheck()
 
