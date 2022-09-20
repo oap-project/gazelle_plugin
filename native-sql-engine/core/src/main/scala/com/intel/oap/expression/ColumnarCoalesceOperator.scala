@@ -46,6 +46,16 @@ class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
     with ColumnarExpression
     with Logging {
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    for (expr <- exps) {
+      val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+        return false
+      }
+    }
+    return true
+  }
+
   buildCheck()
 
   def buildCheck(): Unit = {
