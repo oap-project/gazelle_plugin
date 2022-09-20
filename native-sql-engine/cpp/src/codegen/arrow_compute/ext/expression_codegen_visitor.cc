@@ -324,7 +324,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "if (" << check_str_ << ")" << std::endl;
     prepare_ss << codes_str_ << " = " << ss.str() << ";" << std::endl;
     prepare_str_ += prepare_ss.str();
-  } else if (func_name.compare("instr") == 0) {
+  } else if (func_name.compare("locate") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     real_codes_str_ = codes_str_;

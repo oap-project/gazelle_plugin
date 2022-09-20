@@ -46,7 +46,7 @@ trait ColumnarExpression {
     "get_json_object",
     "translate",
     "substr",
-    "instr",
+    "locate",
     "btrim",
     "ltrim",
     "rtrim",
