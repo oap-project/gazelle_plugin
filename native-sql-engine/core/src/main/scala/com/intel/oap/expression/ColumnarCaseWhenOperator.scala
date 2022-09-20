@@ -33,7 +33,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable.ListBuffer
 
 /**
- * A version of substring that supports columnar processing for utf8.
+ * Columnar impl for Case When base on Gandiva if/else
  */
 class ColumnarCaseWhen(
   branches: Seq[(Expression, Expression)], 
