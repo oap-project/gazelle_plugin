@@ -37,6 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import org.apache.commons.io.FileUtils;
+
 /** Helper class for JNI related operations. */
 public class JniUtils {
   private static final String LIBRARY_NAME = "spark_columnar_jni";
@@ -80,6 +82,7 @@ public class JniUtils {
         } else {
           Path folder = Paths.get(_tmp_dir);
           Path path = Files.createTempDirectory(folder, "spark_columnar_plugin_");
+          FileUtils.forceDeleteOnExit(new File(path.toUri()));
           tmp_dir = path.toAbsolutePath().toString();
         }
       }
@@ -146,6 +149,7 @@ public class JniUtils {
       File tmp_dir_handler = new File(tmp_dir + "/tmp");
       if (!tmp_dir_handler.exists()) {
         tmp_dir_handler.mkdirs();
+        FileUtils.forceDeleteOnExit(tmp_dir_handler);
       }
 
       if (urlConnection instanceof JarURLConnection) {
