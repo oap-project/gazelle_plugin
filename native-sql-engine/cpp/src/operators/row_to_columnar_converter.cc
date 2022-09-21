@@ -149,15 +149,15 @@ inline arrow::Status CreateArrayData(
             int32_t wordoffset = int32_t(offsetAndSize >> 32);
             auto value_offset = array_offset[position + 1] =
                 array_offset[position] + length;
-            uint64_t capacity = array->buffers[2]->capacity();
+            uint64_t size = array->buffers[2]->size();
 
-            if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
+            if (ARROW_PREDICT_FALSE(value_offset >= size)) {
               // allocate value buffer again
               // enlarge the buffer by 1.5x
-              capacity = capacity + std::max((capacity >> 1), (uint64_t)length);
+              size = size + std::max((size >> 1), (uint64_t)length);
               auto value_buffer =
                   std::static_pointer_cast<arrow::ResizableBuffer>(array->buffers[2]);
-              value_buffer->Reserve(capacity);
+              value_buffer->Resize(size);
               array_data = value_buffer->mutable_data();
             }
 
