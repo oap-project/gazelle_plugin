@@ -109,18 +109,17 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  // TODO: after locate is used in expression_codegen_visitor.cc.
-//  test("instr function in codegen") {
-//    val intData = Seq(("SparkSQL", "SQL")).toDF("a", "b")
-//    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-//      val df = intData.selectExpr("instr(a, b)")
-//      val executedPlan = df.queryExecution.executedPlan
-//      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
-//      checkAnswer(
-//        df, Seq(Row(6))
-//      )
-//    }
-//  }
+  test("instr function in codegen") {
+    val intData = Seq(("SparkSQL", "SQL")).toDF("a", "b")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = intData.selectExpr("instr(a, b)")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(
+        df, Seq(Row(6))
+      )
+    }
+  }
 
   test("btrim/ltrim/rtrim function in codegen") {
     val intData = Seq((" SparkSQL ")).toDF("a")

@@ -423,7 +423,7 @@ class ColumnarLower(child: Expression, original: Expression)
   val gName = "lower"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    codegenFuncList.contains(gName) && 
+    codegenFuncList.contains(gName) &&
     child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 
