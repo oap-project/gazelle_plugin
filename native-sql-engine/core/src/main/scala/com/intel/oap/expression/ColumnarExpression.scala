@@ -27,9 +27,57 @@ import scala.collection.mutable.ListBuffer
 
 trait ColumnarExpression {
 
+  val codegenFuncList: List[String] = List(
+    "less_than",
+    "less_than_with_nan",
+    "greater_than",
+    "greater_than_with_nan",
+    "less_than_or_equal_to",
+    "less_than_or_equal_to_with_nan",
+    "greater_than_or_equal_to",
+    "greater_than_or_equal_to_with_nan",
+    "equal",
+    "equal_with_nan",
+    "not",
+    "isnotnull",
+    "isnull",
+    "starts_with",
+    "like",
+    "get_json_object",
+    "translate",
+    "substr",
+    "locate",
+    "btrim",
+    "ltrim",
+    "rtrim",
+    "upper",
+    "lower",
+    "castDATE",
+    "castDECIMAL",
+    "castDECIMALNullOnOverflow",
+    "castINTOrNull",
+    "castBIGINTOrNull",
+    "castFLOAT4OrNull",
+    "castFLOAT8OrNull",
+    "rescaleDECIMAL",
+    "extractYear",
+    "round",
+    "abs",
+    "add",
+    "subtract",
+    "multiply",
+    "divide",
+    "shift_left",
+    "shift_right",
+    "bitwise_and",
+    "bitwise_or",
+    "normalize",
+    "convertTimestampUnit",
+    "micros_to_timestamp"
+  )
+
   def supportColumnarCodegen(args: java.lang.Object): (Boolean) = {
-    // TODO: disable all codegen unless manuall enabled
-    true
+    false
   }
 
   def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

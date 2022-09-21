@@ -255,6 +255,12 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarYear(child: Expression) extends Year(child) with
       ColumnarExpression {
+    val gName = "extractYear"
+
+    override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+      codegenFuncList.contains(gName) && 
+      child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
 
     buildCheck()
 
@@ -420,6 +426,12 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarMicrosToTimestamp(child: Expression) extends MicrosToTimestamp(child) with
       ColumnarExpression {
+    val gName = "micros_to_timestamp"
+
+    override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+      codegenFuncList.contains(gName) && 
+      child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
 
     buildCheck()
 
@@ -452,6 +464,8 @@ object ColumnarDateTimeExpressions {
       failOnError: Boolean = SQLConf.get.ansiEnabled)
       extends UnixTimestamp(left, right, timeZoneId, failOnError) with
       ColumnarExpression {
+
+    val gName = "unix_seconds"
 
     val yearMonthDayFormat = "yyyy-MM-dd"
     val yearMonthDayTimeFormat = "yyyy-MM-dd HH:mm:ss"
@@ -488,7 +502,8 @@ object ColumnarDateTimeExpressions {
     }
 
     override def supportColumnarCodegen(args: Object): Boolean = {
-      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      codegenFuncList.contains(gName) &&
+        left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
         right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
     }
 

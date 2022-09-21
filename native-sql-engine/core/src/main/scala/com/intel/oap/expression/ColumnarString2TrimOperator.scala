@@ -32,6 +32,18 @@ class ColumnarStringTrim(srcStr: Expression, trimStr: Option[Expression], origin
     extends StringTrim(srcStr: Expression, trimStr: Option[Expression])
         with ColumnarExpression
         with Logging {
+  val gName = "btrim"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
+  }
 
   buildCheck()
 
@@ -63,7 +75,18 @@ class ColumnarStringTrimLeft(srcStr: Expression, trimStr: Option[Expression], or
     extends StringTrimLeft(srcStr: Expression, trimStr: Option[Expression])
         with ColumnarExpression
         with Logging {
+  val gName = "ltrim"
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
+  }
   buildCheck()
 
   def buildCheck(): Unit = {
@@ -93,7 +116,18 @@ class ColumnarStringTrimRight(child: Expression, trimStr: Option[Expression], or
     extends StringTrimRight(child: Expression, trimStr: Option[Expression])
         with ColumnarExpression
         with Logging {
+  val gName = "rtrim"
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    if (trimStr.isEmpty) {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    } else {
+      codegenFuncList.contains(gName) && 
+      srcStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+      trimStr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
+  }
   buildCheck()
 
   def buildCheck(): Unit = {

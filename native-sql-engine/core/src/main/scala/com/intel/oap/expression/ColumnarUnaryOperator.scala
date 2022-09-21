@@ -58,6 +58,12 @@ class ColumnarIsNotNull(child: Expression, original: Expression)
     extends IsNotNull(child: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "isnotnull"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -92,9 +98,16 @@ class ColumnarIsNotNull(child: Expression, original: Expression)
 }
 
 class ColumnarIsNull(child: Expression, original: Expression)
-    extends IsNotNull(child: Expression)
+    extends IsNull(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  val gName = "isnull"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -282,6 +295,12 @@ class ColumnarAbs(child: Expression, original: Expression)
     extends Abs(child: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "abs"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -369,6 +388,12 @@ class ColumnarUpper(child: Expression, original: Expression)
     extends Upper(child: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "upper"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -395,6 +420,12 @@ class ColumnarLower(child: Expression, original: Expression)
   extends Lower(child: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "lower"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -414,10 +445,6 @@ class ColumnarLower(child: Expression, original: Expression)
     val funcNode =
       TreeBuilder.makeFunction("lower", Lists.newArrayList(child_node), resultType)
     (funcNode, resultType)
-  }
-
-  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    false
   }
 }
 
@@ -453,7 +480,12 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
       original.nullOnOverflow: Boolean)
     with ColumnarExpression
     with Logging {
+  val gName = "castDECIMAL"
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
   buildCheck()
 
   def buildCheck(): Unit = {
@@ -492,6 +524,12 @@ class ColumnarCast(
     extends Cast(child: Expression, datatype: DataType, timeZoneId: Option[String])
     with ColumnarExpression
     with Logging {
+  val gName = "Cast"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 
@@ -815,6 +853,13 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
     with ColumnarExpression
     with Logging {
 
+  val gName = "multiply"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) &&
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   buildCheck()
 
   def buildCheck(): Unit = {
@@ -890,6 +935,12 @@ class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZe
     extends NormalizeNaNAndZero(child: Expression)
     with ColumnarExpression
     with Logging {
+  val gName = "normalize"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck()
 

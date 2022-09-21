@@ -38,6 +38,10 @@ class ColumnarLiteral(lit: Literal)
     extends Literal(lit.value, lit.dataType)
     with ColumnarExpression {
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true
+  }
+
   val resultType: ArrowType = buildCheck()
 
   def buildCheck(): ArrowType = {

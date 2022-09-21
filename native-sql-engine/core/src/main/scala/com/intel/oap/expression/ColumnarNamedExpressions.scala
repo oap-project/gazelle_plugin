@@ -55,6 +55,10 @@ class ColumnarAttributeReference(
     extends AttributeReference(name, dataType, nullable, metadata)(exprId, qualifier)
     with ColumnarExpression {
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val resultType = CodeGeneration.getResultType(dataType)
     val field = Field.nullable(s"${name}#${exprId.id}", resultType)

@@ -39,6 +39,16 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
     with ColumnarExpression
     with Logging {
 
+
+  val gName = "substr"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    str.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    pos.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    len.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   buildCheck()
 
   def buildCheck(): Unit = {
@@ -116,6 +126,15 @@ class ColumnarStringSplitPart(child: Expression, regex: Expression,
 class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
                               replaceExpr: Expression, original: Expression)
     extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression {
+
+  val gName = "translate"
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    codegenFuncList.contains(gName) && 
+    src.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    matchingExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    replaceExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 
   buildCheck
 
