@@ -698,21 +698,21 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
 
     for (int j = 0; j < sorted_partition.size(); j++) {
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
-      int res_index = j - offset_;
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
-        if (res_index < 0 || res_index > sorted_partition.size() - 1) {
+        if (j - offset_ < 0 || j - offset_ > sorted_partition.size() - 1) {
           // TODO: support non-null default value.
           // if (default is not null) {
           //   lag_array[index->array_id][index->id] =
           //   validity[i][j] = true;
           validity[i][j] = false;
         } else {
-          auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(index->array_id).at(column_id));
-          if (typed_array->null_count() > 0 && typed_array->IsNull(index->id - offset_)) {
+          std::shared_ptr<ArrayItemIndexS> offset_index = sorted_partition.at(j - offset_);
+          auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(offset_index->array_id).at(column_id));
+          if (typed_array->null_count() > 0 && typed_array->IsNull(offset_index->id)) {
             validity[i][j] = false;
           } else {
             // It is supposed (index->id - offset_) is equavialent with (j - offset_)
-            lag_array[index->array_id][index->id] = typed_array->GetView(index->id - offset_);
+            lag_array[index->array_id][index->id] = typed_array->GetView(offset_index->id);
             // lag_array[index->array_id][index->id] = getElement<VALUE_TYPE, CType, ArrayType>(typed_array, index->id - offset_);
             validity[i][j] = true;
           }
