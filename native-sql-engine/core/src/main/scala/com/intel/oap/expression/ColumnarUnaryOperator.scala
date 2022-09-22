@@ -527,7 +527,11 @@ class ColumnarCast(
   val gName = "Cast"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    true && 
+    // Casting string data to timestamp is not supported in codegen
+    if (dataType.isInstanceOf[TimestampType] && child.dataType == StringType) {
+      return false
+    }
+    true &&
     child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 

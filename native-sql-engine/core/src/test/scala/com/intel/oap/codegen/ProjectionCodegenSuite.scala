@@ -17,8 +17,11 @@
 
 package com.intel.oap.codegen
 
+import java.sql.Timestamp
+
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution.ColumnarWholeStageCodegenExec
+
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.test.SharedSparkSession
 
@@ -317,6 +320,26 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  test("timestamp_micros function in codegen") {
+    val inputData = Seq(1000L).toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = inputData.selectExpr("timestamp_micros(a)")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
+      checkAnswer(df, Row(new Timestamp(1L)))
+    }
+  }
 
+  // cast string to timestamp is not supported in codegen.
+  test("block casting string to timestamp in codegen") {
+    val inputData = Seq("1970-01-01 00:00:00.000").toDF("a")
+    withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
+      val df = inputData.selectExpr("cast(a as timestamp)")
+      val executedPlan = df.queryExecution.executedPlan
+      assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == false)
+      // non-codegen result.
+      checkAnswer(df, Row(new Timestamp(0L)))
+    }
+  }
 
 }
