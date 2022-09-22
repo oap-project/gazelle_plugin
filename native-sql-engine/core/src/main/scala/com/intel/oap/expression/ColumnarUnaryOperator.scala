@@ -527,8 +527,8 @@ class ColumnarCast(
   val gName = "Cast"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    // Casting string data to timestamp is not supported in codegen
-    if (dataType.isInstanceOf[TimestampType] && child.dataType == StringType) {
+    // Casting data to TimestampType/ByteType/BinaryType is not supported in codegen.
+    if (dataType.isInstanceOf[TimestampType] || dataType == ByteType || dataType == BinaryType) {
       return false
     }
     true &&

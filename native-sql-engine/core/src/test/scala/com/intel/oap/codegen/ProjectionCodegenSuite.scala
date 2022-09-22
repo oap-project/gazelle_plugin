@@ -29,9 +29,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
   test("less than function in codegen") {
-    val intData = Seq((7, 3), (10, 15)).toDF("a", "b")
+    val inputData = Seq((7, 3), (10, 15)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a < b")
+      val df = inputData.selectExpr("a < b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -41,9 +41,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("less than or equal to function in codegen") {
-    val intData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
+    val inputData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a <= b")
+      val df = inputData.selectExpr("a <= b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -53,9 +53,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("greater than function in codegen") {
-    val intData = Seq((7, 3), (10, 15)).toDF("a", "b")
+    val inputData = Seq((7, 3), (10, 15)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a > b")
+      val df = inputData.selectExpr("a > b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -65,9 +65,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("greater than or equal to function in codegen") {
-    val intData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
+    val inputData = Seq((7, 7), (10, 15), (10, 9)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a >= b")
+      val df = inputData.selectExpr("a >= b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -77,9 +77,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("equal function in codegen") {
-    val intData = Seq((7, 3), (10, 10)).toDF("a", "b")
+    val inputData = Seq((7, 3), (10, 10)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a = b")
+      val df = inputData.selectExpr("a = b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -89,9 +89,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("translate function in codegen") {
-    val intData = Seq(("AaBbCc", "abc", "123")).toDF("a", "b", "c")
+    val inputData = Seq(("AaBbCc", "abc", "123")).toDF("a", "b", "c")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("translate(a, b, c)")
+      val df = inputData.selectExpr("translate(a, b, c)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -101,9 +101,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("substr function in codegen") {
-    val intData = Seq(("Spark SQL", 5)).toDF("a", "b")
+    val inputData = Seq(("Spark SQL", 5)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("substr(a, b)")
+      val df = inputData.selectExpr("substr(a, b)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -113,9 +113,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("instr function in codegen") {
-    val intData = Seq(("SparkSQL", "SQL")).toDF("a", "b")
+    val inputData = Seq(("SparkSQL", "SQL")).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("instr(a, b)")
+      val df = inputData.selectExpr("instr(a, b)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -125,23 +125,23 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("btrim/ltrim/rtrim function in codegen") {
-    val intData = Seq((" SparkSQL ")).toDF("a")
+    val inputData = Seq((" SparkSQL ")).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      var df = intData.selectExpr("trim(a)")
+      var df = inputData.selectExpr("trim(a)")
       var executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row("SparkSQL"))
       )
 
-      df = intData.selectExpr("ltrim(a)")
+      df = inputData.selectExpr("ltrim(a)")
       executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row("SparkSQL "))
       )
 
-      df = intData.selectExpr("rtrim(a)")
+      df = inputData.selectExpr("rtrim(a)")
       executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -151,16 +151,16 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("upper/lower function in codegen") {
-    val intData = Seq(("SparkSQL")).toDF("a")
+    val inputData = Seq(("SparkSQL")).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      var df = intData.selectExpr("upper(a)")
+      var df = inputData.selectExpr("upper(a)")
       var executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row("SPARKSQL"))
       )
 
-      df = intData.selectExpr("lower(a)")
+      df = inputData.selectExpr("lower(a)")
       executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -170,16 +170,16 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("cast INT/BIGINT function in codegen") {
-    val intData = Seq(("123")).toDF("a")
+    val inputData = Seq(("123")).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      var df = intData.selectExpr("cast(a as INT)")
+      var df = inputData.selectExpr("cast(a as INT)")
       var executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
         df, Seq(Row(123))
       )
 
-      df = intData.selectExpr("cast(a as BIGINT)")
+      df = inputData.selectExpr("cast(a as BIGINT)")
       executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -189,9 +189,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("cast FLOAT function in codegen") {
-    val intData = Seq(("123.456")).toDF("a")
+    val inputData = Seq(("123.456")).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      var df = intData.selectExpr("cast(a as float)")
+      var df = inputData.selectExpr("cast(a as float)")
       var executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -201,9 +201,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("round function in codegen") {
-    val intData = Seq((2.4), (2.5)).toDF("a")
+    val inputData = Seq((2.4), (2.5)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("round(a)")
+      val df = inputData.selectExpr("round(a)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -213,9 +213,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("abs function in codegen") {
-    val intData = Seq((2.0), (-3.0)).toDF("a")
+    val inputData = Seq((2.0), (-3.0)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("abs(a)")
+      val df = inputData.selectExpr("abs(a)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -225,9 +225,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("add function in codegen") {
-    val intData = Seq((2.4), (2.5)).toDF("a")
+    val inputData = Seq((2.4), (2.5)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a + 1")
+      val df = inputData.selectExpr("a + 1")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -237,9 +237,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("subtract function in codegen") {
-    val intData = Seq((2.4), (2.5)).toDF("a")
+    val inputData = Seq((2.4), (2.5)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a - 1")
+      val df = inputData.selectExpr("a - 1")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -249,9 +249,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("multiply function in codegen") {
-    val intData = Seq((2), (3)).toDF("a")
+    val inputData = Seq((2), (3)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a * 2")
+      val df = inputData.selectExpr("a * 2")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -261,9 +261,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("divide function in codegen") {
-    val intData = Seq((2), (4)).toDF("a")
+    val inputData = Seq((2), (4)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a / 2")
+      val df = inputData.selectExpr("a / 2")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -273,9 +273,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("shift left function in codegen") {
-    val intData = Seq((2), (4)).toDF("a")
+    val inputData = Seq((2), (4)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("shiftleft(a, 1)")
+      val df = inputData.selectExpr("shiftleft(a, 1)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -285,9 +285,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("shift right function in codegen") {
-    val intData = Seq((2), (4)).toDF("a")
+    val inputData = Seq((2), (4)).toDF("a")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("shiftright(a, 1)")
+      val df = inputData.selectExpr("shiftright(a, 1)")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -297,9 +297,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("bitwise and function in codegen") {
-    val intData = Seq((3, 5)).toDF("a", "b")
+    val inputData = Seq((3, 5)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a & b")
+      val df = inputData.selectExpr("a & b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
@@ -309,9 +309,9 @@ class ProjectionCodegenSuite extends QueryTest with SharedSparkSession {
   }
 
   test("bitwise or function in codegen") {
-    val intData = Seq((3, 5)).toDF("a", "b")
+    val inputData = Seq((3, 5)).toDF("a", "b")
     withSQLConf(GazellePluginConfig.getSessionConf.enableProjectionCodegenKey -> "true") {
-      val df = intData.selectExpr("a | b")
+      val df = inputData.selectExpr("a | b")
       val executedPlan = df.queryExecution.executedPlan
       assert(executedPlan.children(0).isInstanceOf[ColumnarWholeStageCodegenExec] == true)
       checkAnswer(
