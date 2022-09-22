@@ -19,6 +19,8 @@ package org.apache.spark.sql.test
 
 import java.util.{Locale, TimeZone}
 
+import com.intel.oap.GazellePluginConfig
+
 import scala.concurrent.duration._
 import org.scalatest.{BeforeAndAfterEach, Suite}
 import org.scalatest.concurrent.Eventually
@@ -94,6 +96,7 @@ trait SharedSparkSessionBase
     conf.set(
       StaticSQLConf.WAREHOUSE_PATH,
       conf.get(StaticSQLConf.WAREHOUSE_PATH) + "/" + getClass.getCanonicalName)
+    conf.set(GazellePluginConfig.getSessionConf.enableUDFKey, "true")
   }
 
   /**
