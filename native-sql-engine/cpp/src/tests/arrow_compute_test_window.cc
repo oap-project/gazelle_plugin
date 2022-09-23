@@ -421,5 +421,45 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
 }
 
+TEST(TestArrowComputeWindow, LagTest) {
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::int32())});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[35, 37, 38]"};
+  MakeInputBatch(input_data, sch, &input_batch);
+
+  std::shared_ptr<Field> res = field("window_res", arrow::int32());
+
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "lag_desc",
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
+
+  arrow::compute::ExecContext ctx;
+  std::shared_ptr<CodeGenerator> expr;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
+  ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
+  ASSERT_NOT_OK(expr->finish(&out))
+
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_output_data = {"[38, null, null]"};
+
+  MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
+  ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
