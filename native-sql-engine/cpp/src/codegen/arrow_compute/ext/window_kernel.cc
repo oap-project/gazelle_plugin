@@ -704,17 +704,17 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
           // if (default is not null) {
           //   lag_array[index->array_id][index->id] =
           //   validity[i][j] = true;
-          validity[i][j] = false;
+          validity[index->array_id][index->id] = false;
         } else {
           std::shared_ptr<ArrayItemIndexS> offset_index = sorted_partition.at(j - offset_);
           auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(offset_index->array_id).at(column_id));
           if (typed_array->null_count() > 0 && typed_array->IsNull(offset_index->id)) {
-            validity[i][j] = false;
+            validity[index->array_id][index->id] = false;
           } else {
             // It is supposed (index->id - offset_) is equavialent with (j - offset_)
             lag_array[index->array_id][index->id] = typed_array->GetView(offset_index->id);
             // lag_array[index->array_id][index->id] = getElement<VALUE_TYPE, CType, ArrayType>(typed_array, index->id - offset_);
-            validity[i][j] = true;
+            validity[index->array_id][index->id] = true;
           }
         }
       }
