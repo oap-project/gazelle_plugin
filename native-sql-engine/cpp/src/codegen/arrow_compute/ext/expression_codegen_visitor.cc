@@ -492,7 +492,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
 
     auto childNode = node.children().at(0);
     if (childNode->return_type()->id() != arrow::Type::DECIMAL) {
-      // if not casting form Decimal
+      // For numberic types, except decimal type.
       std::stringstream fix_ss;
       if (node.return_type()->id() == arrow::Type::STRING) {
         prepare_ss << codes_str_ << " = std::to_string("

@@ -527,10 +527,29 @@ class ColumnarCast(
   val gName = "Cast"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    // Casting data to TimestampType/ByteType/BinaryType is not supported in codegen.
-    if (dataType.isInstanceOf[TimestampType] || dataType == ByteType || dataType == BinaryType) {
+    // Casting data to TimestampType/BinaryType is not supported in codegen.
+    if (dataType.isInstanceOf[TimestampType] || dataType == BinaryType) {
       return false
     }
+    if (dataType == DateType) {
+      child.dataType match {
+        case TimestampType =>
+          return false
+        case StringType =>
+          return false
+        case _ =>
+      }
+    }
+    if (dataType == StringType) {
+      child.dataType match {
+        case TimestampType =>
+          return false
+        case DateType =>
+          return false
+        case _ =>
+      }
+    }
+
     true &&
     child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
