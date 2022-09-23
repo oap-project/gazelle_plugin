@@ -23,12 +23,12 @@ import java.sql.{Date, Timestamp}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
+import com.intel.oap.GazellePluginConfig
+
 import scala.reflect.runtime.universe.TypeTag
 import scala.util.Random
-
 import org.scalatest.matchers.should.Matchers._
-
-import org.apache.spark.SparkException
+import org.apache.spark.{SparkConf, SparkException}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobEnd}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
@@ -54,6 +54,12 @@ class DataFrameSuite extends QueryTest
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._
+
+  override protected def sparkConf: SparkConf = {
+    val conf = super.sparkConf
+    conf.set(GazellePluginConfig.getSessionConf.enableUDFKey, "true")
+    conf
+  }
 
   test("analysis error should be eagerly reported") {
     intercept[Exception] { testData.select("nonExistentName") }
@@ -604,9 +610,9 @@ class DataFrameSuite extends QueryTest
   }
 
   test("Columnar UDF") {
-    // Register a scala UDF. The scala UDF code will not be acutally used. It
+    // Register a scala UDF. The scala UDF code will not be actually used. It
     // will be replaced by columnar UDF at runtime.
-    spark.udf.register("UrlDecoder", (s : String) => s)
+    spark.udf.register("UrlDecoder", (s: String) => s)
     checkAnswer(
       sql("select UrlDecoder('AaBb%23'), UrlDecoder(null)"),
       Seq(Row("AaBb#", null))

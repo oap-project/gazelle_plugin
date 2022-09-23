@@ -239,6 +239,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
 
     }
   }
+
+  val enableUDFKey: String = "spark.oap.sql.columnar.enable.udf"
+  val enableUDF: Boolean =
+    conf.getConfString(enableUDFKey, "false").toBoolean
 }
 
 object GazellePluginConfig {

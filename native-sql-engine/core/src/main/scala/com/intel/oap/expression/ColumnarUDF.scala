@@ -18,6 +18,7 @@
 package com.intel.oap.expression
 
 import com.google.common.collect.Lists
+import com.intel.oap.GazellePluginConfig
 import org.apache.arrow.gandiva.expression.{TreeBuilder, TreeNode}
 import org.apache.arrow.vector.types.pojo.ArrowType
 
@@ -88,8 +89,12 @@ object ColumnarUDF {
   // row based function in spark, e.g.,
   // CREATE TEMPORARY FUNCTION UrlDecoder AS 'com.intel.test.URLDecoderNew';
   val supportList = List("urldecoder")
+  val conf = GazellePluginConfig.getSessionConf
 
   def isSupportedUDF(name: String): Boolean = {
+    if (!conf.enableUDF) {
+      return false
+    }
     if (name == null) {
       return false
     }
