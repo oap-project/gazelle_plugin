@@ -335,8 +335,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << "auto ind = " << child_visitor_list[0]->GetResult() << ".find("
-               << child_visitor_list[1]->GetResult() << ");" << std::endl;
+    // The 1st arg is the string we are searching for inside the 2nd arg.
+    prepare_ss << "auto ind = " << child_visitor_list[1]->GetResult() << ".find("
+               << child_visitor_list[0]->GetResult() << ");" << std::endl;
     prepare_ss << "if (ind == std::string::npos) {" << std::endl;
     prepare_ss << codes_str_ << " = 0;" << std::endl;
     prepare_ss << "}" << std::endl;
@@ -344,7 +345,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << codes_str_ << " = ind + 1;" << std::endl;
     prepare_ss << "}" << std::endl;
     prepare_ss << "}" << std::endl;
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     prepare_str_ += prepare_ss.str();
@@ -491,7 +492,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
 
     auto childNode = node.children().at(0);
     if (childNode->return_type()->id() != arrow::Type::DECIMAL) {
-      // if not casting form Decimal
+      // For numberic types, except decimal type.
       std::stringstream fix_ss;
       if (node.return_type()->id() == arrow::Type::STRING) {
         prepare_ss << codes_str_ << " = std::to_string("

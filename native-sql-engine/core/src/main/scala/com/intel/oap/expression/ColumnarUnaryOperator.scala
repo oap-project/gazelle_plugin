@@ -423,7 +423,7 @@ class ColumnarLower(child: Expression, original: Expression)
   val gName = "lower"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    codegenFuncList.contains(gName) && 
+    codegenFuncList.contains(gName) &&
     child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 
@@ -527,7 +527,30 @@ class ColumnarCast(
   val gName = "Cast"
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    true && 
+    // Casting data to TimestampType/BinaryType is not supported in codegen.
+    if (dataType.isInstanceOf[TimestampType] || dataType == BinaryType) {
+      return false
+    }
+    if (dataType == DateType) {
+      child.dataType match {
+        case TimestampType =>
+          return false
+        case StringType =>
+          return false
+        case _ =>
+      }
+    }
+    if (dataType == StringType) {
+      child.dataType match {
+        case TimestampType =>
+          return false
+        case DateType =>
+          return false
+        case _ =>
+      }
+    }
+
+    true &&
     child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
   }
 
