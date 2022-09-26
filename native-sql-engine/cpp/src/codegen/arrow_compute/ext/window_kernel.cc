@@ -481,16 +481,16 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
 WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
-                   int offset,
+                   int offset, std::shared_ptr<gandiva::LiteralNode> default_node,
                    std::shared_ptr<arrow::DataType> return_type) : WindowRankKernel(ctx, type_list, sorter, desc, false) {
   // The type_list size should be fixed, i.e. 3. The first is the input
   offset_ = offset;
-  // this.default_value_ = default_value;
+  default_node_ = default_node;
   return_type_ = return_type;
 }
 
 arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::string function_name,
-    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list, std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
     std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type) {
   std::vector<std::shared_ptr<arrow::Field>> key_fields;
   for (int i = 0; i < type_list.size(); i++) {
@@ -534,8 +534,10 @@ arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::strin
       throw JniPendingException("Window Sort codegen failed");
     }
   }
+  auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
+  std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
   // Hard coding in setting offset to 1, the default value. TODO: get offset from window function children. 
-  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, 1, return_type);
+  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value, default_node, return_type);
 
   return arrow::Status::OK();
 }
@@ -693,6 +695,13 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
     *(validity + i) = new bool[group_ids.at(i)->length()];
   }
 
+  // Get default value.
+  bool is_default_null = default_node_->is_null();
+  CType default_value;
+  if (!is_default_null) {
+    default_value = arrow::util::get<CType>(default_node_->holder());
+  }
+
   for (int i = 0; i <= max_group_id; i++) {
     std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition = sorted_partitions.at(i);
 
@@ -700,11 +709,12 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         if (j - offset_ < 0 || j - offset_ > sorted_partition.size() - 1) {
-          // TODO: support non-null default value.
-          // if (default is not null) {
-          //   lag_array[index->array_id][index->id] =
-          //   validity[i][j] = true;
-          validity[index->array_id][index->id] = false;
+          if (is_default_null) {
+            validity[index->array_id][index->id] = false;
+          } else {
+            lag_array[index->array_id][index->id] = default_value;
+            validity[index->array_id][index->id] = true;
+          }
         } else {
           std::shared_ptr<ArrayItemIndexS> offset_index = sorted_partition.at(j - offset_);
           auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(offset_index->array_id).at(column_id));

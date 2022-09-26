@@ -437,7 +437,9 @@ TEST(TestArrowComputeWindow, LagTest) {
           {
               TreeExprBuilder::MakeFunction(
                   "lag_desc",
-                  {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))},
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::int32())),
+                  // offset is 1, default value is null.
+                  TreeExprBuilder::MakeLiteral((int)1), TreeExprBuilder::MakeNull(arrow::int32())},
                   null()),
               TreeExprBuilder::MakeFunction(
                   "partitionSpec",

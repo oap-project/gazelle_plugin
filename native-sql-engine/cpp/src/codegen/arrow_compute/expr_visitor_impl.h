@@ -105,12 +105,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   WindowVisitorImpl(ExprVisitor* p, std::vector<std::string> window_function_names,
                     std::vector<std::shared_ptr<arrow::DataType>> return_types,
                     std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
-                    std::vector<gandiva::FieldPtr> partition_fields)
+                    std::vector<gandiva::FieldPtr> partition_fields,
+                    std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options)
       : ExprVisitorImpl(p) {
     this->window_function_names_ = window_function_names;
     this->return_types_ = return_types,
     this->function_param_fields_ = function_param_fields;
     this->partition_fields_ = partition_fields;
+    this->lag_options_ = lag_options;
   }
 
   static arrow::Status Make(
@@ -118,9 +120,10 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       std::vector<std::shared_ptr<arrow::DataType>> return_types,
       std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
       std::vector<gandiva::FieldPtr> partition_fields,
+      std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
       std::shared_ptr<ExprVisitorImpl>* out) {
     auto impl = std::make_shared<WindowVisitorImpl>(
-        p, window_function_names, return_types, function_param_fields, partition_fields);
+        p, window_function_names, return_types, function_param_fields, partition_fields, lag_options);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -187,11 +190,11 @@ class WindowVisitorImpl : public ExprVisitorImpl {
                                                     &function_kernel, false));
       } else if (window_function_name == "lag_desc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
+                                                    function_param_type_list, lag_options_,
                                                     &function_kernel, true, return_type));
       } else if (window_function_name == "lag_asc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
+                                                    function_param_type_list, lag_options_,
                                                     &function_kernel, false, return_type));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
@@ -342,6 +345,7 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   std::vector<std::string> window_function_names_;
   std::vector<std::shared_ptr<arrow::DataType>> return_types_;
   std::vector<std::vector<gandiva::FieldPtr>> function_param_fields_;
+  std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options_;
   std::vector<gandiva::FieldPtr> partition_fields_;
   std::vector<std::vector<int>> function_param_field_ids_;
   std::vector<int> partition_field_ids_;

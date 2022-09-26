@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.GazellePluginConfig
-import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
+import com.intel.oap.expression.{CodeGeneration, ColumnarLiteral, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
@@ -270,6 +270,18 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                       CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
              NoneType.NONE_TYPE 
             )
+          case (n, f) if n.startsWith("lag") =>
+            TreeBuilder.makeFunction(n,
+              f.children.flatMap {
+                case a: AttributeReference =>
+                  val attr = ConverterUtils.getAttrFromExpr(a)
+                  Some(TreeBuilder.makeField(
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType))))
+                case lit: Literal =>
+                  val (literalNode, _) = new ColumnarLiteral(lit).doColumnarCodeGen(null)
+                  Some(literalNode)
+              }.toList.asJava, NoneType.NONE_TYPE)
           case (n, f) =>
           TreeBuilder.makeFunction(n,
             f.children
