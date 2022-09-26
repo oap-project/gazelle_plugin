@@ -1344,7 +1344,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) 
   auto cur_func_id = *func_count_;
   std::stringstream codes_ss;
   if (node.return_type()->id() == arrow::Type::STRING) {
-    codes_ss << "\"" << gandiva::ToString(node.holder()) << "\"" << std::endl;
+    // The node holder can be number. So prefixing "_" will avoid compile issue in
+    // naming validity variable (generally by combining it with "_validity").
+    codes_ss << "_" << gandiva::ToString(node.holder());
   } else if (node.return_type()->id() == arrow::Type::DECIMAL) {
     auto scalar = arrow::util::get<gandiva::DecimalScalar128>(node.holder());
     auto decimal = arrow::Decimal128(scalar.value());
@@ -1359,6 +1361,12 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) 
   check_str_ = node.is_null() ? "false" : "true";
   real_codes_str_ = codes_str_;
   real_validity_str_ = check_str_;
+  std::stringstream prepare_ss;
+  prepare_ss << "  " << GetCTypeString(node.return_type()) << " " << codes_str_
+                     << ";" << std::endl;
+  prepare_ss << " bool " << GetValidityName(codes_str_)
+                        << " = " << check_str_ <<";" << std::endl;
+  prepare_str_ += prepare_ss.str();
   field_type_ = literal;
   return arrow::Status::OK();
 }
