@@ -268,7 +268,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               List(TreeBuilder.makeField(
                     Field.nullable(attr.name,
                       CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
-             NoneType.NONE_TYPE 
+             NoneType.NONE_TYPE
             )
           case (n, f) if n.startsWith("lag") =>
             TreeBuilder.makeFunction(n,
@@ -279,7 +279,14 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                     Field.nullable(attr.name,
                       CodeGeneration.getResultType(attr.dataType))))
                 case lit: Literal =>
-                  val (literalNode, _) = new ColumnarLiteral(lit).doColumnarCodeGen(null)
+                  val literalNode = lit match {
+                    case lit if lit.value == null =>
+                      // Meaningless type for null. No need to care about it.
+                      TreeBuilder.makeNull(ArrowType.Utf8.INSTANCE)
+                    case lit =>
+                      val (node, _) = new ColumnarLiteral(lit).doColumnarCodeGen(null)
+                      node
+                  }
                   Some(literalNode)
               }.toList.asJava, NoneType.NONE_TYPE)
           case (n, f) =>
