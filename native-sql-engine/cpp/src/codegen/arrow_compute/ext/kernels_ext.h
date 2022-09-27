@@ -350,12 +350,14 @@ class WindowLagKernel: public WindowRankKernel {
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                    int offset, std::shared_ptr<gandiva::LiteralNode> default_node,
-                   std::shared_ptr<arrow::DataType> return_type);
+                   std::shared_ptr<arrow::DataType> return_type,
+                   std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
 
   static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
-    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type);
+    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
 
   arrow::Status Finish(ArrayList* out) override;
 
@@ -377,6 +379,7 @@ class WindowLagKernel: public WindowRankKernel {
    int offset_;
    std::shared_ptr<gandiva::LiteralNode> default_node_;
    std::shared_ptr<arrow::DataType> return_type_;
+   std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
 };
 
 /*class UniqueArrayKernel : public KernalBase {

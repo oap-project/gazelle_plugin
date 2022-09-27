@@ -106,12 +106,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
                     std::vector<std::shared_ptr<arrow::DataType>> return_types,
                     std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
                     std::vector<gandiva::FieldPtr> partition_fields,
+                    std::vector<gandiva::FieldPtr> order_fields,
                     std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options)
       : ExprVisitorImpl(p) {
     this->window_function_names_ = window_function_names;
     this->return_types_ = return_types,
     this->function_param_fields_ = function_param_fields;
     this->partition_fields_ = partition_fields;
+    this->order_fields_ = order_fields;
     this->lag_options_ = lag_options;
   }
 
@@ -120,10 +122,11 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       std::vector<std::shared_ptr<arrow::DataType>> return_types,
       std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
       std::vector<gandiva::FieldPtr> partition_fields,
+      std::vector<gandiva::FieldPtr> order_fields,
       std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
       std::shared_ptr<ExprVisitorImpl>* out) {
     auto impl = std::make_shared<WindowVisitorImpl>(
-        p, window_function_names, return_types, function_param_fields, partition_fields, lag_options);
+        p, window_function_names, return_types, function_param_fields, partition_fields, order_fields, lag_options);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -147,6 +150,16 @@ class WindowVisitorImpl : public ExprVisitorImpl {
     }
 
     RETURN_NOT_OK(extra::EncodeArrayKernel::Make(&p_->ctx_, &partition_kernel_));
+
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list;
+    for (auto order_field : order_fields_) {
+      std::shared_ptr<arrow::Field> field;
+      int col_id;
+      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, order_field->name(),
+                                              &col_id, &field));
+      order_field_ids_.push_back(col_id);
+      order_type_list.push_back(field->type());
+    }
 
     for (int func_id = 0; func_id < window_function_names_.size(); func_id++) {
       std::string window_function_name = window_function_names_.at(func_id);
@@ -191,11 +204,11 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       } else if (window_function_name == "lag_desc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list, lag_options_,
-                                                    &function_kernel, true, return_type));
+                                                    &function_kernel, true, return_type, order_type_list));
       } else if (window_function_name == "lag_asc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
                                                     function_param_type_list, lag_options_,
-                                                    &function_kernel, false, return_type));
+                                                    &function_kernel, false, return_type, order_type_list));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);
@@ -277,6 +290,18 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         in3.push_back(val);  // single column
       }
       in3.push_back(out2);  // group_ids
+      // order by field.
+      for (auto col_id : order_field_ids_) {
+        if (col_id >= p_->in_record_batch_->num_columns()) {
+          return arrow::Status::Invalid(
+              "WindowVisitorImpl: Function parameter number overflows defined "
+              "column "
+              "count");
+        }
+        auto col = p_->in_record_batch_->column(col_id);
+        in3.push_back(col);
+      }
+
 #ifdef DEBUG
       std::cout << "[window kernel] Calling "
                    "function_kernels_.at(func_id)->Evaluate(in3) on batch... "
@@ -347,8 +372,10 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   std::vector<std::vector<gandiva::FieldPtr>> function_param_fields_;
   std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options_;
   std::vector<gandiva::FieldPtr> partition_fields_;
+  std::vector<gandiva::FieldPtr> order_fields_;
   std::vector<std::vector<int>> function_param_field_ids_;
   std::vector<int> partition_field_ids_;
+  std::vector<int> order_field_ids_;
   std::shared_ptr<extra::KernalBase> concat_kernel_;
   std::shared_ptr<extra::KernalBase> partition_kernel_;
   std::vector<std::shared_ptr<extra::KernalBase>> function_kernels_;

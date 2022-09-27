@@ -468,11 +468,6 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
         lag_options.push_back(offset_node);
         auto default_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(window_function->children().at(2));
         lag_options.push_back(default_node);
-        // auto offset_node = dynamic_cast<LiteralNode*>(node.children().at(1).get());
-        // auto offset_value = arrow::util::get<int32_t>(offset_node->holder());
-        // auto default_node = dynamic_cast<LiteralNode*>(node.children().at(2).get());
-        // // Needs to be converted to acutal type.
-        // auto default_value = arrow::util::get<std::string>(default_node->holder());
     } else {
       for (std::shared_ptr<gandiva::Node> child : window_function->children()) {
         std::shared_ptr<gandiva::FieldNode> field =
@@ -492,6 +487,13 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
         std::dynamic_pointer_cast<gandiva::FieldNode>(child);
     partition_fields.push_back(field->field());
   }
+  std::vector<gandiva::FieldPtr> order_fields;
+  for (std::shared_ptr<gandiva::Node> child : order_spec->children()) {
+    std::shared_ptr<gandiva::FieldNode> field =
+        std::dynamic_pointer_cast<gandiva::FieldNode>(child);
+    order_fields.push_back(field->field());
+  }
+
   std::vector<std::shared_ptr<arrow::DataType>> return_types;
   for (auto return_field : ret_fields) {
     std::shared_ptr<arrow::DataType> type = return_field->type();
@@ -499,7 +501,7 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
   }
   // todo order_spec frame_spec
   RETURN_NOT_OK(WindowVisitorImpl::Make(p, window_function_names, return_types,
-                                        function_param_fields, partition_fields, lag_options, &impl_));
+                                        function_param_fields, partition_fields, order_fields, lag_options, &impl_));
   return arrow::Status();
 }
 

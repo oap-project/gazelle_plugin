@@ -310,7 +310,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               }.toList.asJava,
             NoneType.NONE_TYPE)
         }
-        // TODO(yuan): using ConverterUtils.getAttrFromExpr 
+        // TODO(yuan): using ConverterUtils.getAttrFromExpr
         val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
           case a: AttributeReference =>
             ConverterUtils.getAttrFromExpr(a)
@@ -329,13 +329,35 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             Field.nullable(e.name,
               CodeGeneration.getResultType(e.dataType)))).toList.asJava,
           NoneType.NONE_TYPE)
+
+        val orderExpressions: Seq[AttributeReference] = orderSpec.map(
+          od => od.child match {
+            case a: AttributeReference =>
+              ConverterUtils.getAttrFromExpr(a)
+            case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+              ConverterUtils.getAttrFromExpr(c)
+            case _: Cast | _ : Literal =>
+              null
+            case n: KnownFloatingPointNormalized =>
+              ConverterUtils.getAttrFromExpr(n.child)
+            case nomatch =>
+              throw new IllegalStateException()
+          }
+        ).filter(_ != null)
+
+        val gOrderSpec = TreeBuilder.makeFunction("orderSpec",
+          orderExpressions.map(e => TreeBuilder.makeField(
+            Field.nullable(e.name,
+              CodeGeneration.getResultType(e.dataType)))).toList.asJava,
+          NoneType.NONE_TYPE)
+
         // Workaround:
         // Gandiva doesn't support serializing Struct type so far. Use a fake Binary type instead.
         val returnType = ArrowType.Binary.INSTANCE
         val fieldType = new FieldType(false, returnType, null)
         val resultField = new Field("window_res", fieldType,
           windowFunctions.map {
-            case (row_number_func, f) if row_number_func.startsWith("row_number")=>
+            case (row_number_func, f) if row_number_func.startsWith("row_number") =>
               // row_number will return int32 based indicies
               new ArrowType.Int(32, true)
             case (_, f) =>
@@ -345,7 +367,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           }.asJava)
 
         val window = TreeBuilder.makeFunction("window",
-          (gWindowFunctions.toList ++ List(gPartitionSpec)).asJava, returnType)
+          (gWindowFunctions.toList ++ List(gPartitionSpec) ++ List(gOrderSpec)).asJava, returnType)
 
         val evaluator = new ExpressionEvaluator()
         val resultSchema = new Schema(resultField.getChildren)

@@ -482,20 +482,25 @@ WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                    int offset, std::shared_ptr<gandiva::LiteralNode> default_node,
-                   std::shared_ptr<arrow::DataType> return_type) : WindowRankKernel(ctx, type_list, sorter, desc, false) {
+                   std::shared_ptr<arrow::DataType> return_type,
+                   std::vector<std::shared_ptr<arrow::DataType>> order_type_list) : WindowRankKernel(ctx, type_list, sorter, desc, false) {
   // The type_list size should be fixed, i.e. 3. The first is the input
   offset_ = offset;
   default_node_ = default_node;
   return_type_ = return_type;
+  order_type_list_ = order_type_list;
 }
 
+// type_list: window function input field; order_type_list: order by field, currently multiple fields (> 1) are not well supported.
 arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::string function_name,
     std::vector<std::shared_ptr<arrow::DataType>> type_list, std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
-    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type) {
+    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
   std::vector<std::shared_ptr<arrow::Field>> key_fields;
-  for (int i = 0; i < type_list.size(); i++) {
+  // Use order by field to sort.
+  for (int i = 0; i < order_type_list.size(); i++) {
     key_fields.push_back(
-        std::make_shared<arrow::Field>("sort_key" + std::to_string(i), type_list.at(i)));
+        std::make_shared<arrow::Field>("sort_key" + std::to_string(i), order_type_list.at(i)));
   }
   std::shared_ptr<arrow::Schema> result_schema =
       std::make_shared<arrow::Schema>(key_fields);
@@ -536,14 +541,14 @@ arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::strin
   }
   auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
   std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
-  // Hard coding in setting offset to 1, the default value. TODO: get offset from window function children. 
-  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value, default_node, return_type);
+  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value, default_node, return_type, order_type_list);
 
   return arrow::Status::OK();
 }
 
 arrow::Status WindowLagKernel::Finish(ArrayList* out) {
-  std::vector<ArrayList> values;
+  std::vector<ArrayList> values;  // The window function input.
+  std::vector<ArrayList> sort_values;  // Sort input.
   std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
 #ifdef DEBUG
   std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
@@ -564,6 +569,13 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
       values_batch.push_back(column_slice);
     }
     values.push_back(values_batch);
+    // For getting sort input.
+    ArrayList sort_values_batch;
+    for (int i = type_list_.size() + 1; i < type_list_.size() + 1 + order_type_list_.size(); i++) {
+      auto column_slice = batch.at(i);
+      sort_values_batch.push_back(column_slice);
+    }
+    sort_values.push_back(sort_values_batch);
   }
 #ifdef DEBUG
   std::cout << "[window kernel] Finished. " << std::endl;
@@ -614,7 +626,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 #endif
 
   std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
-  RETURN_NOT_OK(SortToIndicesPrepare(values));
+  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
   for (int i = 0; i <= max_group_id; i++) {
     std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
     std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
