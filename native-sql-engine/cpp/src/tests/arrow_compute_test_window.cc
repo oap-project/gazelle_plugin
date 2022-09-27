@@ -444,6 +444,9 @@ TEST(TestArrowComputeWindow, LagTest) {
               TreeExprBuilder::MakeFunction(
                   "partitionSpec",
                   {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+              TreeExprBuilder::MakeFunction(
+                  "orderSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null())
           },
           binary()),
       res);
