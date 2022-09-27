@@ -539,7 +539,9 @@ arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::strin
       throw JniPendingException("Window Sort codegen failed");
     }
   }
+  // Currently, only support literal offset value.
   auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
+  // Currently, only support literal default value.
   std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
   *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value, default_node, return_type, order_type_list);
 
@@ -571,6 +573,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     values.push_back(values_batch);
     // For getting sort input.
     ArrayList sort_values_batch;
+    // See expr_visitor_impl.h, Eval().
     for (int i = type_list_.size() + 1; i < type_list_.size() + 1 + order_type_list_.size(); i++) {
       auto column_slice = batch.at(i);
       sort_values_batch.push_back(column_slice);
@@ -640,7 +643,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     sorted_partitions.push_back(std::move(sorted_partition));
   }
 
-  ////// The above is as same as Rank's.///////////////
+  ////// The above is almost as same as Rank's except using sort (order by) input for sorter. ////////
 
 #define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                             \
   PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)             \
@@ -677,21 +680,6 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
-// template <typename VALUE_TYPE, typename CType, typename ArrayType>
-// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id, typename Enable = void) {
-// }
-
-// template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_number<VALUE_TYPE>>
-// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id) {
-//   return (CType)typed_array->GetView(id);
-// }
-
-// template <typename VALUE_TYPE, typename CType, typename ArrayType, precompile::enable_if_string_like<VALUE_TYPE>>
-// CType WindowLagKernel::getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id) {
-//   return (CType)typed_array->GetString(id);
-// }
-
-// TOOD: consider multiple columns or type_list_.
 template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType>
 arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &values,
  std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
@@ -733,9 +721,7 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
           if (typed_array->null_count() > 0 && typed_array->IsNull(offset_index->id)) {
             validity[index->array_id][index->id] = false;
           } else {
-            // It is supposed (index->id - offset_) is equavialent with (j - offset_)
             lag_array[index->array_id][index->id] = typed_array->GetView(offset_index->id);
-            // lag_array[index->array_id][index->id] = getElement<VALUE_TYPE, CType, ArrayType>(typed_array, index->id - offset_);
             validity[index->array_id][index->id] = true;
           }
         }
@@ -772,7 +758,6 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
   return arrow::Status::OK();
  }
 
-// TODO: use reference to avoid unnecessary copy?
 static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
                                    std::shared_ptr<arrow::Array>* out) {
   arrow::UInt64Builder builder;

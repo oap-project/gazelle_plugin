@@ -216,7 +216,12 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case Some(false) => "row_number_asc"
                   case None => "row_number_asc"
                 }
-              case _: Lag =>
+              case lag: Lag =>
+                if (!lag.children(1).isInstanceOf[Literal] ||
+                  !lag.children(2).isInstanceOf[Literal]) {
+                  throw new UnsupportedOperationException("Non-literal offset or default value" +
+                    " is NOT supported for columnar lag function!")
+                }
                 val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
                   (desc, s) =>
                     val currentDesc = s.direction match {
@@ -321,7 +326,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           case n: KnownFloatingPointNormalized =>
             ConverterUtils.getAttrFromExpr(n.child)
           case nomatch =>
-            throw new IllegalStateException()
+            throw new IllegalStateException("Not matched for getting partition expr!")
         }.filter(_ != null)
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
@@ -341,7 +346,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             case n: KnownFloatingPointNormalized =>
               ConverterUtils.getAttrFromExpr(n.child)
             case nomatch =>
-              throw new IllegalStateException()
+              throw new IllegalStateException("Not matched for getting order expr!")
           }
         ).filter(_ != null)
 

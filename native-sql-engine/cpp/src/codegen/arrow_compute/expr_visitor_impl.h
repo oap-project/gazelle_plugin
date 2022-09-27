@@ -290,7 +290,7 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         in3.push_back(val);  // single column
       }
       in3.push_back(out2);  // group_ids
-      // order by field.
+      // field for sorting.
       for (auto col_id : order_field_ids_) {
         if (col_id >= p_->in_record_batch_->num_columns()) {
           return arrow::Status::Invalid(
