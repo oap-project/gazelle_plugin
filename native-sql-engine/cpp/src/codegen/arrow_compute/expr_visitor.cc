@@ -462,12 +462,15 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     std::vector<gandiva::FieldPtr> function_param_fields_of_each;
     // Specially handling for lag function to get the offset & default value.
     if (window_function_name.find("lag") != std::string::npos) {
-        auto field = std::dynamic_pointer_cast<gandiva::FieldNode>(window_function->children().at(0));
-        function_param_fields_of_each.push_back(field->field());
-        auto offset_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(window_function->children().at(1));
-        lag_options.push_back(offset_node);
-        auto default_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(window_function->children().at(2));
-        lag_options.push_back(default_node);
+      auto field = std::dynamic_pointer_cast<gandiva::FieldNode>(
+          window_function->children().at(0));
+      function_param_fields_of_each.push_back(field->field());
+      auto offset_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(
+          window_function->children().at(1));
+      lag_options.push_back(offset_node);
+      auto default_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(
+          window_function->children().at(2));
+      lag_options.push_back(default_node);
     } else {
       for (std::shared_ptr<gandiva::Node> child : window_function->children()) {
         std::shared_ptr<gandiva::FieldNode> field =
@@ -501,7 +504,8 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
   }
   // todo order_spec frame_spec
   RETURN_NOT_OK(WindowVisitorImpl::Make(p, window_function_names, return_types,
-                                        function_param_fields, partition_fields, order_fields, lag_options, &impl_));
+                                        function_param_fields, partition_fields,
+                                        order_fields, lag_options, &impl_));
   return arrow::Status();
 }
 

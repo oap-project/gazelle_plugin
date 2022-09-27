@@ -478,12 +478,14 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
-WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
-                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
-                   int offset, std::shared_ptr<gandiva::LiteralNode> default_node,
-                   std::shared_ptr<arrow::DataType> return_type,
-                   std::vector<std::shared_ptr<arrow::DataType>> order_type_list) : WindowRankKernel(ctx, type_list, sorter, desc, false) {
+WindowLagKernel::WindowLagKernel(
+    arrow::compute::ExecContext* ctx,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, int offset,
+    std::shared_ptr<gandiva::LiteralNode> default_node,
+    std::shared_ptr<arrow::DataType> return_type,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list)
+    : WindowRankKernel(ctx, type_list, sorter, desc, false) {
   // The type_list size should be fixed, i.e. 3. The first is the input
   offset_ = offset;
   default_node_ = default_node;
@@ -491,16 +493,20 @@ WindowLagKernel::WindowLagKernel(arrow::compute::ExecContext* ctx,
   order_type_list_ = order_type_list;
 }
 
-// type_list: window function input field; order_type_list: order by field, currently multiple fields (> 1) are not well supported.
-arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::string function_name,
-    std::vector<std::shared_ptr<arrow::DataType>> type_list, std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
-    std::shared_ptr<KernalBase>* out, bool desc, std::shared_ptr<arrow::DataType> return_type,
+// type_list: window function input field; order_type_list: order by field, currently
+// multiple fields (> 1) are not well supported.
+arrow::Status WindowLagKernel::Make(
+    arrow::compute::ExecContext* ctx, std::string function_name,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
+    std::shared_ptr<KernalBase>* out, bool desc,
+    std::shared_ptr<arrow::DataType> return_type,
     std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
   std::vector<std::shared_ptr<arrow::Field>> key_fields;
   // Use order by field to sort.
   for (int i = 0; i < order_type_list.size(); i++) {
-    key_fields.push_back(
-        std::make_shared<arrow::Field>("sort_key" + std::to_string(i), order_type_list.at(i)));
+    key_fields.push_back(std::make_shared<arrow::Field>("sort_key" + std::to_string(i),
+                                                        order_type_list.at(i)));
   }
   std::shared_ptr<arrow::Schema> result_schema =
       std::make_shared<arrow::Schema>(key_fields);
@@ -543,13 +549,14 @@ arrow::Status WindowLagKernel::Make(arrow::compute::ExecContext* ctx, std::strin
   auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
   // Currently, only support literal default value.
   std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
-  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value, default_node, return_type, order_type_list);
+  *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value,
+                                           default_node, return_type, order_type_list);
 
   return arrow::Status::OK();
 }
 
 arrow::Status WindowLagKernel::Finish(ArrayList* out) {
-  std::vector<ArrayList> values;  // The window function input.
+  std::vector<ArrayList> values;       // The window function input.
   std::vector<ArrayList> sort_values;  // Sort input.
   std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
 #ifdef DEBUG
@@ -574,7 +581,8 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     // For getting sort input.
     ArrayList sort_values_batch;
     // See expr_visitor_impl.h, Eval().
-    for (int i = type_list_.size() + 1; i < type_list_.size() + 1 + order_type_list_.size(); i++) {
+    for (int i = type_list_.size() + 1;
+         i < type_list_.size() + 1 + order_type_list_.size(); i++) {
       auto column_slice = batch.at(i);
       sort_values_batch.push_back(column_slice);
     }
@@ -643,33 +651,35 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     sorted_partitions.push_back(std::move(sorted_partition));
   }
 
-  ////// The above is almost as same as Rank's except using sort (order by) input for sorter. ////////
+  ////// The above is almost as same as Rank's except using sort (order by) input for
+  ///sorter. ////////
 
-#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                             \
-  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)             \
-  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)                \
-  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array)          \
-  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)             \
-  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array)          \
-  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)             \
-  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array)          \
-  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)             \
-  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)             \
+#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)       \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array) \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)    \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array) \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)    \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array) \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)    \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)    \
   PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
 
-    std::shared_ptr<arrow::DataType> value_type = return_type_;
-    switch (value_type->id()) {
-#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                          \
-    case VALUE_TYPE::type_id: {                                                                \
-      using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                             \
-      RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>(       \
-        values, group_ids, max_group_id, sorted_partitions, out)));                            \
-    } break;
-      PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
+  std::shared_ptr<arrow::DataType> value_type = return_type_;
+  switch (value_type->id()) {
+#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                  \
+  case VALUE_TYPE::type_id: {                                                          \
+    using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                       \
+    RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>( \
+        values, group_ids, max_group_id, sorted_partitions, out)));                    \
+  } break;
+    PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
 #undef PROCESS
 #undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
     // case arrow::StringType::type_id: {
-    //   RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string, arrow::StringBuilder, arrow::StringArray>(
+    //   RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
+    //   arrow::StringBuilder, arrow::StringArray>(
     //     values, group_ids, max_group_id, sorted_partitions, out)));
     // } break;
     default: {
@@ -681,9 +691,11 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 }
 
 template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType>
-arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &values,
- std::vector<std::shared_ptr<arrow::Int32Array>> &group_ids, int32_t max_group_id,
- std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> &sorted_partitions, ArrayList* out) {
+arrow::Status WindowLagKernel::HandleSortedPartition(
+    std::vector<ArrayList>& values,
+    std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+    std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+    ArrayList* out) {
   CType** lag_array = new CType*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
     *(lag_array + i) = new CType[group_ids.at(i)->length()];
@@ -703,7 +715,8 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
   }
 
   for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition = sorted_partitions.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition =
+        sorted_partitions.at(i);
 
     for (int j = 0; j < sorted_partition.size(); j++) {
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
@@ -716,24 +729,28 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
             validity[index->array_id][index->id] = true;
           }
         } else {
-          std::shared_ptr<ArrayItemIndexS> offset_index = sorted_partition.at(j - offset_);
-          auto typed_array = std::dynamic_pointer_cast<ArrayType>(values.at(offset_index->array_id).at(column_id));
+          std::shared_ptr<ArrayItemIndexS> offset_index =
+              sorted_partition.at(j - offset_);
+          auto typed_array = std::dynamic_pointer_cast<ArrayType>(
+              values.at(offset_index->array_id).at(column_id));
           if (typed_array->null_count() > 0 && typed_array->IsNull(offset_index->id)) {
             validity[index->array_id][index->id] = false;
           } else {
-            lag_array[index->array_id][index->id] = typed_array->GetView(offset_index->id);
+            lag_array[index->array_id][index->id] =
+                typed_array->GetView(offset_index->id);
             validity[index->array_id][index->id] = true;
           }
         }
       }
     }
   }
-  
+
   for (int i = 0; i < input_cache_.size(); i++) {
     auto batch = input_cache_.at(i);
     auto group_id_column_slice = batch.at(type_list_.size());
     int slice_length = group_id_column_slice->length();
-    std::shared_ptr<BuilderType> lag_builder = std::make_shared<BuilderType>(ctx_->memory_pool());
+    std::shared_ptr<BuilderType> lag_builder =
+        std::make_shared<BuilderType>(ctx_->memory_pool());
     for (int j = 0; j < slice_length; j++) {
       if (validity[i][j]) {
         RETURN_NOT_OK(lag_builder->Append(lag_array[i][j]));
@@ -756,7 +773,7 @@ arrow::Status WindowLagKernel::HandleSortedPartition(std::vector<ArrayList> &val
   delete[] validity;
 
   return arrow::Status::OK();
- }
+}
 
 static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
                                    std::shared_ptr<arrow::Array>* out) {

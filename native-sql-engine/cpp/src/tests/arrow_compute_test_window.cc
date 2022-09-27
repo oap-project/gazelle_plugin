@@ -423,10 +423,9 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
 
 TEST(TestArrowComputeWindow, LagTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema(
-      {field("col_int", arrow::int32()), field("col_dec", arrow::int32())});
-  std::vector<std::string> input_data = {"[1, 2, 1]",
-                                         "[39, 37, 38]"};
+  auto sch =
+      arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::int32())});
+  std::vector<std::string> input_data = {"[1, 2, 1]", "[39, 37, 38]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int32());
@@ -434,20 +433,19 @@ TEST(TestArrowComputeWindow, LagTest) {
   auto f_window = TreeExprBuilder::MakeExpression(
       TreeExprBuilder::MakeFunction(
           "window",
-          {
-              TreeExprBuilder::MakeFunction(
-                  "lag_desc",
-                  {TreeExprBuilder::MakeField(field("col_dec", arrow::int32())),
-                  // offset is 1, default value is null.
-                  TreeExprBuilder::MakeLiteral((int)1), TreeExprBuilder::MakeNull(arrow::int32())},
-                  null()),
-              TreeExprBuilder::MakeFunction(
-                  "partitionSpec",
-                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-              TreeExprBuilder::MakeFunction(
-                  "orderSpec",
-                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null())
-          },
+          {TreeExprBuilder::MakeFunction(
+               "lag_desc",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::int32())),
+                // offset is 1, default value is null.
+                TreeExprBuilder::MakeLiteral((int)1),
+                TreeExprBuilder::MakeNull(arrow::int32())},
+               null()),
+           TreeExprBuilder::MakeFunction(
+               "partitionSpec",
+               {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+           TreeExprBuilder::MakeFunction(
+               "orderSpec",
+               {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null())},
           binary()),
       res);
 

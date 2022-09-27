@@ -126,7 +126,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
       std::shared_ptr<ExprVisitorImpl>* out) {
     auto impl = std::make_shared<WindowVisitorImpl>(
-        p, window_function_names, return_types, function_param_fields, partition_fields, order_fields, lag_options);
+        p, window_function_names, return_types, function_param_fields, partition_fields,
+        order_fields, lag_options);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -155,8 +156,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
     for (auto order_field : order_fields_) {
       std::shared_ptr<arrow::Field> field;
       int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, order_field->name(),
-                                              &col_id, &field));
+      RETURN_NOT_OK(
+          GetColumnIdAndFieldByName(p_->schema_, order_field->name(), &col_id, &field));
       order_field_ids_.push_back(col_id);
       order_type_list.push_back(field->type());
     }
@@ -202,13 +203,13 @@ class WindowVisitorImpl : public ExprVisitorImpl {
                                                     function_param_type_list,
                                                     &function_kernel, false));
       } else if (window_function_name == "lag_desc") {
-        RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list, lag_options_,
-                                                    &function_kernel, true, return_type, order_type_list));
+        RETURN_NOT_OK(extra::WindowLagKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, lag_options_,
+            &function_kernel, true, return_type, order_type_list));
       } else if (window_function_name == "lag_asc") {
-        RETURN_NOT_OK(extra::WindowLagKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list, lag_options_,
-                                                    &function_kernel, false, return_type, order_type_list));
+        RETURN_NOT_OK(extra::WindowLagKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, lag_options_,
+            &function_kernel, false, return_type, order_type_list));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);
