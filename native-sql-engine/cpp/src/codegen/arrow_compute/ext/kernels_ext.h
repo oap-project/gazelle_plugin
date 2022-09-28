@@ -343,7 +343,6 @@ class WindowRankKernel : public KernalBase {
   bool is_row_number_;
 };
 
-// TODO: implement a make function, pass result type for constructing the object.
 class WindowLagKernel : public WindowRankKernel {
  public:
   WindowLagKernel(arrow::compute::ExecContext* ctx,
@@ -363,20 +362,13 @@ class WindowLagKernel : public WindowRankKernel {
 
   arrow::Status Finish(ArrayList* out) override;
 
-  //   template <typename VALUE_TYPE, typename CType, typename ArrayType,
-  //   precompile::enable_if_number<VALUE_TYPE>> CType
-  //   getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id);
-
-  //   template <typename VALUE_TYPE, typename CType, typename ArrayType,
-  //   precompile::enable_if_string_like<VALUE_TYPE>> CType
-  //   getElement(std::shared_ptr<ArrayType> typed_array, uint32_t id);
-
-  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType>
+  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+            typename OP>
   arrow::Status HandleSortedPartition(
       std::vector<ArrayList>& values,
       std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
       std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
-      ArrayList* out);
+      ArrayList* out, OP op);
 
  private:
   // positive offset means lag to the above row from the current row with an offset.
