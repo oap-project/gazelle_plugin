@@ -239,6 +239,13 @@ case class ColumnarCollapseCodegenStages(
     */
       case p: ColumnarSortMergeJoinExec if p.left.isInstanceOf[ColumnarLocalLimitExec] =>
         true
+    /**
+    * To filter Inner SMJ and its right child is Projection.
+    */
+      case p: ColumnarSortMergeJoinExec if p.right.isInstanceOf[ColumnarConditionProjectExec] 
+        && p.joinType == Inner
+        && (p.right.asInstanceOf[ColumnarConditionProjectExec].condition != null) =>
+        true
       case _ =>
         false
     }

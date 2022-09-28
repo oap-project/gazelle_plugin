@@ -236,7 +236,41 @@ case class ColumnarSortMergeJoinExec(
   }
 
   // Only has codegen implementation.
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = {
+    // build check for expr
+    if (leftKeys != null) {
+      for (expr <- leftKeys) {
+        val columnarExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        if (!supportCodegen) {
+          return false
+        }
+      }
+    }
+    if (rightKeys != null) {
+      for (expr <- rightKeys) {
+        val columnarExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val supportCodegen =
+          columnarExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+        if (!supportCodegen) {
+          return false
+        }
+      }
+    }
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      val columnarConditionExpr =
+        ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+      val supportCodegen =
+        columnarConditionExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      // Columnar SMJ only has codegen version of implementation.
+      if (!supportCodegen) {
+        return false
+      }
+    }
+    true
+  }
 
   val output_skip_alias =
     if (projectList == null || projectList.isEmpty) output
