@@ -207,16 +207,22 @@ class HashRelation {
             Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
       }
     } else {
-      for (int i = 0; i < typed_array->length(); i++) {
-        if (original_key->IsNull(i)) {
-          RETURN_NOT_OK(InsertNull(num_arrays_, i));
-        } else {
-          if (!semi) {
-            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
-                                 num_arrays_, i));
+      if (semi) {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
             RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), original_key->GetView(i),
                                         num_arrays_, i));
+          }
+        }
+      } else {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
+          } else {
+            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
+                                 num_arrays_, i));
           }
         }
       }
