@@ -491,10 +491,13 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     partition_fields.push_back(field->field());
   }
   std::vector<gandiva::FieldPtr> order_fields;
-  for (std::shared_ptr<gandiva::Node> child : order_spec->children()) {
-    std::shared_ptr<gandiva::FieldNode> field =
-        std::dynamic_pointer_cast<gandiva::FieldNode>(child);
-    order_fields.push_back(field->field());
+  // order_spec is not required for all window functions. It can be null.
+  if (order_spec != nullptr) {
+    for (std::shared_ptr<gandiva::Node> child : order_spec->children()) {
+      std::shared_ptr<gandiva::FieldNode> field =
+          std::dynamic_pointer_cast<gandiva::FieldNode>(child);
+      order_fields.push_back(field->field());
+    }
   }
 
   std::vector<std::shared_ptr<arrow::DataType>> return_types;

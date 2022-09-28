@@ -651,8 +651,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     sorted_partitions.push_back(std::move(sorted_partition));
   }
 
-  ////// The above is almost as same as Rank's except using sort (order by) input for
-  ///sorter. ////////
+  // The above is almost as same as Rank's except using sort (order by) input for sorter.
 
 #define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
   PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
