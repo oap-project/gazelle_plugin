@@ -362,7 +362,9 @@ case class ColumnarShuffledHashJoinExec(
         ConverterUtils.releaseArrowRecordBatch(dep_rb)
         build_elapse += System.nanoTime() - beforeEval
       }
+      val beforeFinish = System.nanoTime()
       val hashRelationResultIterator = hashRelationKernel.finishByIterator()
+      build_elapse += System.nanoTime() - beforeFinish
 
       val native_function = TreeBuilder.makeFunction(
         s"standalone",

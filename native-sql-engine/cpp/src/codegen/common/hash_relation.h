@@ -234,22 +234,29 @@ class HashRelation {
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
       for (int i = 0; i < typed_array->length(); i++) {
-        auto str = original_key->GetString(i);
+        auto str = original_key->GetView(i);
         RETURN_NOT_OK(
             Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
       }
     } else {
-      for (int i = 0; i < typed_array->length(); i++) {
-        if (original_key->IsNull(i)) {
-          RETURN_NOT_OK(InsertNull(num_arrays_, i));
-        } else {
-          auto str = original_key->GetString(i);
-          if (!semi) {
-            RETURN_NOT_OK(
-                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+      if (semi) {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
+            auto str = original_key->GetView(i);
             RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), str.data(), str.size(),
                                         num_arrays_, i));
+          }
+        }
+      } else {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
+          } else {
+            auto str = original_key->GetView(i);
+            RETURN_NOT_OK(
+                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
           }
         }
       }
