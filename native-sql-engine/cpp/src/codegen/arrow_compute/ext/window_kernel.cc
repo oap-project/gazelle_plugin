@@ -854,6 +854,290 @@ arrow::Status WindowLagKernel::HandleSortedPartition(
   return arrow::Status::OK();
 }
 
+WindowSumKernel::WindowSumKernel(
+    arrow::compute::ExecContext* ctx,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+    std::shared_ptr<arrow::DataType> return_type,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list)
+    : WindowLagKernel(ctx, type_list, sorter, desc, 0, nullptr, return_type, order_type_list) {
+
+}
+
+// type_list: window function input field; order_type_list: order by field, currently
+// multiple fields (> 1) are not well supported.
+arrow::Status WindowSumKernel::Make(
+    arrow::compute::ExecContext* ctx, std::string function_name,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::shared_ptr<KernalBase>* out, bool desc,
+    std::shared_ptr<arrow::DataType> return_type,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
+  std::vector<std::shared_ptr<arrow::Field>> key_fields;
+  // Use order by field to sort.
+  for (int i = 0; i < order_type_list.size(); i++) {
+    key_fields.push_back(std::make_shared<arrow::Field>("sort_key" + std::to_string(i),
+                                                        order_type_list.at(i)));
+  }
+  std::shared_ptr<arrow::Schema> result_schema =
+      std::make_shared<arrow::Schema>(key_fields);
+
+  std::shared_ptr<WindowSortKernel::Impl> sorter;
+  // fixme null ordering flag and collation flag
+  bool nulls_first = false;
+  bool asc = !desc;
+  if (key_fields.size() == 1) {
+    std::shared_ptr<arrow::Field> key_field = key_fields[0];
+    if (key_field->type()->id() == arrow::Type::STRING) {
+      sorter.reset(new WindowSortOnekeyKernel<arrow::StringType, std::string>(
+          ctx, key_fields, result_schema, nulls_first, asc));
+    } else {
+      switch (key_field->type()->id()) {
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)           \
+  case InType::type_id: {                                   \
+    using CType = typename TypeTraits<InType>::CType;       \
+    sorter.reset(new WindowSortOnekeyKernel<InType, CType>( \
+        ctx, key_fields, result_schema, nulls_first, asc)); \
+  } break;
+        PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
+#undef PROCESS
+        default: {
+          std::cout << "type not supported for WindowLagKernel, type is "
+                    << key_field->type() << std::endl;
+        } break;
+      }
+    }
+  } else {
+    sorter.reset(
+        new WindowSortKernel::Impl(ctx, key_fields, result_schema, nulls_first, asc));
+    auto status = sorter->LoadJITFunction(key_fields, result_schema);
+    if (!status.ok()) {
+      std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
+      throw JniPendingException("Window Sort codegen failed");
+    }
+  }
+  // Currently, only support literal offset value.
+  // auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
+  // Currently, only support literal default value.
+  // std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
+  *out = std::make_shared<WindowSumKernel>(ctx, type_list, sorter, desc,
+                                           return_type, order_type_list);
+
+  return arrow::Status::OK();
+}
+
+arrow::Status WindowSumKernel::Finish(ArrayList* out) {
+  std::vector<ArrayList> values;       // The window function input.
+  std::vector<ArrayList> sort_values;  // Sort input.
+  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
+#ifdef DEBUG
+  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
+#endif
+#ifdef DEBUG
+  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
+            << std::endl;
+#endif
+  for (auto batch : input_cache_) {
+    ArrayList values_batch;
+    for (int i = 0; i < type_list_.size() + 1; i++) {
+      auto column_slice = batch.at(i);
+      if (i == type_list_.size()) {
+        // we are at the column of partition ids
+        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
+        continue;
+      }
+      values_batch.push_back(column_slice);
+    }
+    values.push_back(values_batch);
+    // For getting sort input.
+    ArrayList sort_values_batch;
+    // See expr_visitor_impl.h, Eval().
+    for (int i = type_list_.size() + 1;
+         i < type_list_.size() + 1 + order_type_list_.size(); i++) {
+      auto column_slice = batch.at(i);
+      sort_values_batch.push_back(column_slice);
+    }
+    sort_values.push_back(sort_values_batch);
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
+#endif
+  int32_t max_group_id = 0;
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      if (slice->GetView(j) > max_group_id) {
+        max_group_id = slice->GetView(j);
+      }
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  // initialize partitions to be sorted
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
+  for (int i = 0; i <= max_group_id; i++) {
+    partitions_to_sort.emplace_back();
+  }
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Creating indexed array based on group IDs... "
+            << std::endl;
+#endif
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      uint64_t partition_id = slice->GetView(j);
+      partitions_to_sort.at(partition_id)
+          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
+  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
+  for (int i = 0; i <= max_group_id; i++) {
+    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
+#ifdef DEBUG
+    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
+#endif
+    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+    sorted_partitions.push_back(std::move(sorted_partition));
+  }
+
+  // The above is almost as same as Rank's except using sort (order by) input for sorter.
+
+#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)       \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array) \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)    \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array) \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)    \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array) \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)    \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)    \
+  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
+
+  std::shared_ptr<arrow::DataType> value_type = return_type_;
+  switch (value_type->id()) {
+#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                  \
+  case VALUE_TYPE::type_id: {                                                          \
+    using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                       \
+    RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>( \
+        values, group_ids, max_group_id, sorted_partitions, out,                       \
+        get_nonstring_value<ARRAY_TYPE, CType>)));                                     \
+  } break;
+    PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
+#undef PROCESS
+#undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
+    case arrow::StringType::type_id: {
+      RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
+                                           arrow::StringBuilder, arrow::StringArray>(
+          values, group_ids, max_group_id, sorted_partitions, out,
+          get_string_value<arrow::StringArray, std::string>)));
+    } break;
+    default: {
+      return arrow::Status::Invalid("window function: unsupported input type: " +
+                                    value_type->name());
+    } break;
+  }
+  return arrow::Status::OK();
+}
+
+template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+            typename OP>
+arrow::Status WindowSumKernel::HandleSortedPartition(
+      std::vector<ArrayList>& values,
+      std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+      ArrayList* out, OP op) {
+  CType** sum_array = new CType*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(sum_array + i) = new CType[group_ids.at(i)->length()];
+  }
+
+  // Used to track whether a result is null.
+  bool** validity = new bool*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(validity + i) = new bool[group_ids.at(i)->length()];
+  }
+
+  for (int i = 0; i <= max_group_id; i++) {
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition =
+        sorted_partitions.at(i);
+    CType parition_sum_by_current = (CType)0;
+    bool is_valid_value_found = false;
+    for (int j = 0; j < sorted_partition.size(); j++) {
+      std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
+      for (int column_id = 0; column_id < type_list_.size(); column_id++) {
+        auto typed_array = std::dynamic_pointer_cast<ArrayType>(
+                values.at(index->array_id).at(column_id));
+        // If the first value in one partition (ordered) is null, the result is null.
+        // If there is valid value before null, the result for null is as same as the above.
+        if (typed_array->null_count() > 0 && typed_array->IsNull(index->id)) {
+          if (!is_valid_value_found) {
+            validity[index->array_id][index->id] = false;
+          } else {
+            sum_array[index->array_id][index->id] = parition_sum_by_current;
+            validity[index->array_id][index->id] = true;
+          }
+        } else {
+          is_valid_value_found = true;
+          parition_sum_by_current = parition_sum_by_current + op(typed_array, index->id);
+          sum_array[index->array_id][index->id] = parition_sum_by_current;
+          validity[index->array_id][index->id] = true;
+        }
+      }
+    }
+   }
+
+  for (int i = 0; i < input_cache_.size(); i++) {
+    auto batch = input_cache_.at(i);
+    auto group_id_column_slice = batch.at(type_list_.size());
+    int slice_length = group_id_column_slice->length();
+    std::shared_ptr<BuilderType> sum_builder =
+        std::make_shared<BuilderType>(ctx_->memory_pool());
+    for (int j = 0; j < slice_length; j++) {
+      if (validity[i][j]) {
+        RETURN_NOT_OK(sum_builder->Append(sum_array[i][j]));
+      } else {
+        RETURN_NOT_OK(sum_builder->AppendNull());
+      }
+    }
+    std::shared_ptr<ArrayType> sum_slice;
+    RETURN_NOT_OK(sum_builder->Finish(&sum_slice));
+    out->push_back(sum_slice);
+  }
+
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete[] * (sum_array + i);
+  }
+  delete[] sum_array;
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete[] * (validity + i);
+  }
+  delete[] validity;
+
+  return arrow::Status::OK();
+}
+
 #undef PROCESS_SUPPORTED_TYPES_WINDOW
 
 }  // namespace extra

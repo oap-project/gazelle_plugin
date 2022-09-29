@@ -283,7 +283,8 @@ arrow::Status ExprVisitor::MakeWindow(
         child_func_name == "count" || child_func_name == "count_literal" ||
         child_func_name == "rank_asc" || child_func_name == "rank_desc" ||
         child_func_name == "row_number_desc" || child_func_name == "row_number_asc" ||
-        child_func_name == "lag_desc" || child_func_name == "lag_asc") {
+        child_func_name == "lag_desc" || child_func_name == "lag_asc" ||
+        child_func_name == "sum_asc" || child_func_name == "sum_desc") {
       window_functions.push_back(child_function);
     } else if (child_func_name == "partitionSpec") {
       partition_spec = child_function;

@@ -180,6 +180,7 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       }
       function_param_field_ids_.push_back(function_param_field_ids_of_each);
 
+      // For window aggregation with no order by statement.
       if (window_function_name == "sum" || window_function_name == "avg" ||
           window_function_name == "min" || window_function_name == "max" ||
           window_function_name == "count" || window_function_name == "count_literal") {
@@ -209,6 +210,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       } else if (window_function_name == "lag_asc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(
             &p_->ctx_, window_function_name, function_param_type_list, lag_options_,
+            &function_kernel, false, return_type, order_type_list));
+      } else if(window_function_name == "sum_desc") {
+        RETURN_NOT_OK(extra::WindowSumKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list,
+            &function_kernel, true, return_type, order_type_list));
+      } else if (window_function_name == "sum_asc") {
+        RETURN_NOT_OK(extra::WindowSumKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list,
             &function_kernel, false, return_type, order_type_list));
       } else {
         return arrow::Status::Invalid("window function not supported: " +

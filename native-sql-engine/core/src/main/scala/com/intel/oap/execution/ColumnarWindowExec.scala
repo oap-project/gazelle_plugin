@@ -155,8 +155,32 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           case (expr, func) =>
             val name = func match {
               case _: Sum =>
-                checkAggFunctionSpec(expr.windowSpec)
-                "sum"
+                // Allow "order by" for sum aggregation.
+                // checkAggFunctionSpec(expr.windowSpec)
+                if (orderSpec.isEmpty) {
+                  "sum"
+                } else {
+                  val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                    (desc, s) =>
+                      val currentDesc = s.direction match {
+                        case Ascending => false
+                        case Descending => true
+                        case _ => throw new IllegalStateException
+                      }
+                      if (desc.isEmpty) {
+                        Some(currentDesc)
+                      } else if (currentDesc == desc.get) {
+                        Some(currentDesc)
+                      } else {
+                        throw new UnsupportedOperationException("sum: clashed rank order found")
+                      }
+                  }
+                  desc match {
+                    case Some(true) => "sum_desc"
+                    case Some(false) => "sum_asc"
+                    case None => "sum_asc"
+                  }
+                }
               case _: Average =>
                 checkAggFunctionSpec(expr.windowSpec)
                 "avg"

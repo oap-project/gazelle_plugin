@@ -370,13 +370,41 @@ class WindowLagKernel : public WindowRankKernel {
       std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
       ArrayList* out, OP op);
 
- private:
+ protected:
   // positive offset means lag to the above row from the current row with an offset.
   // negative offset means lag to the below row from the current row with an offset.
   int offset_;
   std::shared_ptr<gandiva::LiteralNode> default_node_;
   std::shared_ptr<arrow::DataType> return_type_;
   std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
+};
+
+class WindowSumKernel: public WindowLagKernel {
+
+public:
+WindowSumKernel(arrow::compute::ExecContext* ctx,
+                  std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                  std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                  std::shared_ptr<arrow::DataType> return_type,
+                  std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out, bool desc,
+      std::shared_ptr<arrow::DataType> return_type,
+      std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+arrow::Status Finish(ArrayList* out) override;
+
+template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+            typename OP>
+arrow::Status HandleSortedPartition(
+      std::vector<ArrayList>& values,
+      std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+      ArrayList* out, OP op);
+
 };
 
 /*class UniqueArrayKernel : public KernalBase {
