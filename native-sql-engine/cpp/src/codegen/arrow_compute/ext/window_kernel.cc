@@ -1023,7 +1023,7 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
 
   // The above is almost as same as Rank's except using sort (order by) input for sorter.
 
-#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                                                          \
+#define PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROC)                                                          \
   PROC(arrow::UInt8Type, arrow::UInt8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
   PROC(arrow::Int8Type, arrow::Int8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)       \
   PROC(arrow::UInt16Type, arrow::UInt16Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
@@ -1046,15 +1046,9 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
         values, group_ids, max_group_id, sorted_partitions, out,                           \
         get_nonstring_value<ARRAY_TYPE, CType>)));                                         \
   } break;
-    PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
+    PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROCESS)
 #undef PROCESS
-#undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
-    // case arrow::StringType::type_id: {
-    //   RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
-    //                                        arrow::StringBuilder, arrow::StringArray>(
-    //       values, group_ids, max_group_id, sorted_partitions, out,
-    //       get_string_value<arrow::StringArray, std::string>)));
-    // } break;
+#undef PROCESS_SUPPORTED_COMMON_TYPES_SUM
     default: {
       return arrow::Status::Invalid("window function: unsupported input type: " +
                                     value_type->name());
@@ -1095,6 +1089,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
                 values.at(index->array_id).at(column_id));
         // If the first value in one partition (ordered) is null, the result is null.
         // If there is valid value before null, the result for null is as same as the above.
+        // So for same value in ordered col, the sum result may be different from vanilla's. 
         if (typed_array->null_count() > 0 && typed_array->IsNull(index->id)) {
           if (!is_valid_value_found) {
             validity[index->array_id][index->id] = false;
