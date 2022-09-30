@@ -1023,36 +1023,38 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
 
   // The above is almost as same as Rank's except using sort (order by) input for sorter.
 
-#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
-  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
-  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)       \
-  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array) \
-  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)    \
-  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array) \
-  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)    \
-  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array) \
-  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)    \
-  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)    \
-  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
+#define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                                                          \
+  PROC(arrow::UInt8Type, arrow::UInt8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
+  PROC(arrow::Int8Type, arrow::Int8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)       \
+  PROC(arrow::UInt16Type, arrow::UInt16Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
+  PROC(arrow::Int16Type, arrow::Int16Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
+  PROC(arrow::UInt32Type, arrow::UInt32Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
+  PROC(arrow::Int32Type, arrow::Int32Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
+  PROC(arrow::UInt64Type, arrow::UInt64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
+  PROC(arrow::Int64Type, arrow::Int64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
+  PROC(arrow::FloatType, arrow::FloatArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)  \
+  PROC(arrow::DoubleType, arrow::DoubleArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)\
 
-  std::shared_ptr<arrow::DataType> value_type = return_type_;
+  // For sum, result type can be different from input type. Should NOT be return_type_.
+  // Only one element in type_list_, i.e., one col input.
+  std::shared_ptr<arrow::DataType> value_type = type_list_[0];
   switch (value_type->id()) {
-#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                  \
-  case VALUE_TYPE::type_id: {                                                          \
-    using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                       \
-    RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>( \
-        values, group_ids, max_group_id, sorted_partitions, out,                       \
-        get_nonstring_value<ARRAY_TYPE, CType>)));                                     \
+#define PROCESS(VALUE_TYPE, ARRAY_TYPE, RESULT_TYPE, BUILDER_TYPE, RES_ARRAY_TYPE)         \
+  case VALUE_TYPE::type_id: {                                                              \
+    using CType = typename arrow::TypeTraits<RESULT_TYPE>::CType;                          \
+    RETURN_NOT_OK((HandleSortedPartition<ARRAY_TYPE, CType, BUILDER_TYPE, RES_ARRAY_TYPE>( \
+        values, group_ids, max_group_id, sorted_partitions, out,                           \
+        get_nonstring_value<ARRAY_TYPE, CType>)));                                         \
   } break;
     PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
 #undef PROCESS
 #undef PROCESS_SUPPORTED_COMMON_TYPES_LAG
-    case arrow::StringType::type_id: {
-      RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
-                                           arrow::StringBuilder, arrow::StringArray>(
-          values, group_ids, max_group_id, sorted_partitions, out,
-          get_string_value<arrow::StringArray, std::string>)));
-    } break;
+    // case arrow::StringType::type_id: {
+    //   RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
+    //                                        arrow::StringBuilder, arrow::StringArray>(
+    //       values, group_ids, max_group_id, sorted_partitions, out,
+    //       get_string_value<arrow::StringArray, std::string>)));
+    // } break;
     default: {
       return arrow::Status::Invalid("window function: unsupported input type: " +
                                     value_type->name());
@@ -1061,7 +1063,9 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
-template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+// ArrayType: input ArrayType. CType: result CType. BuilderType: result BuilderType.
+// ResArrayType: Result ArrayType.
+template <typename ArrayType, typename CType, typename BuilderType, typename ResArrayType,
             typename OP>
 arrow::Status WindowSumKernel::HandleSortedPartition(
       std::vector<ArrayList>& values,
@@ -1100,7 +1104,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
           }
         } else {
           is_valid_value_found = true;
-          parition_sum_by_current = parition_sum_by_current + op(typed_array, index->id);
+          parition_sum_by_current = parition_sum_by_current + (CType)op(typed_array, index->id);
           sum_array[index->array_id][index->id] = parition_sum_by_current;
           validity[index->array_id][index->id] = true;
         }
@@ -1121,7 +1125,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
         RETURN_NOT_OK(sum_builder->AppendNull());
       }
     }
-    std::shared_ptr<ArrayType> sum_slice;
+    std::shared_ptr<ResArrayType> sum_slice;
     RETURN_NOT_OK(sum_builder->Finish(&sum_slice));
     out->push_back(sum_slice);
   }
