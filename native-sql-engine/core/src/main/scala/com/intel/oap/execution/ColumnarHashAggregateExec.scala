@@ -697,11 +697,11 @@ case class ColumnarHashAggregateExec(
         case _ =>
       }
       val internalExpressionList = expr.aggregateFunction.children
-      for (expr <- internalExpressionList) {
-        if (expr.isInstanceOf[Literal]) {
+      for (internalExpr <- internalExpressionList) {
+        if (internalExpr.isInstanceOf[Literal] && expr.aggregateFunction.isInstanceOf[Sum]) {
           return false
         }
-        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(internalExpr)
         if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
           Lists.newArrayList())) {
           return false
