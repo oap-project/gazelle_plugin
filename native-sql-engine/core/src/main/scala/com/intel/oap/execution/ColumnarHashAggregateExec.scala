@@ -698,6 +698,7 @@ case class ColumnarHashAggregateExec(
       }
       val internalExpressionList = expr.aggregateFunction.children
       for (internalExpr <- internalExpressionList) {
+        // TODO(yuan): support sum(1) in codegen
         if (internalExpr.isInstanceOf[Literal] && expr.aggregateFunction.isInstanceOf[Sum]) {
           return false
         }
