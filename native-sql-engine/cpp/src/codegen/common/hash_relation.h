@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 #include <arrow/compute/api.h>
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
@@ -236,14 +238,18 @@ class HashRelation {
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<StringArray> original_key,
                                 bool semi = false) {
+    std::cout << "Appending String key" << std::endl;
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
-      for (int i = 0; i < typed_array->length(); i++) {
+      for (int i = 0; i < original_key->length(); i++) {
+        std::cout << "hash: " << typed_array->GetView(i) << std::endl;
         auto str = original_key->GetView(i);
-        RETURN_NOT_OK(
-            Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+        // RETURN_NOT_OK(
+        //     Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+        hash_table_new_.emplace(std::make_pair(str, ArrayItemIndex(num_arrays_, i)));
       }
+
     } else {
       if (semi) {
         for (int i = 0; i < typed_array->length(); i++) {
@@ -283,8 +289,16 @@ class HashRelation {
   }
 
   int Get(int32_t v, std::string payload) {
-    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    if (res == -1) return -1;
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(payload);
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
+    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    // if (res == -1) return -1;
     return 0;
   }
 
@@ -424,6 +438,7 @@ class HashRelation {
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
   unsafeHashMap* hash_table_ = nullptr;
+  std::multimap<std::string, ArrayItemIndex> hash_table_new_;
   using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
