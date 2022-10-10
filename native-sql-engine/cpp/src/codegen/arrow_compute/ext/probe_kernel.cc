@@ -1127,8 +1127,8 @@ class TypedProberImpl : public CodeGenBase {
     int memo_index = 0;
     if (typed_array->null_count() == 0) {
       for (; cur_id_ < typed_array->length(); cur_id_++) {
-        hash_table_->GetOrInsert(typed_array->GetView(cur_id_), [](int32_t){},
-                                 [](int32_t){}, &memo_index);
+        RETURN_NOT_OK(hash_table_->GetOrInsert(typed_array->GetView(cur_id_), [](int32_t){},
+                                 [](int32_t){}, &memo_index));
         if (memo_index < num_items_) {
           insert_on_found(memo_index);
         } else {
@@ -1140,9 +1140,9 @@ class TypedProberImpl : public CodeGenBase {
         if (typed_array->IsNull(cur_id_)) {
           hash_table_->GetOrInsertNull([](int32_t){}, [](int32_t){});
         } else {
-          hash_table_->GetOrInsert(typed_array->GetView(cur_id_),
+          RETURN_NOT_OK(hash_table_->GetOrInsert(typed_array->GetView(cur_id_),
                                    [](int32_t){}, [](int32_t){},
-                                   &memo_index);
+                                   &memo_index));
         if (memo_index < num_items_) {
           insert_on_found(memo_index);
         } else {
