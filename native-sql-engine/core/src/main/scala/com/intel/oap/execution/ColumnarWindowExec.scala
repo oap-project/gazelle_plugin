@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.GazellePluginConfig
-import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
+import com.intel.oap.expression.{CodeGeneration, ColumnarLiteral, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, KnownFloatingPointNormalized, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, KnownFloatingPointNormalized, Descending, Expression, Lag, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -216,6 +216,32 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                   case Some(false) => "row_number_asc"
                   case None => "row_number_asc"
                 }
+              case lag: Lag =>
+                if (!lag.children(1).isInstanceOf[Literal] ||
+                  !lag.children(2).isInstanceOf[Literal]) {
+                  throw new UnsupportedOperationException("Non-literal offset or default value" +
+                    " is NOT supported for columnar lag function!")
+                }
+                val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                  (desc, s) =>
+                    val currentDesc = s.direction match {
+                      case Ascending => false
+                      case Descending => true
+                      case _ => throw new IllegalStateException
+                    }
+                    if (desc.isEmpty) {
+                      Some(currentDesc)
+                    } else if (currentDesc == desc.get) {
+                      Some(currentDesc)
+                    } else {
+                      throw new UnsupportedOperationException("lag: clashed rank order found")
+                    }
+                }
+                desc match {
+                  case Some(true) => "lag_desc"
+                  case Some(false) => "lag_asc"
+                  case None => "lag_asc"
+                }
               case f => throw new UnsupportedOperationException("unsupported window function: " + f)
             }
             if (name.startsWith("row_number")) {
@@ -247,8 +273,27 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               List(TreeBuilder.makeField(
                     Field.nullable(attr.name,
                       CodeGeneration.getResultType(attr.dataType)))).toList.asJava,
-             NoneType.NONE_TYPE 
+             NoneType.NONE_TYPE
             )
+          case (n, f) if n.startsWith("lag") =>
+            TreeBuilder.makeFunction(n,
+              f.children.flatMap {
+                case a: AttributeReference =>
+                  val attr = ConverterUtils.getAttrFromExpr(a)
+                  Some(TreeBuilder.makeField(
+                    Field.nullable(attr.name,
+                      CodeGeneration.getResultType(attr.dataType))))
+                case lit: Literal =>
+                  val literalNode = lit match {
+                    case lit if lit.value == null =>
+                      // Meaningless type for null. No need to care about it.
+                      TreeBuilder.makeNull(ArrowType.Utf8.INSTANCE)
+                    case lit =>
+                      val (node, _) = new ColumnarLiteral(lit).doColumnarCodeGen(null)
+                      node
+                  }
+                  Some(literalNode)
+              }.toList.asJava, NoneType.NONE_TYPE)
           case (n, f) =>
           TreeBuilder.makeFunction(n,
             f.children
@@ -270,7 +315,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
               }.toList.asJava,
             NoneType.NONE_TYPE)
         }
-        // TODO(yuan): using ConverterUtils.getAttrFromExpr 
+        // TODO(yuan): using ConverterUtils.getAttrFromExpr
         val groupingExpressions: Seq[AttributeReference] = partitionSpec.map{
           case a: AttributeReference =>
             ConverterUtils.getAttrFromExpr(a)
@@ -281,7 +326,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           case n: KnownFloatingPointNormalized =>
             ConverterUtils.getAttrFromExpr(n.child)
           case nomatch =>
-            throw new IllegalStateException()
+            throw new IllegalStateException("Not matched for getting partition expr!")
         }.filter(_ != null)
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
@@ -289,13 +334,35 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             Field.nullable(e.name,
               CodeGeneration.getResultType(e.dataType)))).toList.asJava,
           NoneType.NONE_TYPE)
+
+        val orderExpressions: Seq[AttributeReference] = orderSpec.map(
+          od => od.child match {
+            case a: AttributeReference =>
+              ConverterUtils.getAttrFromExpr(a)
+            case c: Cast if c.child.isInstanceOf[AttributeReference] =>
+              ConverterUtils.getAttrFromExpr(c)
+            case _: Cast | _ : Literal =>
+              null
+            case n: KnownFloatingPointNormalized =>
+              ConverterUtils.getAttrFromExpr(n.child)
+            case nomatch =>
+              throw new IllegalStateException("Not matched for getting order expr!")
+          }
+        ).filter(_ != null)
+
+        val gOrderSpec = TreeBuilder.makeFunction("orderSpec",
+          orderExpressions.map(e => TreeBuilder.makeField(
+            Field.nullable(e.name,
+              CodeGeneration.getResultType(e.dataType)))).toList.asJava,
+          NoneType.NONE_TYPE)
+
         // Workaround:
         // Gandiva doesn't support serializing Struct type so far. Use a fake Binary type instead.
         val returnType = ArrowType.Binary.INSTANCE
         val fieldType = new FieldType(false, returnType, null)
         val resultField = new Field("window_res", fieldType,
           windowFunctions.map {
-            case (row_number_func, f) if row_number_func.startsWith("row_number")=>
+            case (row_number_func, f) if row_number_func.startsWith("row_number") =>
               // row_number will return int32 based indicies
               new ArrowType.Int(32, true)
             case (_, f) =>
@@ -305,7 +372,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           }.asJava)
 
         val window = TreeBuilder.makeFunction("window",
-          (gWindowFunctions.toList ++ List(gPartitionSpec)).asJava, returnType)
+          (gWindowFunctions.toList ++ List(gPartitionSpec) ++ List(gOrderSpec)).asJava, returnType)
 
         val evaluator = new ExpressionEvaluator()
         val resultSchema = new Schema(resultField.getChildren)

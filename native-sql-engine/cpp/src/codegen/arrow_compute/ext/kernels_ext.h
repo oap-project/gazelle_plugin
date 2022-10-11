@@ -20,6 +20,7 @@
 #include <arrow/array.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
+#include <arrow/type_traits.h>
 #include <arrow/util/iterator.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
@@ -333,13 +334,49 @@ class WindowRankKernel : public KernalBase {
                                 std::shared_ptr<ArrayItemIndexS> i,
                                 std::shared_ptr<ArrayItemIndexS> j, bool* out);
 
- private:
+ protected:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
   arrow::compute::ExecContext* ctx_ = nullptr;
   std::vector<ArrayList> input_cache_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
   bool desc_;
   bool is_row_number_;
+};
+
+class WindowLagKernel : public WindowRankKernel {
+ public:
+  WindowLagKernel(arrow::compute::ExecContext* ctx,
+                  std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                  std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, int offset,
+                  std::shared_ptr<gandiva::LiteralNode> default_node,
+                  std::shared_ptr<arrow::DataType> return_type,
+                  std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::vector<std::shared_ptr<gandiva::LiteralNode>> lag_options,
+      std::shared_ptr<KernalBase>* out, bool desc,
+      std::shared_ptr<arrow::DataType> return_type,
+      std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+  arrow::Status Finish(ArrayList* out) override;
+
+  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+            typename OP>
+  arrow::Status HandleSortedPartition(
+      std::vector<ArrayList>& values,
+      std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+      ArrayList* out, OP op);
+
+ private:
+  // positive offset means lag to the above row from the current row with an offset.
+  // negative offset means lag to the below row from the current row with an offset.
+  int offset_;
+  std::shared_ptr<gandiva::LiteralNode> default_node_;
+  std::shared_ptr<arrow::DataType> return_type_;
+  std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
 };
 
 /*class UniqueArrayKernel : public KernalBase {
