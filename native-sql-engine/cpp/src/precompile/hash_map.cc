@@ -113,6 +113,8 @@ TYPED_ARROW_HASH_MAP_IMPL(Date32HashMap, Date32Type, int32_t, Date32MemoTableTyp
 TYPED_ARROW_HASH_MAP_IMPL(Date64HashMap, Date64Type, int64_t, Date64MemoTableType)
 TYPED_ARROW_HASH_MAP_BINARY_IMPL(StringHashMap, StringType, arrow::util::string_view,
                                  StringMemoTableType)
+TYPED_ARROW_HASH_MAP_BINARY_IMPL(LargeStringHashMap, LargeStringType,
+                                 arrow::util::string_view, LargeStringMemoTableType)
 TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(Decimal128HashMap, Decimal128Type, arrow::Decimal128,
                                   DecimalMemoTableType)
 #undef TYPED_ARROW_HASH_MAP_IMPL
