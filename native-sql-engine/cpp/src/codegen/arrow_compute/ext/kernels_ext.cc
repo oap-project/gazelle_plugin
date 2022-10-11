@@ -87,16 +87,18 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
     int memo_index = 0;
     if (typed_array->null_count() == 0) {
       for (; cur_id < typed_array->length(); cur_id++) {
-        hash_table_->GetOrInsert(typed_array->GetView(cur_id), insert_on_found,
-                                 insert_on_not_found, &memo_index);
+        RETURN_NOT_OK(hash_table_->GetOrInsert(typed_array->GetView(cur_id),
+                                               insert_on_found, insert_on_not_found,
+                                               &memo_index));
       }
     } else {
       for (; cur_id < typed_array->length(); cur_id++) {
         if (typed_array->IsNull(cur_id)) {
           hash_table_->GetOrInsertNull(insert_on_found, insert_on_not_found);
         } else {
-          hash_table_->GetOrInsert(typed_array->GetView(cur_id), insert_on_found,
-                                   insert_on_not_found, &memo_index);
+          RETURN_NOT_OK(hash_table_->GetOrInsert(typed_array->GetView(cur_id),
+                                                 insert_on_found, insert_on_not_found,
+                                                 &memo_index));
         }
       }
     }

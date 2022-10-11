@@ -850,16 +850,16 @@ class HashAggregateKernel::Impl {
           auto aggr_key_validity = !typed_key_in->IsNull(i);
 
           if (aggr_key_validity) {
-            aggr_hash_table_->GetOrInsert(
-                aggr_key, [](int) {}, [](int) {}, &(indices[i]));
+            RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
+                aggr_key, [](int) {}, [](int) {}, &(indices[i])));
           } else {
             indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
           }
         }
       } else {
         for (int i = 0; i < length; i++) {
-          aggr_hash_table_->GetOrInsert(
-              typed_key_in->GetView(i), [](int) {}, [](int) {}, &(indices[i]));
+          RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
+              typed_key_in->GetView(i), [](int) {}, [](int) {}, &(indices[i])));
         }
       }
 
@@ -997,9 +997,9 @@ class HashAggregateKernel::Impl {
           }
 
           // FIXME(): all keys are null?
-          aggr_hash_table_->GetOrInsert(
+          RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
               aggr_key_unsafe_row->data, aggr_key_unsafe_row->cursor, [](int) {},
-              [](int) {}, &(indices[i]));
+              [](int) {}, &(indices[i])));
         }
       } else {
         if (typed_key_in->null_count() > 0) {
@@ -1009,16 +1009,16 @@ class HashAggregateKernel::Impl {
             if (typed_key_in->IsNull(i)) {
               indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
             } else {
-              aggr_hash_table_->GetOrInsert(
-                  aggr_key, [](int) {}, [](int) {}, &(indices[i]));
+              RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
+                  aggr_key, [](int) {}, [](int) {}, &(indices[i])));
             }
           }
         } else {
           for (int i = 0; i < length; i++) {
             aggr_key = typed_key_in->GetView(i);
 
-            aggr_hash_table_->GetOrInsert(
-                aggr_key, [](int) {}, [](int) {}, &(indices[i]));
+            RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
+                aggr_key, [](int) {}, [](int) {}, &(indices[i])));
           }
         }
       }
@@ -1161,8 +1161,8 @@ class HashAggregateKernel::Impl {
         if (!aggr_key_validity) {
           memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
-          aggr_hash_table_->GetOrInsert(
-              aggr_key, [](int) {}, [](int) {}, &memo_index);
+          RETURN_NOT_OK(aggr_hash_table_->GetOrInsert(
+              aggr_key, [](int) {}, [](int) {}, &memo_index));
         }
 
         if (memo_index > max_group_id_) {
