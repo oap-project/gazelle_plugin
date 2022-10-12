@@ -306,7 +306,7 @@ arrow::Status WindowRankKernel::Make(
   return arrow::Status::OK();
 }
 
-arrow::Status WindowRankKernel::Evaluate(ArrayList& in) {
+arrow::Status WindowSortBase::Evaluate(ArrayList& in) {
   input_cache_.push_back(in);
   return arrow::Status::OK();
 }
@@ -504,7 +504,7 @@ static arrow::Status DecodeIndices(std::shared_ptr<arrow::Array> in,
   return arrow::Status::OK();
 }
 
-arrow::Status WindowRankKernel::SortToIndicesPrepare(std::vector<ArrayList> values) {
+arrow::Status WindowSortBase::SortToIndicesPrepare(std::vector<ArrayList> values) {
   for (auto each_batch : values) {
     RETURN_NOT_OK(sorter_->Evaluate(each_batch));
   }
@@ -512,7 +512,7 @@ arrow::Status WindowRankKernel::SortToIndicesPrepare(std::vector<ArrayList> valu
   // todo sort algorithm
 }
 
-arrow::Status WindowRankKernel::SortToIndicesFinish(
+arrow::Status WindowSortBase::SortToIndicesFinish(
     std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
     std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets) {
   std::shared_ptr<arrow::Array> in;
@@ -550,9 +550,12 @@ WindowLagKernel::WindowLagKernel(
     std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, int offset,
     std::shared_ptr<gandiva::LiteralNode> default_node,
     std::shared_ptr<arrow::DataType> return_type,
-    std::vector<std::shared_ptr<arrow::DataType>> order_type_list)
-    : WindowRankKernel(ctx, type_list, sorter, desc, false) {
-  // The type_list size should be fixed, i.e. 3. The first is the input
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
+  ctx_ = ctx;
+  type_list_ = type_list;
+  sorter_ = sorter;
+  desc_ = desc;
+
   offset_ = offset;
   default_node_ = default_node;
   return_type_ = return_type;
@@ -621,22 +624,8 @@ arrow::Status WindowLagKernel::Make(
   return arrow::Status::OK();
 }
 
-// The interfaces for string type and non-string type are different. So we implemented the
-// below two functions which will be passed as argument in HandleSortedPartition.
-template <typename ArrayType, typename CType>
-CType get_string_value(std::shared_ptr<ArrayType> array, uint32_t index) {
-  return array->GetString(index);
-}
-
-template <typename ArrayType, typename CType>
-CType get_nonstring_value(std::shared_ptr<ArrayType> array, uint32_t index) {
-  return array->GetView(index);
-}
-
-arrow::Status WindowLagKernel::Finish(ArrayList* out) {
-  std::vector<ArrayList> values;       // The window function input.
+arrow::Status WindowSortBase::prepareFinish() {
   std::vector<ArrayList> sort_values;  // Sort input.
-  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
 #ifdef DEBUG
   std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
 #endif
@@ -650,12 +639,12 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
       auto column_slice = batch.at(i);
       if (i == type_list_.size()) {
         // we are at the column of partition ids
-        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
+        group_ids_.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
         continue;
       }
       values_batch.push_back(column_slice);
     }
-    values.push_back(values_batch);
+    values_.push_back(values_batch);
     // For getting sort input.
     ArrayList sort_values_batch;
     // See expr_visitor_impl.h, Eval().
@@ -673,15 +662,14 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 #ifdef DEBUG
   std::cout << "[window kernel] Calculating max group ID... " << std::endl;
 #endif
-  int32_t max_group_id = 0;
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
+  for (int i = 0; i < group_ids_.size(); i++) {
+    auto slice = group_ids_.at(i);
     for (int j = 0; j < slice->length(); j++) {
       if (slice->IsNull(j)) {
         continue;
       }
-      if (slice->GetView(j) > max_group_id) {
-        max_group_id = slice->GetView(j);
+      if (slice->GetView(j) > max_group_id_) {
+        max_group_id_ = slice->GetView(j);
       }
     }
   }
@@ -691,7 +679,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 
   // initialize partitions to be sorted
   std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
-  for (int i = 0; i <= max_group_id; i++) {
+  for (int i = 0; i <= max_group_id_; i++) {
     partitions_to_sort.emplace_back();
   }
 
@@ -699,8 +687,8 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
   std::cout << "[window kernel] Creating indexed array based on group IDs... "
             << std::endl;
 #endif
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
+  for (int i = 0; i < group_ids_.size(); i++) {
+    auto slice = group_ids_.at(i);
     for (int j = 0; j < slice->length(); j++) {
       if (slice->IsNull(j)) {
         continue;
@@ -714,9 +702,8 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
   std::cout << "[window kernel] Finished. " << std::endl;
 #endif
 
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
   RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
-  for (int i = 0; i <= max_group_id; i++) {
+  for (int i = 0; i <= max_group_id_; i++) {
     std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
     std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
 #ifdef DEBUG
@@ -726,10 +713,26 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
 #ifdef DEBUG
     std::cout << "[window kernel] Finished. " << std::endl;
 #endif
-    sorted_partitions.push_back(std::move(sorted_partition));
+    sorted_partitions_.push_back(std::move(sorted_partition));
   }
-
   // The above is almost as same as Rank's except using sort (order by) input for sorter.
+  return arrow::Status::OK();
+}
+
+// The interfaces for string type and non-string type are different. So we implemented the
+// below two functions which will be passed as argument in HandleSortedPartition.
+template <typename ArrayType, typename CType>
+CType get_string_value(std::shared_ptr<ArrayType> array, uint32_t index) {
+  return array->GetString(index);
+}
+
+template <typename ArrayType, typename CType>
+CType get_nonstring_value(std::shared_ptr<ArrayType> array, uint32_t index) {
+  return array->GetView(index);
+}
+
+arrow::Status WindowLagKernel::Finish(ArrayList* out) {
+RETURN_NOT_OK(prepareFinish());
 
 #define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
   PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
@@ -749,7 +752,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
   case VALUE_TYPE::type_id: {                                                          \
     using CType = typename arrow::TypeTraits<VALUE_TYPE>::CType;                       \
     RETURN_NOT_OK((HandleSortedPartition<VALUE_TYPE, CType, BUILDER_TYPE, ARRAY_TYPE>( \
-        values, group_ids, max_group_id, sorted_partitions, out,                       \
+        values_, group_ids_, max_group_id_, sorted_partitions_, out,                   \
         get_nonstring_value<ARRAY_TYPE, CType>)));                                     \
   } break;
     PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROCESS)
@@ -758,7 +761,7 @@ arrow::Status WindowLagKernel::Finish(ArrayList* out) {
     case arrow::StringType::type_id: {
       RETURN_NOT_OK((HandleSortedPartition<arrow::StringType, std::string,
                                            arrow::StringBuilder, arrow::StringArray>(
-          values, group_ids, max_group_id, sorted_partitions, out,
+          values_, group_ids_, max_group_id_, sorted_partitions_, out,
           get_string_value<arrow::StringArray, std::string>)));
     } break;
     default: {
@@ -859,9 +862,14 @@ WindowSumKernel::WindowSumKernel(
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
     std::shared_ptr<arrow::DataType> return_type,
-    std::vector<std::shared_ptr<arrow::DataType>> order_type_list)
-    : WindowLagKernel(ctx, type_list, sorter, desc, 0, nullptr, return_type, order_type_list) {
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
+  ctx_ = ctx;
+  type_list_ = type_list;
+  sorter_ = sorter;
+  desc_ = desc;
 
+  return_type_ = return_type;
+  order_type_list_ = order_type_list;
 }
 
 // type_list: window function input field; order_type_list: order by field, currently
@@ -926,102 +934,7 @@ arrow::Status WindowSumKernel::Make(
 }
 
 arrow::Status WindowSumKernel::Finish(ArrayList* out) {
-  std::vector<ArrayList> values;       // The window function input.
-  std::vector<ArrayList> sort_values;  // Sort input.
-  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
-#ifdef DEBUG
-  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
-#endif
-#ifdef DEBUG
-  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
-            << std::endl;
-#endif
-  for (auto batch : input_cache_) {
-    ArrayList values_batch;
-    for (int i = 0; i < type_list_.size() + 1; i++) {
-      auto column_slice = batch.at(i);
-      if (i == type_list_.size()) {
-        // we are at the column of partition ids
-        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
-        continue;
-      }
-      values_batch.push_back(column_slice);
-    }
-    values.push_back(values_batch);
-    // For getting sort input.
-    ArrayList sort_values_batch;
-    // See expr_visitor_impl.h, Eval().
-    for (int i = type_list_.size() + 1;
-         i < type_list_.size() + 1 + order_type_list_.size(); i++) {
-      auto column_slice = batch.at(i);
-      sort_values_batch.push_back(column_slice);
-    }
-    sort_values.push_back(sort_values_batch);
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
-#endif
-  int32_t max_group_id = 0;
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      if (slice->GetView(j) > max_group_id) {
-        max_group_id = slice->GetView(j);
-      }
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  // initialize partitions to be sorted
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
-  for (int i = 0; i <= max_group_id; i++) {
-    partitions_to_sort.emplace_back();
-  }
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Creating indexed array based on group IDs... "
-            << std::endl;
-#endif
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      uint64_t partition_id = slice->GetView(j);
-      partitions_to_sort.at(partition_id)
-          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
-  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
-  for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
-    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
-#ifdef DEBUG
-    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
-#endif
-    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
-#ifdef DEBUG
-    std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-    sorted_partitions.push_back(std::move(sorted_partition));
-  }
-
-  // The above is almost as same as Rank's except using sort (order by) input for sorter.
+  RETURN_NOT_OK(prepareFinish());
 
 #define PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROC)                                                          \
   PROC(arrow::UInt8Type, arrow::UInt8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
@@ -1043,7 +956,7 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   case VALUE_TYPE::type_id: {                                                              \
     using CType = typename arrow::TypeTraits<RESULT_TYPE>::CType;                          \
     RETURN_NOT_OK((HandleSortedPartition<ARRAY_TYPE, CType, BUILDER_TYPE, RES_ARRAY_TYPE>( \
-        values, group_ids, max_group_id, sorted_partitions, out,                           \
+        values_, group_ids_, max_group_id_, sorted_partitions_, out,                       \
         get_nonstring_value<ARRAY_TYPE, CType>)));                                         \
   } break;
     PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROCESS)
