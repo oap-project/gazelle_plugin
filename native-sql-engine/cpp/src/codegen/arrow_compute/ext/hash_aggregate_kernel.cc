@@ -45,7 +45,7 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
-using precompile::StringHashMap;
+using precompile::LargeStringHashMap;
 
 ///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
@@ -945,7 +945,7 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
-      aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+      aggr_hash_table_ = std::make_shared<LargeStringHashMap>(ctx->memory_pool());
 #ifdef DEBUG
       std::cout << "using string hashagg res" << std::endl;
 #endif
@@ -1072,7 +1072,7 @@ class HashAggregateKernel::Impl {
    private:
     arrow::compute::ExecContext* ctx_;
     std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
-    std::shared_ptr<StringHashMap> aggr_hash_table_;
+    std::shared_ptr<LargeStringHashMap> aggr_hash_table_;
     const std::vector<int>& key_index_list_;
     const std::vector<std::vector<int>>& action_prepare_index_list_;
     std::shared_ptr<GandivaProjector> pre_process_projector_;
