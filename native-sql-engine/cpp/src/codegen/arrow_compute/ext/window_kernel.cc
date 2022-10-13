@@ -240,6 +240,154 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
   return std::make_shared<BuilderType>(data_type, ctx_->memory_pool());
 }
 
+static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
+                                   std::shared_ptr<arrow::Array>* out) {
+  arrow::UInt64Builder builder;
+  for (const auto& each : in) {
+    uint64_t encoded = ((uint64_t)(each->array_id) << 32U) ^ ((uint64_t)(each->id));
+    RETURN_NOT_OK(builder.Append(encoded));
+  }
+  RETURN_NOT_OK(builder.Finish(out));
+  return arrow::Status::OK();
+}
+
+static arrow::Status DecodeIndices(std::shared_ptr<arrow::Array> in,
+                                   std::vector<std::shared_ptr<ArrayItemIndexS>>* out) {
+  std::vector<std::shared_ptr<ArrayItemIndexS>> v;
+  std::shared_ptr<arrow::UInt64Array> selected =
+      std::dynamic_pointer_cast<arrow::UInt64Array>(in);
+  for (int i = 0; i < selected->length(); i++) {
+    uint64_t encoded = selected->GetView(i);
+    uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
+    uint32_t id = encoded & 0xFFFFFFFFU;
+    v.push_back(std::make_shared<ArrayItemIndexS>(array_id, id));
+  }
+  *out = v;
+  return arrow::Status::OK();
+}
+
+arrow::Status WindowSortBase::Evaluate(ArrayList& in) {
+  input_cache_.push_back(in);
+  return arrow::Status::OK();
+}
+
+arrow::Status WindowSortBase::SortToIndicesPrepare(std::vector<ArrayList> values) {
+  for (auto each_batch : values) {
+    RETURN_NOT_OK(sorter_->Evaluate(each_batch));
+  }
+  return arrow::Status::OK();
+  // todo sort algorithm
+}
+
+arrow::Status WindowSortBase::SortToIndicesFinish(
+    std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
+    std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets) {
+  std::shared_ptr<arrow::Array> in;
+  std::shared_ptr<arrow::Array> out;
+  RETURN_NOT_OK(EncodeIndices(elements_to_sort, &in));
+  RETURN_NOT_OK(sorter_->Finish(in, &out));
+  std::vector<std::shared_ptr<ArrayItemIndexS>> decoded_out;
+  RETURN_NOT_OK(DecodeIndices(out, &decoded_out));
+  *offsets = decoded_out;
+  return arrow::Status::OK();
+  // todo sort algorithm
+}
+
+arrow::Status WindowSortBase::prepareFinish() {
+  std::vector<ArrayList> sort_values;  // Sort input.
+#ifdef DEBUG
+  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
+#endif
+#ifdef DEBUG
+  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
+            << std::endl;
+#endif
+  for (auto batch : input_cache_) {
+    ArrayList values_batch;
+    for (int i = 0; i < type_list_.size() + 1; i++) {
+      auto column_slice = batch.at(i);
+      if (i == type_list_.size()) {
+        // we are at the column of partition ids
+        group_ids_.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
+        continue;
+      }
+      values_batch.push_back(column_slice);
+    }
+    values_.push_back(values_batch);
+    // For getting sort input.
+    ArrayList sort_values_batch;
+    // See expr_visitor_impl.h, Eval().
+    for (int i = type_list_.size() + 1;
+         i < type_list_.size() + 1 + order_type_list_.size(); i++) {
+      auto column_slice = batch.at(i);
+      sort_values_batch.push_back(column_slice);
+    }
+    sort_values.push_back(sort_values_batch);
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
+#endif
+  for (int i = 0; i < group_ids_.size(); i++) {
+    auto slice = group_ids_.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      if (slice->GetView(j) > max_group_id_) {
+        max_group_id_ = slice->GetView(j);
+      }
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  // initialize partitions to be sorted
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
+  for (int i = 0; i <= max_group_id_; i++) {
+    partitions_to_sort.emplace_back();
+  }
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Creating indexed array based on group IDs... "
+            << std::endl;
+#endif
+  for (int i = 0; i < group_ids_.size(); i++) {
+    auto slice = group_ids_.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      uint64_t partition_id = slice->GetView(j);
+      partitions_to_sort.at(partition_id)
+          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
+    }
+  }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
+  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
+  for (int i = 0; i <= max_group_id_; i++) {
+    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
+#ifdef DEBUG
+    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
+#endif
+    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+    sorted_partitions_.push_back(std::move(sorted_partition));
+  }
+  // The above is almost as same as Rank's except using sort (order by) input for sorter.
+  return arrow::Status::OK();
+}
+
 WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
@@ -306,11 +454,6 @@ arrow::Status WindowRankKernel::Make(
     *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list);
   }
 
-  return arrow::Status::OK();
-}
-
-arrow::Status WindowSortBase::Evaluate(ArrayList& in) {
-  input_cache_.push_back(in);
   return arrow::Status::OK();
 }
 
@@ -396,54 +539,6 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
   }
   delete[] rank_array;
   return arrow::Status::OK();
-}
-
-static arrow::Status EncodeIndices(std::vector<std::shared_ptr<ArrayItemIndexS>> in,
-                                   std::shared_ptr<arrow::Array>* out) {
-  arrow::UInt64Builder builder;
-  for (const auto& each : in) {
-    uint64_t encoded = ((uint64_t)(each->array_id) << 32U) ^ ((uint64_t)(each->id));
-    RETURN_NOT_OK(builder.Append(encoded));
-  }
-  RETURN_NOT_OK(builder.Finish(out));
-  return arrow::Status::OK();
-}
-
-static arrow::Status DecodeIndices(std::shared_ptr<arrow::Array> in,
-                                   std::vector<std::shared_ptr<ArrayItemIndexS>>* out) {
-  std::vector<std::shared_ptr<ArrayItemIndexS>> v;
-  std::shared_ptr<arrow::UInt64Array> selected =
-      std::dynamic_pointer_cast<arrow::UInt64Array>(in);
-  for (int i = 0; i < selected->length(); i++) {
-    uint64_t encoded = selected->GetView(i);
-    uint32_t array_id = (encoded & 0xFFFFFFFF00000000U) >> 32U;
-    uint32_t id = encoded & 0xFFFFFFFFU;
-    v.push_back(std::make_shared<ArrayItemIndexS>(array_id, id));
-  }
-  *out = v;
-  return arrow::Status::OK();
-}
-
-arrow::Status WindowSortBase::SortToIndicesPrepare(std::vector<ArrayList> values) {
-  for (auto each_batch : values) {
-    RETURN_NOT_OK(sorter_->Evaluate(each_batch));
-  }
-  return arrow::Status::OK();
-  // todo sort algorithm
-}
-
-arrow::Status WindowSortBase::SortToIndicesFinish(
-    std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
-    std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets) {
-  std::shared_ptr<arrow::Array> in;
-  std::shared_ptr<arrow::Array> out;
-  RETURN_NOT_OK(EncodeIndices(elements_to_sort, &in));
-  RETURN_NOT_OK(sorter_->Finish(in, &out));
-  std::vector<std::shared_ptr<ArrayItemIndexS>> decoded_out;
-  RETURN_NOT_OK(DecodeIndices(out, &decoded_out));
-  *offsets = decoded_out;
-  return arrow::Status::OK();
-  // todo sort algorithm
 }
 
 template <typename ArrayType>
@@ -541,101 +636,6 @@ arrow::Status WindowLagKernel::Make(
   *out = std::make_shared<WindowLagKernel>(ctx, type_list, sorter, desc, offset_value,
                                            default_node, return_type, order_type_list);
 
-  return arrow::Status::OK();
-}
-
-arrow::Status WindowSortBase::prepareFinish() {
-  std::vector<ArrayList> sort_values;  // Sort input.
-#ifdef DEBUG
-  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
-#endif
-#ifdef DEBUG
-  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
-            << std::endl;
-#endif
-  for (auto batch : input_cache_) {
-    ArrayList values_batch;
-    for (int i = 0; i < type_list_.size() + 1; i++) {
-      auto column_slice = batch.at(i);
-      if (i == type_list_.size()) {
-        // we are at the column of partition ids
-        group_ids_.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
-        continue;
-      }
-      values_batch.push_back(column_slice);
-    }
-    values_.push_back(values_batch);
-    // For getting sort input.
-    ArrayList sort_values_batch;
-    // See expr_visitor_impl.h, Eval().
-    for (int i = type_list_.size() + 1;
-         i < type_list_.size() + 1 + order_type_list_.size(); i++) {
-      auto column_slice = batch.at(i);
-      sort_values_batch.push_back(column_slice);
-    }
-    sort_values.push_back(sort_values_batch);
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
-#endif
-  for (int i = 0; i < group_ids_.size(); i++) {
-    auto slice = group_ids_.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      if (slice->GetView(j) > max_group_id_) {
-        max_group_id_ = slice->GetView(j);
-      }
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  // initialize partitions to be sorted
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
-  for (int i = 0; i <= max_group_id_; i++) {
-    partitions_to_sort.emplace_back();
-  }
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Creating indexed array based on group IDs... "
-            << std::endl;
-#endif
-  for (int i = 0; i < group_ids_.size(); i++) {
-    auto slice = group_ids_.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      uint64_t partition_id = slice->GetView(j);
-      partitions_to_sort.at(partition_id)
-          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
-  for (int i = 0; i <= max_group_id_; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
-    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
-#ifdef DEBUG
-    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
-#endif
-    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
-#ifdef DEBUG
-    std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-    sorted_partitions_.push_back(std::move(sorted_partition));
-  }
-  // The above is almost as same as Rank's except using sort (order by) input for sorter.
   return arrow::Status::OK();
 }
 
