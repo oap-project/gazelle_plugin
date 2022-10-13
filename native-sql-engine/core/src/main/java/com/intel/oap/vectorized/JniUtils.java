@@ -82,7 +82,8 @@ public class JniUtils {
         } else {
           Path folder = Paths.get(_tmp_dir);
           Path path = Files.createTempDirectory(folder, "spark_columnar_plugin_");
-          FileUtils.forceDeleteOnExit(new File(path.toUri()));
+          Runtime.getRuntime().addShutdownHook(
+              new Thread(() -> FileUtils.deleteQuietly(path.toFile())));
           tmp_dir = path.toAbsolutePath().toString();
         }
       }
