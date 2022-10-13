@@ -866,7 +866,7 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   PROC(arrow::UInt64Type, arrow::UInt64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
   PROC(arrow::Int64Type, arrow::Int64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
   PROC(arrow::FloatType, arrow::FloatArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)  \
-  PROC(arrow::DoubleType, arrow::DoubleArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)\
+  PROC(arrow::DoubleType, arrow::DoubleArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
 
   // For sum, result type can be different from input type. Should NOT be return_type_.
   // Only one element in type_list_, i.e., one col input.

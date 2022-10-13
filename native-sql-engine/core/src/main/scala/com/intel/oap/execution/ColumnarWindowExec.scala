@@ -185,6 +185,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                 } else {
                   // Only default frame is used in order by case.
                   checkSortFunctionFrame(expr.windowSpec)
+                  // TODO: support decimal type.
+                  if (expr.windowFunction.dataType.isInstanceOf[DecimalType]) {
+                    throw new UnsupportedOperationException("Decimal type is not supported!")
+                  }
                   val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
                     (desc, s) =>
                       val currentDesc = s.direction match {
