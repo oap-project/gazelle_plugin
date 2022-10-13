@@ -243,18 +243,21 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
 WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
-    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc, bool is_row_number) {
+    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list,
+    bool is_row_number) {
   ctx_ = ctx;
   type_list_ = type_list;
   sorter_ = sorter;
   desc_ = desc;
   is_row_number_ = is_row_number;
+  order_type_list_ = order_type_list;
 }
 
 arrow::Status WindowRankKernel::Make(
     arrow::compute::ExecContext* ctx, std::string function_name,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
-    std::shared_ptr<KernalBase>* out, bool desc) {
+    std::shared_ptr<KernalBase>* out, bool desc, std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
   std::vector<std::shared_ptr<arrow::Field>> key_fields;
   for (int i = 0; i < type_list.size(); i++) {
     key_fields.push_back(
@@ -298,9 +301,9 @@ arrow::Status WindowRankKernel::Make(
     }
   }
   if (function_name.rfind("row_number", 0) == 0) {
-    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, true);
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list, true);
   } else {
-    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list);
   }
 
   return arrow::Status::OK();
@@ -312,102 +315,19 @@ arrow::Status WindowSortBase::Evaluate(ArrayList& in) {
 }
 
 arrow::Status WindowRankKernel::Finish(ArrayList* out) {
-  std::vector<ArrayList> values;
-  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
+  RETURN_NOT_OK(prepareFinish());
 
-#ifdef DEBUG
-  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
-#endif
-#ifdef DEBUG
-  std::cout << "[window kernel] Splitting all input batches to key/value batches... "
-            << std::endl;
-#endif
-  for (auto batch : input_cache_) {
-    ArrayList values_batch;
-    for (int i = 0; i < type_list_.size() + 1; i++) {
-      auto column_slice = batch.at(i);
-      if (i == type_list_.size()) {
-        // we are at the column of partition ids
-        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
-        continue;
-      }
-      values_batch.push_back(column_slice);
-    }
-    values.push_back(values_batch);
+  int32_t** rank_array = new int32_t*[group_ids_.size()];
+  for (int i = 0; i < group_ids_.size(); i++) {
+    *(rank_array + i) = new int32_t[group_ids_.at(i)->length()];
   }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
-#endif
-  int32_t max_group_id = 0;
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      if (slice->GetView(j) > max_group_id) {
-        max_group_id = slice->GetView(j);
-      }
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  // initialize partitions to be sorted
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> partitions_to_sort;
-  for (int i = 0; i <= max_group_id; i++) {
-    partitions_to_sort.emplace_back();
-  }
-
-#ifdef DEBUG
-  std::cout << "[window kernel] Creating indexed array based on group IDs... "
-            << std::endl;
-#endif
-  for (int i = 0; i < group_ids.size(); i++) {
-    auto slice = group_ids.at(i);
-    for (int j = 0; j < slice->length(); j++) {
-      if (slice->IsNull(j)) {
-        continue;
-      }
-      uint64_t partition_id = slice->GetView(j);
-      partitions_to_sort.at(partition_id)
-          .push_back(std::make_shared<ArrayItemIndexS>(i, j));
-    }
-  }
-#ifdef DEBUG
-  std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-
-  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions;
-  RETURN_NOT_OK(SortToIndicesPrepare(values));
-  for (int i = 0; i <= max_group_id; i++) {
-    std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
-    std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
-#ifdef DEBUG
-    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
-#endif
-    RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
-#ifdef DEBUG
-    std::cout << "[window kernel] Finished. " << std::endl;
-#endif
-    sorted_partitions.push_back(std::move(sorted_partition));
-  }
-  int32_t** rank_array = new int32_t*[group_ids.size()];
-  for (int i = 0; i < group_ids.size(); i++) {
-    *(rank_array + i) = new int32_t[group_ids.at(i)->length()];
-  }
-  for (int i = 0; i <= max_group_id; i++) {
+  for (int i = 0; i <= max_group_id_; i++) {
 #ifdef DEBUG
     std::cout << "[window kernel] Generating rank result on a single partition... "
               << std::endl;
 #endif
     std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition =
-        sorted_partitions.at(i);
+        sorted_partitions_.at(i);
     int assumed_rank = 0;
     for (int j = 0; j < sorted_partition.size(); j++) {
       ++assumed_rank;  // rank value starts from 1
@@ -422,10 +342,10 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
         bool s = false;
         std::shared_ptr<arrow::DataType> type = type_list_.at(column_id);
         switch (type->id()) {
-#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                               \
-  case InType::type_id: {                                                       \
-    RETURN_NOT_OK(                                                              \
-        AreTheSameValue<ARRAY_TYPE>(values, column_id, index, last_index, &s)); \
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                                \
+  case InType::type_id: {                                                        \
+    RETURN_NOT_OK(                                                               \
+        AreTheSameValue<ARRAY_TYPE>(values_, column_id, index, last_index, &s)); \
   } break;
           PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
 #undef PROCESS
@@ -471,7 +391,7 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
 #ifdef DEBUG
   std::cout << "[window kernel] Finished. " << std::endl;
 #endif
-  for (int i = 0; i < group_ids.size(); i++) {
+  for (int i = 0; i < group_ids_.size(); i++) {
     delete[] * (rank_array + i);
   }
   delete[] rank_array;

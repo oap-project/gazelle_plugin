@@ -362,6 +362,9 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
               TreeExprBuilder::MakeFunction(
                   "partitionSpec",
                   {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+              TreeExprBuilder::MakeFunction(
+               "orderSpec",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null())
           },
           binary()),
       res);
@@ -402,6 +405,9 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
               TreeExprBuilder::MakeFunction(
                   "partitionSpec",
                   {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+              TreeExprBuilder::MakeFunction(
+               "orderSpec",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null())
           },
           binary()),
       res);
