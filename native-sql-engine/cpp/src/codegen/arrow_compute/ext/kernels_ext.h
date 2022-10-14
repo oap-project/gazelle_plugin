@@ -314,28 +314,28 @@ class HashAggregateKernel : public KernalBase {
 
 // An abstract base class for window functions requiring sort.
 class WindowSortBase : public KernalBase {
-  public:
-    arrow::Status Evaluate(ArrayList& in) override;
-    arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
-    arrow::Status SortToIndicesFinish(
-        std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
-        std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets);
-    // For finish preparation, like sorting input fir each group.
-    arrow::Status prepareFinish();
+ public:
+  arrow::Status Evaluate(ArrayList& in) override;
+  arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
+  arrow::Status SortToIndicesFinish(
+      std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
+      std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets);
+  // For finish preparation, like sorting input fir each group.
+  arrow::Status prepareFinish();
 
-  protected:
-    std::shared_ptr<WindowSortKernel::Impl> sorter_;
-    arrow::compute::ExecContext* ctx_ = nullptr;
-    std::vector<ArrayList> input_cache_;
-    std::vector<std::shared_ptr<arrow::DataType>> type_list_;
-    bool desc_;
+ protected:
+  std::shared_ptr<WindowSortKernel::Impl> sorter_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
+  std::vector<ArrayList> input_cache_;
+  std::vector<std::shared_ptr<arrow::DataType>> type_list_;
+  bool desc_;
 
-    std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
+  std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
 
-    std::vector<ArrayList> values_;   // The window function input.
-    std::vector<std::shared_ptr<arrow::Int32Array>> group_ids_;
-    int32_t max_group_id_ = 0;
-    std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions_;
+  std::vector<ArrayList> values_;  // The window function input.
+  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids_;
+  int32_t max_group_id_ = 0;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions_;
 };
 
 class WindowRankKernel : public WindowSortBase {
@@ -345,10 +345,11 @@ class WindowRankKernel : public WindowSortBase {
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                    std::vector<std::shared_ptr<arrow::DataType>> order_type_list,
                    bool is_row_number = false);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<KernalBase>* out, bool desc,
-                            std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out, bool desc,
+      std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
   arrow::Status Finish(ArrayList* out) override;
 
   template <typename ArrayType>
@@ -396,33 +397,32 @@ class WindowLagKernel : public WindowSortBase {
 };
 
 // For sum window function with sort needed (has to consider window frame).
-class WindowSumKernel: public WindowSortBase {
-
-public:
-WindowSumKernel(arrow::compute::ExecContext* ctx,
+class WindowSumKernel : public WindowSortBase {
+ public:
+  WindowSumKernel(arrow::compute::ExecContext* ctx,
                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
                   std::shared_ptr<arrow::DataType> return_type,
                   std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
 
-static arrow::Status Make(
+  static arrow::Status Make(
       arrow::compute::ExecContext* ctx, std::string function_name,
       std::vector<std::shared_ptr<arrow::DataType>> type_list,
       std::shared_ptr<KernalBase>* out, bool desc,
       std::shared_ptr<arrow::DataType> return_type,
       std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
 
-arrow::Status Finish(ArrayList* out) override;
+  arrow::Status Finish(ArrayList* out) override;
 
-template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
             typename OP>
-arrow::Status HandleSortedPartition(
+  arrow::Status HandleSortedPartition(
       std::vector<ArrayList>& values,
       std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
       std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
       ArrayList* out, OP op);
 
-protected:
+ protected:
   std::shared_ptr<arrow::DataType> return_type_;
 };
 

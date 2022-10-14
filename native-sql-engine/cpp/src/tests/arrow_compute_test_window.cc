@@ -354,18 +354,17 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
   auto f_window = TreeExprBuilder::MakeExpression(
       TreeExprBuilder::MakeFunction(
           "window",
-          {
-              TreeExprBuilder::MakeFunction(
-                  "rank_desc",
-                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
-                  null()),
-              TreeExprBuilder::MakeFunction(
-                  "partitionSpec",
-                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-              TreeExprBuilder::MakeFunction(
+          {TreeExprBuilder::MakeFunction(
+               "rank_desc",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+               null()),
+           TreeExprBuilder::MakeFunction(
+               "partitionSpec",
+               {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+           TreeExprBuilder::MakeFunction(
                "orderSpec",
-               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null())
-          },
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+               null())},
           binary()),
       res);
 
@@ -397,18 +396,17 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
   auto f_window = TreeExprBuilder::MakeExpression(
       TreeExprBuilder::MakeFunction(
           "window",
-          {
-              TreeExprBuilder::MakeFunction(
-                  "rank_desc",
-                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
-                  null()),
-              TreeExprBuilder::MakeFunction(
-                  "partitionSpec",
-                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-              TreeExprBuilder::MakeFunction(
+          {TreeExprBuilder::MakeFunction(
+               "rank_desc",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+               null()),
+           TreeExprBuilder::MakeFunction(
+               "partitionSpec",
+               {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+           TreeExprBuilder::MakeFunction(
                "orderSpec",
-               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null())
-          },
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+               null())},
           binary()),
       res);
 
@@ -483,8 +481,7 @@ TEST(TestArrowComputeWindow, SumOrderedTest) {
       TreeExprBuilder::MakeFunction(
           "window",
           {TreeExprBuilder::MakeFunction(
-               "sum_desc",
-               {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))},
+               "sum_desc", {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))},
                null()),
            TreeExprBuilder::MakeFunction(
                "partitionSpec",

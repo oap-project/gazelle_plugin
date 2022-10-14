@@ -392,8 +392,7 @@ WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
-    std::vector<std::shared_ptr<arrow::DataType>> order_type_list,
-    bool is_row_number) {
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list, bool is_row_number) {
   ctx_ = ctx;
   type_list_ = type_list;
   sorter_ = sorter;
@@ -405,7 +404,8 @@ WindowRankKernel::WindowRankKernel(
 arrow::Status WindowRankKernel::Make(
     arrow::compute::ExecContext* ctx, std::string function_name,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
-    std::shared_ptr<KernalBase>* out, bool desc, std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
+    std::shared_ptr<KernalBase>* out, bool desc,
+    std::vector<std::shared_ptr<arrow::DataType>> order_type_list) {
   std::vector<std::shared_ptr<arrow::Field>> key_fields;
   for (int i = 0; i < type_list.size(); i++) {
     key_fields.push_back(
@@ -449,9 +449,11 @@ arrow::Status WindowRankKernel::Make(
     }
   }
   if (function_name.rfind("row_number", 0) == 0) {
-    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list, true);
+    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc,
+                                              order_type_list, true);
   } else {
-    *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list);
+    *out =
+        std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc, order_type_list);
   }
 
   return arrow::Status::OK();
@@ -652,7 +654,7 @@ CType get_nonstring_value(std::shared_ptr<ArrayType> array, uint32_t index) {
 }
 
 arrow::Status WindowLagKernel::Finish(ArrayList* out) {
-RETURN_NOT_OK(prepareFinish());
+  RETURN_NOT_OK(prepareFinish());
 
 #define PROCESS_SUPPORTED_COMMON_TYPES_LAG(PROC)                    \
   PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
@@ -847,8 +849,8 @@ arrow::Status WindowSumKernel::Make(
   // auto offset_value = arrow::util::get<int32_t>(lag_options[0]->holder());
   // Currently, only support literal default value.
   // std::shared_ptr<gandiva::LiteralNode> default_node = lag_options[1];
-  *out = std::make_shared<WindowSumKernel>(ctx, type_list, sorter, desc,
-                                           return_type, order_type_list);
+  *out = std::make_shared<WindowSumKernel>(ctx, type_list, sorter, desc, return_type,
+                                           order_type_list);
 
   return arrow::Status::OK();
 }
@@ -856,28 +858,39 @@ arrow::Status WindowSumKernel::Make(
 arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   RETURN_NOT_OK(prepareFinish());
 
-#define PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROC)                                                          \
-  PROC(arrow::UInt8Type, arrow::UInt8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
-  PROC(arrow::Int8Type, arrow::Int8Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)       \
-  PROC(arrow::UInt16Type, arrow::UInt16Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
-  PROC(arrow::Int16Type, arrow::Int16Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
-  PROC(arrow::UInt32Type, arrow::UInt32Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
-  PROC(arrow::Int32Type, arrow::Int32Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
-  PROC(arrow::UInt64Type, arrow::UInt64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)   \
-  PROC(arrow::Int64Type, arrow::Int64Array, arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)     \
-  PROC(arrow::FloatType, arrow::FloatArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)  \
-  PROC(arrow::DoubleType, arrow::DoubleArray, arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)
+#define PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROC)                                       \
+  PROC(arrow::UInt8Type, arrow::UInt8Array, arrow::Int64Type, arrow::Int64Builder,     \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::Int8Type, arrow::Int8Array, arrow::Int64Type, arrow::Int64Builder,       \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::UInt16Type, arrow::UInt16Array, arrow::Int64Type, arrow::Int64Builder,   \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::Int16Type, arrow::Int16Array, arrow::Int64Type, arrow::Int64Builder,     \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::UInt32Type, arrow::UInt32Array, arrow::Int64Type, arrow::Int64Builder,   \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::Int32Type, arrow::Int32Array, arrow::Int64Type, arrow::Int64Builder,     \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::UInt64Type, arrow::UInt64Array, arrow::Int64Type, arrow::Int64Builder,   \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::Int64Type, arrow::Int64Array, arrow::Int64Type, arrow::Int64Builder,     \
+       arrow::Int64Array)                                                              \
+  PROC(arrow::FloatType, arrow::FloatArray, arrow::DoubleType, arrow::DoubleBuilder,   \
+       arrow::DoubleArray)                                                             \
+  PROC(arrow::DoubleType, arrow::DoubleArray, arrow::DoubleType, arrow::DoubleBuilder, \
+       arrow::DoubleArray)
 
   // For sum, result type can be different from input type. Should NOT be return_type_.
   // Only one element in type_list_, i.e., one col input.
   std::shared_ptr<arrow::DataType> value_type = type_list_[0];
   switch (value_type->id()) {
-#define PROCESS(VALUE_TYPE, ARRAY_TYPE, RESULT_TYPE, BUILDER_TYPE, RES_ARRAY_TYPE)         \
-  case VALUE_TYPE::type_id: {                                                              \
-    using CType = typename arrow::TypeTraits<RESULT_TYPE>::CType;                          \
-    RETURN_NOT_OK((HandleSortedPartition<ARRAY_TYPE, CType, BUILDER_TYPE, RES_ARRAY_TYPE>( \
-        values_, group_ids_, max_group_id_, sorted_partitions_, out,                       \
-        get_nonstring_value<ARRAY_TYPE, CType>)));                                         \
+#define PROCESS(VALUE_TYPE, ARRAY_TYPE, RESULT_TYPE, BUILDER_TYPE, RES_ARRAY_TYPE) \
+  case VALUE_TYPE::type_id: {                                                      \
+    using CType = typename arrow::TypeTraits<RESULT_TYPE>::CType;                  \
+    RETURN_NOT_OK(                                                                 \
+        (HandleSortedPartition<ARRAY_TYPE, CType, BUILDER_TYPE, RES_ARRAY_TYPE>(   \
+            values_, group_ids_, max_group_id_, sorted_partitions_, out,           \
+            get_nonstring_value<ARRAY_TYPE, CType>)));                             \
   } break;
     PROCESS_SUPPORTED_COMMON_TYPES_SUM(PROCESS)
 #undef PROCESS
@@ -893,12 +906,12 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
 // ArrayType: input ArrayType. CType: result CType. BuilderType: result BuilderType.
 // ResArrayType: Result ArrayType.
 template <typename ArrayType, typename CType, typename BuilderType, typename ResArrayType,
-            typename OP>
+          typename OP>
 arrow::Status WindowSumKernel::HandleSortedPartition(
-      std::vector<ArrayList>& values,
-      std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
-      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
-      ArrayList* out, OP op) {
+    std::vector<ArrayList>& values,
+    std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+    std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+    ArrayList* out, OP op) {
   CType** sum_array = new CType*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
     *(sum_array + i) = new CType[group_ids.at(i)->length()];
@@ -919,10 +932,11 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         auto typed_array = std::dynamic_pointer_cast<ArrayType>(
-                values.at(index->array_id).at(column_id));
+            values.at(index->array_id).at(column_id));
         // If the first value in one partition (ordered) is null, the result is null.
-        // If there is valid value before null, the result for null is as same as the above.
-        // So for same value in ordered col, the sum result may be different from vanilla's. 
+        // If there is valid value before null, the result for null is as same as the
+        // above. So for same value in ordered col, the sum result may be different from
+        // vanilla's.
         if (typed_array->null_count() > 0 && typed_array->IsNull(index->id)) {
           if (!is_valid_value_found) {
             validity[index->array_id][index->id] = false;
@@ -932,13 +946,14 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
           }
         } else {
           is_valid_value_found = true;
-          parition_sum_by_current = parition_sum_by_current + (CType)op(typed_array, index->id);
+          parition_sum_by_current =
+              parition_sum_by_current + (CType)op(typed_array, index->id);
           sum_array[index->array_id][index->id] = parition_sum_by_current;
           validity[index->array_id][index->id] = true;
         }
       }
     }
-   }
+  }
 
   for (int i = 0; i < input_cache_.size(); i++) {
     auto batch = input_cache_.at(i);
