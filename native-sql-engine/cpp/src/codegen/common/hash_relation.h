@@ -244,6 +244,7 @@ class HashRelation {
     if (original_key->null_count() == 0) {
       for (int i = 0; i < original_key->length(); i++) {
         std::cout << "hash: " << typed_array->GetView(i) << std::endl;
+        std::cout << "key: " << original_key->GetView(i) << std::endl;
         auto str = original_key->GetView(i);
         // RETURN_NOT_OK(
         //     Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
@@ -344,9 +345,17 @@ class HashRelation {
   }
 
   int Get(std::string payload) {
-    int32_t v = hash32(payload, true);
-    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    if (res == -1) return -1;
+    std::cout << "AAA Get" << std::endl;
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(payload);
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
+    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    // if (res == -1) return -1;
     return 0;
   }
 
@@ -383,6 +392,7 @@ class HashRelation {
 
   template <typename T>
   arrow::Status GetColumn(int idx, std::shared_ptr<T>* out) {
+    std::cout << "AAA GetColumn" << std::endl;
     *out = std::dynamic_pointer_cast<T>(hash_relation_column_list_[idx]);
     return arrow::Status::OK();
   }
