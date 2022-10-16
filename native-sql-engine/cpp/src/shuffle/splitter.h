@@ -28,6 +28,7 @@
 #include <numeric>
 #include <random>
 #include <utility>
+#include <stack>
 
 #include "shuffle/type.h"
 #include "shuffle/utils.h"
@@ -73,9 +74,36 @@ class Splitter {
   virtual arrow::Status Split(const arrow::RecordBatch&);
 
   /**
+   * Iterator for splitting rb
+   */
+  virtual bool hasNext();
+
+  /**
+   * Iterator for splitting rb
+   */
+  virtual std::shared_ptr<arrow::RecordBatch> nextBatch();
+
+  /**
+   * Iterator for splitting rb
+   */
+  virtual int32_t nextPartitionId();
+
+  /**
    * Compute the compresse size of record batch.
    */
   virtual int64_t CompressedSize(const arrow::RecordBatch&);
+
+  /**
+   * Collect the rb.
+   */
+  arrow::Status Collect();
+
+
+  /**
+   * Clear the buffer. And stop processing splitting
+   */
+  arrow::Status Clear();
+
 
   /**
    * For each partition, merge spilled file into shuffle data file and write any
@@ -230,6 +258,12 @@ class Splitter {
   // slice the buffer for each reducer's column, in this way we can combine into large
   // page
   std::shared_ptr<arrow::ResizableBuffer> combine_buffer_;
+
+
+  int32_t next_partition_id = -1;
+  std::shared_ptr<arrow::RecordBatch> next_batch = nullptr;
+
+  std::stack<std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>>> output_rb_;
 
   // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>

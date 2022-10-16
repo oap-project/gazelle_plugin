@@ -19,22 +19,19 @@ package com.intel.oap.vectorized
 
 import java.io._
 import java.nio.ByteBuffer
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
-
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.ConverterUtils
 import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
 import org.apache.arrow.memory.ArrowBuf
 import org.apache.arrow.memory.BufferAllocator
-import org.apache.arrow.vector.ipc.ArrowStreamReader
-import org.apache.arrow.vector.VectorLoader
-import org.apache.arrow.vector.VectorSchemaRoot
+import org.apache.arrow.vector.ipc.{ArrowStreamReader, WriteChannel}
+import org.apache.arrow.vector.ipc.message.{ArrowRecordBatch, MessageSerializer}
+import org.apache.arrow.vector.{FieldVector, VectorLoader, VectorSchemaRoot}
 import org.apache.arrow.vector.types.pojo.Schema
-
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.serializer.DeserializationStream
@@ -43,12 +40,15 @@ import org.apache.spark.serializer.Serializer
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils.toArrowRecordBatch
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnVector
 import org.apache.spark.sql.vectorized.ColumnarBatch
+
+import java.nio.channels.Channels
 
 class ArrowColumnarBatchSerializer(
     schema: StructType, readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
@@ -252,9 +252,48 @@ private class ArrowColumnarBatchSerializerInstance(
     }
   }
 
-  // Columnar shuffle write process don't need this.
-  override def serializeStream(s: OutputStream): SerializationStream =
-    throw new UnsupportedOperationException
+  override def serializeStream(out: OutputStream): SerializationStream = new SerializationStream {
+
+    override def writeKey[T: ClassTag](key: T): SerializationStream = {
+      // The key is only needed on the map side when computing partition ids.
+      // It does not need to be shuffled.
+      assert(null == key || key.isInstanceOf[Int])
+      this
+    }
+
+    override def writeValue[T: ClassTag](value: T): SerializationStream = {
+      val cb = value.asInstanceOf[ColumnarBatch]
+      val recordBatch = ConverterUtils.createArrowRecordBatch(cb)
+      try {
+        MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), recordBatch)
+      } catch {
+        case e: Exception =>
+          logError("Failed to serialize current RecordBatch", e)
+      } finally {
+        ConverterUtils.releaseArrowRecordBatch(recordBatch)
+        // cb.close
+      }
+      this
+    }
+
+    override def writeAll[T: ClassTag](iter: Iterator[T]): SerializationStream = {
+      // This method is never called by shuffle code
+      throw new UnsupportedOperationException
+    }
+
+    override def writeObject[T: ClassTag](t: T): SerializationStream = {
+      // This method is never called by shuffle code
+      throw new UnsupportedOperationException
+    }
+
+    override def flush(): Unit = {
+      out.flush()
+    }
+
+    override def close(): Unit = {
+      out.close()
+    }
+  }
 
   // These methods are never called by shuffle code.
   override def serialize[T: ClassTag](t: T): ByteBuffer = throw new UnsupportedOperationException
