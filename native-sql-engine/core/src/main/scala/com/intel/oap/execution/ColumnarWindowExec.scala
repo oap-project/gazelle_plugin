@@ -18,6 +18,7 @@
 package com.intel.oap.execution
 
 import java.util.concurrent.TimeUnit
+
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.{CodeGeneration, ColumnarLiteral, ConverterUtils}
@@ -28,8 +29,8 @@ import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, CurrentRow, Descending, Expression, KnownFloatingPointNormalized, Lag, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, SpecifiedWindowFrame, UnboundedPreceding, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, KnownFloatingPointNormalized, Descending, Expression, Lag, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, RowNumber, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
 import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -132,6 +133,26 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     }
   }
 
+  def checkSortFunctionFrame(windowSpec: WindowSpecDefinition): Unit = {
+    if (windowSpec.orderSpec.nonEmpty) {
+      // we only support default frame when order is specified, i.e.,
+      // from UnboundedPreceding (lower bound) to CurrentRow (upper bound).
+      windowSpec.frameSpecification match {
+        case s: SpecifiedWindowFrame =>
+          s.lower match {
+            case UnboundedPreceding =>
+            case _ => throw new UnsupportedOperationException("Only UnboundedPreceding" +
+              " is supported as lower bound!")
+          }
+          s.upper match {
+          case CurrentRow =>
+          case _ => throw new UnsupportedOperationException("Only CurrentRow is supported" +
+            " as upper bound!")
+          }
+      }
+    }
+  }
+
   def checkRankSpec(windowSpec: WindowSpecDefinition): Unit = {
     // leave it empty for now
   }
@@ -155,8 +176,40 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           case (expr, func) =>
             val name = func match {
               case _: Sum =>
-                checkAggFunctionSpec(expr.windowSpec)
-                "sum"
+                // Allow "order by" for sum aggregation.
+                // checkAggFunctionSpec(expr.windowSpec)
+                // For order by a literal, e.g., order by 2, the behavior is as same as
+                // that for no order by.
+                if (orderSpec.isEmpty || orderSpec.head.child.isInstanceOf[Literal]) {
+                  "sum"
+                } else {
+                  // Only default frame is used in order by case.
+                  checkSortFunctionFrame(expr.windowSpec)
+                  // TODO: support decimal type.
+                  if (expr.windowFunction.dataType.isInstanceOf[DecimalType]) {
+                    throw new UnsupportedOperationException("Decimal type is not supported!")
+                  }
+                  val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+                    (desc, s) =>
+                      val currentDesc = s.direction match {
+                        case Ascending => false
+                        case Descending => true
+                        case _ => throw new IllegalStateException
+                      }
+                      if (desc.isEmpty) {
+                        Some(currentDesc)
+                      } else if (currentDesc == desc.get) {
+                        Some(currentDesc)
+                      } else {
+                        throw new UnsupportedOperationException("sum: clashed rank order found")
+                      }
+                  }
+                  desc match {
+                    case Some(true) => "sum_desc"
+                    case Some(false) => "sum_asc"
+                    case None => "sum_asc"
+                  }
+                }
               case _: Average =>
                 checkAggFunctionSpec(expr.windowSpec)
                 "avg"

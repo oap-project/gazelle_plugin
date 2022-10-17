@@ -180,6 +180,7 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       }
       function_param_field_ids_.push_back(function_param_field_ids_of_each);
 
+      // For window aggregation with no order by statement.
       if (window_function_name == "sum" || window_function_name == "avg" ||
           window_function_name == "min" || window_function_name == "max" ||
           window_function_name == "count" || window_function_name == "count_literal") {
@@ -187,21 +188,22 @@ class WindowVisitorImpl : public ExprVisitorImpl {
             &p_->ctx_, window_function_name, function_param_type_list, return_type,
             &function_kernel));
       } else if (window_function_name == "rank_asc") {
-        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
-                                                    &function_kernel, false));
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            false, order_type_list));
       } else if (window_function_name == "rank_desc") {
-        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
-                                                    &function_kernel, true));
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            true, order_type_list));
       } else if (window_function_name == "row_number_desc") {
-        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
-                                                    &function_kernel, true));
+        // For row_number, the order type list is as same as function_param_type_list.
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            true, function_param_type_list));
       } else if (window_function_name == "row_number_asc") {
-        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
-                                                    function_param_type_list,
-                                                    &function_kernel, false));
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            false, function_param_type_list));
       } else if (window_function_name == "lag_desc") {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(
             &p_->ctx_, window_function_name, function_param_type_list, lag_options_,
@@ -210,6 +212,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         RETURN_NOT_OK(extra::WindowLagKernel::Make(
             &p_->ctx_, window_function_name, function_param_type_list, lag_options_,
             &function_kernel, false, return_type, order_type_list));
+      } else if (window_function_name == "sum_desc") {
+        RETURN_NOT_OK(extra::WindowSumKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            true, return_type, order_type_list));
+      } else if (window_function_name == "sum_asc") {
+        RETURN_NOT_OK(extra::WindowSumKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, &function_kernel,
+            false, return_type, order_type_list));
       } else {
         return arrow::Status::Invalid("window function not supported: " +
                                       window_function_name);

@@ -312,27 +312,16 @@ class HashAggregateKernel : public KernalBase {
   arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
-class WindowRankKernel : public KernalBase {
+// An abstract base class for window functions requiring sort.
+class WindowSortBase : public KernalBase {
  public:
-  WindowRankKernel(arrow::compute::ExecContext* ctx,
-                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
-                   bool is_row_number = false);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<KernalBase>* out, bool desc);
   arrow::Status Evaluate(ArrayList& in) override;
-  arrow::Status Finish(ArrayList* out) override;
-
   arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
   arrow::Status SortToIndicesFinish(
       std::vector<std::shared_ptr<ArrayItemIndexS>> elements_to_sort,
       std::vector<std::shared_ptr<ArrayItemIndexS>>* offsets);
-
-  template <typename ArrayType>
-  arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
-                                std::shared_ptr<ArrayItemIndexS> i,
-                                std::shared_ptr<ArrayItemIndexS> j, bool* out);
+  // For finish preparation, like sorting input fir each group.
+  arrow::Status prepareFinish();
 
  protected:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
@@ -340,10 +329,39 @@ class WindowRankKernel : public KernalBase {
   std::vector<ArrayList> input_cache_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
   bool desc_;
+
+  std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
+
+  std::vector<ArrayList> values_;  // The window function input.
+  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids_;
+  int32_t max_group_id_ = 0;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions_;
+};
+
+class WindowRankKernel : public WindowSortBase {
+ public:
+  WindowRankKernel(arrow::compute::ExecContext* ctx,
+                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                   std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                   std::vector<std::shared_ptr<arrow::DataType>> order_type_list,
+                   bool is_row_number = false);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out, bool desc,
+      std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+  arrow::Status Finish(ArrayList* out) override;
+
+  template <typename ArrayType>
+  arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
+                                std::shared_ptr<ArrayItemIndexS> i,
+                                std::shared_ptr<ArrayItemIndexS> j, bool* out);
+
+ protected:
   bool is_row_number_;
 };
 
-class WindowLagKernel : public WindowRankKernel {
+class WindowLagKernel : public WindowSortBase {
  public:
   WindowLagKernel(arrow::compute::ExecContext* ctx,
                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
@@ -370,13 +388,42 @@ class WindowLagKernel : public WindowRankKernel {
       std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
       ArrayList* out, OP op);
 
- private:
+ protected:
   // positive offset means lag to the above row from the current row with an offset.
   // negative offset means lag to the below row from the current row with an offset.
+  std::shared_ptr<arrow::DataType> return_type_;
   int offset_;
   std::shared_ptr<gandiva::LiteralNode> default_node_;
+};
+
+// For sum window function with sort needed (has to consider window frame).
+class WindowSumKernel : public WindowSortBase {
+ public:
+  WindowSumKernel(arrow::compute::ExecContext* ctx,
+                  std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                  std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc,
+                  std::shared_ptr<arrow::DataType> return_type,
+                  std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out, bool desc,
+      std::shared_ptr<arrow::DataType> return_type,
+      std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
+
+  arrow::Status Finish(ArrayList* out) override;
+
+  template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
+            typename OP>
+  arrow::Status HandleSortedPartition(
+      std::vector<ArrayList>& values,
+      std::vector<std::shared_ptr<arrow::Int32Array>>& group_ids, int32_t max_group_id,
+      std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>>& sorted_partitions,
+      ArrayList* out, OP op);
+
+ protected:
   std::shared_ptr<arrow::DataType> return_type_;
-  std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
 };
 
 /*class UniqueArrayKernel : public KernalBase {

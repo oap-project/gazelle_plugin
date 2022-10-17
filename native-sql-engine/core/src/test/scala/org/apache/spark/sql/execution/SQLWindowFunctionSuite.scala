@@ -470,36 +470,37 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
       Row(1, 3, null) :: Row(2, null, 4) :: Nil)
   }
 
-  test("test with low buffer spill threshold") {
-    val nums = sparkContext.parallelize(1 to 10).map(x => (x, x % 2)).toDF("x", "y")
-    nums.createOrReplaceTempView("nums")
-
-    val expected =
-      Row(1, 1, 1) ::
-        Row(0, 2, 3) ::
-        Row(1, 3, 6) ::
-        Row(0, 4, 10) ::
-        Row(1, 5, 15) ::
-        Row(0, 6, 21) ::
-        Row(1, 7, 28) ::
-        Row(0, 8, 36) ::
-        Row(1, 9, 45) ::
-        Row(0, 10, 55) :: Nil
-
-    val actual = sql(
-      """
-        |SELECT y, x, sum(x) OVER w1 AS running_sum
-        |FROM nums
-        |WINDOW w1 AS (ORDER BY x ROWS BETWEEN UNBOUNDED PRECEDiNG AND CURRENT RoW)
-      """.stripMargin)
-
-    withSQLConf(WINDOW_EXEC_BUFFER_IN_MEMORY_THRESHOLD.key -> "1",
-      WINDOW_EXEC_BUFFER_SPILL_THRESHOLD.key -> "2") {
-      assertSpilled(sparkContext, "test with low buffer spill threshold") {
-        checkAnswer(actual, expected)
-      }
-    }
-
-    spark.catalog.dropTempView("nums")
-  }
+// This is for testing vanilla spark's behavior. So we ignore it.
+//  test("test with low buffer spill threshold") {
+//    val nums = sparkContext.parallelize(1 to 10).map(x => (x, x % 2)).toDF("x", "y")
+//    nums.createOrReplaceTempView("nums")
+//
+//    val expected =
+//      Row(1, 1, 1) ::
+//        Row(0, 2, 3) ::
+//        Row(1, 3, 6) ::
+//        Row(0, 4, 10) ::
+//        Row(1, 5, 15) ::
+//        Row(0, 6, 21) ::
+//        Row(1, 7, 28) ::
+//        Row(0, 8, 36) ::
+//        Row(1, 9, 45) ::
+//        Row(0, 10, 55) :: Nil
+//
+//    val actual = sql(
+//      """
+//        |SELECT y, x, sum(x) OVER w1 AS running_sum
+//        |FROM nums
+//        |WINDOW w1 AS (ORDER BY x ROWS BETWEEN UNBOUNDED PRECEDiNG AND CURRENT RoW)
+//      """.stripMargin)
+//
+//    withSQLConf(WINDOW_EXEC_BUFFER_IN_MEMORY_THRESHOLD.key -> "1",
+//      WINDOW_EXEC_BUFFER_SPILL_THRESHOLD.key -> "2") {
+//      assertSpilled(sparkContext, "test with low buffer spill threshold") {
+//        checkAnswer(actual, expected)
+//      }
+//    }
+//
+//    spark.catalog.dropTempView("nums")
+//  }
 }
