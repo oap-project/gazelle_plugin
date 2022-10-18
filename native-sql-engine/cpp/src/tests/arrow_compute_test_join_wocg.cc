@@ -2410,6 +2410,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
 }
 
 TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
+  GTEST_SKIP() << "Skipping loading hashmap test";
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", utf8());
   auto table0_f1 = field("table0_f1", utf8());
@@ -2574,6 +2575,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
 }
 
 TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
+    GTEST_SKIP() << "Skipping decimal key test";
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", decimal128(5, 0));
   auto table0_f1 = field("table0_f1", uint32());

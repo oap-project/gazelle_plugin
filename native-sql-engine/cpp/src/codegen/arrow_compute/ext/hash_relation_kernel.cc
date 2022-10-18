@@ -208,8 +208,7 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::TimestampType)          \
-  PROCESS(arrow::StringType)             \
-  PROCESS(arrow::Decimal128Type)
+  PROCESS(arrow::StringType)             
         if (project_outputs.size() == 1) {
           switch (project_outputs[0]->type_id()) {
 #define PROCESS(InType)                                                              \

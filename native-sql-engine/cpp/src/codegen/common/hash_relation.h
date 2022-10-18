@@ -34,6 +34,7 @@
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
 using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
+using sparkcolumnarplugin::precompile::is_number_like;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
@@ -184,7 +185,8 @@ class HashRelation {
       // row.
       if (payload->isNullExists()) continue;
       if (!semi) {
-        RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+        // RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+        hash_table_new_.emplace(std::make_pair(std::string(payload->data, payload->cursor), ArrayItemIndex(num_arrays_, i)));
       } else {
         RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), payload, num_arrays_, i));
       }
@@ -205,8 +207,9 @@ class HashRelation {
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
       for (int i = 0; i < typed_array->length(); i++) {
-        RETURN_NOT_OK(
-            Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
+        // RETURN_NOT_OK(
+        //     Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
+        hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
       }
     } else {
       if (semi) {
@@ -283,8 +286,16 @@ class HashRelation {
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int Get(int32_t v, CType payload) {
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) return -1;
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
+    // auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+    // if (res == -1) return -1;
 
     return 0;
   }
@@ -304,23 +315,35 @@ class HashRelation {
   }
 
   int Get(int32_t v, std::shared_ptr<UnsafeRow> payload) {
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) return -1;
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::string(payload->data, payload->cursor));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
+    // auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+    // if (res == -1) return -1;
     return 0;
   }
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int IfExists(int32_t v, CType payload) {
-    return safeLookup(hash_table_, payload, v);
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
+      return -1;
+    }
+    return 0;
+    //return safeLookup(hash_table_, payload, v);
   }
 
   int IfExists(int32_t v, std::string payload) {
-    return safeLookup(hash_table_, payload.data(), payload.size(), v);
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0 ;
   }
 
   int IfExists(int32_t v, std::shared_ptr<UnsafeRow> payload) {
-    return safeLookup(hash_table_, payload, v);
+    return hash_table_new_.find(std::string(payload->data, payload->cursor)) == hash_table_new_.end() ? -1 : 0 ;
   }
 
   template <typename CType,
