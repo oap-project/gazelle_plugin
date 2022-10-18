@@ -203,10 +203,12 @@ class HashRelation {
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<KeyArrayType> original_key,
                                 bool semi = false) {
+    std::cout << "Appending number key" << std::endl;
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
       for (int i = 0; i < typed_array->length(); i++) {
+        std::cout << "key: " << original_key->GetView(i) << std::endl;
         // RETURN_NOT_OK(
         //     Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
         hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
@@ -357,8 +359,16 @@ class HashRelation {
       *(CType*)recent_cached_key_ = payload;
     }
     int32_t v = hash32(payload, true);
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) {
+    // auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    
+    if (!hasMatch) {
       arrayid_list_.clear();
       recent_cached_key_probe_res_ = -1;
       return -1;
@@ -368,7 +378,6 @@ class HashRelation {
   }
 
   int Get(std::string payload) {
-    std::cout << "AAA Get" << std::endl;
     bool hasMatch = false;
     arrayid_list_.clear();
     auto range = hash_table_new_.equal_range(payload);
@@ -386,12 +395,12 @@ class HashRelation {
             typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
   int IfExists(CType payload) {
     int32_t v = hash32(payload, true);
-    return safeLookup(hash_table_, payload, v);
+    return hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end() ? -1 : 0 ;
   }
 
   int IfExists(std::string payload) {
     int32_t v = hash32(payload, true);
-    return safeLookup(hash_table_, payload.data(), payload.size(), v);
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0 ;
   }
 
   int GetNull() {
