@@ -56,6 +56,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle
   val enableColumnarShuffle = columnarConf.enableColumnarShuffle
+  val enableFallbackShuffle = columnarConf.enableFallbackShuffle
   val enableColumnarSort = columnarConf.enableColumnarSort
   val enableColumnarWindow = columnarConf.enableColumnarWindow
   val enableColumnarSortMergeJoin = columnarConf.enableColumnarSortMergeJoin
@@ -133,7 +134,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           if (!enableColumnarSort) return false
           new ColumnarSortExec(plan.sortOrder, plan.global, plan.child, plan.testSpillFrequency)
         case plan: ShuffleExchangeExec =>
-          if (!enableColumnarShuffle) return false
+          if (!enableColumnarShuffle && !enableFallbackShuffle) return false
           new ColumnarShuffleExchangeExec(
             plan.outputPartitioning,
             plan.child)

@@ -33,6 +33,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <stack>
 
 #include "shuffle/utils.h"
 #include "utils/macros.h"
@@ -223,8 +224,6 @@ arrow::Status Splitter::Init() {
   const auto& fields = schema_->fields();
   ARROW_ASSIGN_OR_RAISE(column_type_id_, ToSplitterTypeId(schema_->fields()));
 
-  partition_writer_.resize(num_partitions_);
-
   // pre-computed row count for each partition after the record batch split
   partition_id_cnt_.resize(num_partitions_);
   // pre-allocated buffer size for each partition, unit is row count
@@ -235,8 +234,7 @@ arrow::Status Splitter::Init() {
   // the offset of each partition during record batch split
   partition_buffer_idx_offset_.resize(num_partitions_);
 
-  partition_cached_recordbatch_.resize(num_partitions_);
-  partition_cached_recordbatch_size_.resize(num_partitions_);
+  // partition_cached_arb_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
   raw_partition_lengths_.resize(num_partitions_);
   reducer_offset_offset_.resize(num_partitions_ + 1);
@@ -294,37 +292,41 @@ arrow::Status Splitter::Init() {
     partition_list_builders_[i].resize(num_partitions_);
   }
 
-  ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
-  sub_dir_selection_.assign(configured_dirs_.size(), 0);
+  if (!options_.data_file.empty()) {
+    partition_cached_recordbatch_.resize(num_partitions_);
+    partition_cached_recordbatch_size_.resize(num_partitions_);
+    partition_writer_.resize(num_partitions_);
 
-  // Both data_file and shuffle_index_file should be set through jni.
-  // For test purpose, Create a temporary subdirectory in the system temporary
-  // dir with prefix "columnar-shuffle"
-  if (options_.data_file.length() == 0) {
-    ARROW_ASSIGN_OR_RAISE(options_.data_file, CreateTempShuffleFile(configured_dirs_[0]));
+    ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
+    sub_dir_selection_.assign(configured_dirs_.size(), 0);
+
+    // Both data_file and shuffle_index_file should be set through jni.
+    // For test purpose, Create a temporary subdirectory in the system temporary
+    // dir with prefix "columnar-shuffle"
+    if (options_.data_file.length() == 0) {
+      ARROW_ASSIGN_OR_RAISE(options_.data_file, CreateTempShuffleFile(configured_dirs_[0]));
+    }
+    auto& ipc_write_options = options_.ipc_write_options;
+    ipc_write_options.memory_pool = options_.memory_pool;
+    ipc_write_options.use_threads = false;
+    if (options_.compression_type == arrow::Compression::FASTPFOR) {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+                            arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+
+    } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+                            arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
+                                                        arrow::Compression::UNCOMPRESSED));
+    }
+
+    // initialize tiny batch write options
+    tiny_bach_write_options_ = ipc_write_options;
+    ARROW_ASSIGN_OR_RAISE(
+        tiny_bach_write_options_.codec,
+        arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
   }
-
-  auto& ipc_write_options = options_.ipc_write_options;
-  ipc_write_options.memory_pool = options_.memory_pool;
-  ipc_write_options.use_threads = false;
-
-  if (options_.compression_type == arrow::Compression::FASTPFOR) {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-                          arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
-
-  } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-                          arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
-                                                       arrow::Compression::UNCOMPRESSED));
-  }
-
-  // initialize tiny batch write options
-  tiny_bach_write_options_ = ipc_write_options;
-  ARROW_ASSIGN_OR_RAISE(
-      tiny_bach_write_options_.codec,
-      arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
 
   // Allocate first buffer for split reducer
   ARROW_ASSIGN_OR_RAISE(combine_buffer_,
@@ -389,6 +391,64 @@ arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(ComputeAndCountPartitionId(rb));
   RETURN_NOT_OK(DoSplit(rb));
   EVAL_END("split", options_.thread_id, options_.task_attempt_id)
+  return arrow::Status::OK();
+}
+
+bool Splitter::hasNext() {
+  if (!output_rb_.empty()){
+    next_partition_id = output_rb_.top().first;
+    next_batch = output_rb_.top().second;
+  }
+  return !output_rb_.empty();
+}
+
+std::shared_ptr<arrow::RecordBatch> Splitter::nextBatch() {
+  if (!output_rb_.empty()) {
+    output_rb_.pop();
+  }
+//  #ifndef DEBUG
+//    std::cout << "remaining rb is " << output_rb_.size() <<
+//      ", Output partitionid is: " << next_partition_id <<
+//      ", output_batch_rows:  " << next_batch->num_rows() << std::endl;
+//  #endif
+  return next_batch;
+}
+
+int32_t Splitter::nextPartitionId() {
+  return next_partition_id;
+}
+
+/**
+* Collect the rb after splitting.
+*/
+arrow::Status Splitter::Collect() {
+  EVAL_START("close", options_.thread_id)
+  // collect buffers and collect metrics
+  for (auto pid = 0; pid < num_partitions_; ++pid) {
+    if (partition_buffer_idx_base_[pid] > 0) {
+      RETURN_NOT_OK(CacheRecordBatch(pid, true));
+    }
+  }
+  EVAL_END("close", options_.thread_id, options_.task_attempt_id)
+  return arrow::Status::OK();
+}
+
+
+arrow::Status Splitter::Clear() {
+  EVAL_START("close", options_.thread_id)
+  next_batch = nullptr;
+  for (auto pid = 0; pid < num_partitions_; ++pid) {
+    partition_lengths_[pid] = 0;
+    raw_partition_lengths_[pid] = 0;
+  }
+  if (output_rb_.size() > 0) {
+    std::cerr << "Dirty stack output_rb_" << std::endl;
+    output_rb_ = std::stack<std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>>>();
+  }
+  this -> combine_buffer_.reset();
+  this -> schema_payload_.reset();
+  partition_buffers_.clear();
+  EVAL_END("close", options_.thread_id, options_.task_attempt_id)
   return arrow::Status::OK();
 }
 
@@ -582,26 +642,31 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     int64_t raw_size = batch_nbytes(batch);
 
     raw_partition_lengths_[partition_id] += raw_size;
-    auto payload = std::make_shared<arrow::ipc::IpcPayload>();
+    if (!options_.data_file.empty()) {
+      auto payload = std::make_shared<arrow::ipc::IpcPayload>();
 #ifndef SKIPCOMPRESS
-    if (num_rows <= options_.batch_compress_threshold) {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, tiny_bach_write_options_, payload.get()));
-    } else {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, options_.ipc_write_options, payload.get()));
-    }
+      if (num_rows <= options_.batch_compress_threshold) {
+        TIME_NANO_OR_RAISE(total_compress_time_,
+                          arrow::ipc::GetRecordBatchPayload(
+                              *batch, tiny_bach_write_options_, payload.get()));
+      } else {
+        TIME_NANO_OR_RAISE(total_compress_time_,
+                          arrow::ipc::GetRecordBatchPayload(
+                              *batch, options_.ipc_write_options, payload.get()));
+      }
 #else
-    // for test reason
-    TIME_NANO_OR_RAISE(total_compress_time_,
+      // for test reason
+      TIME_NANO_OR_RAISE(total_compress_time_,
                        arrow::ipc::GetRecordBatchPayload(*batch, tiny_bach_write_options_,
                                                          payload.get()));
 #endif
+      partition_cached_recordbatch_size_[partition_id] += payload->body_length;
+      partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
+    }
 
-    partition_cached_recordbatch_size_[partition_id] += payload->body_length;
-    partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
+    std::pair<int32_t, std::shared_ptr<arrow::RecordBatch>> part_batch = std::make_pair(partition_id, batch);
+    output_rb_.emplace(part_batch);
+    // partition_cached_arb_[partition_id].push_back(batch);
     partition_buffer_idx_base_[partition_id] = 0;
   }
   return arrow::Status::OK();
@@ -932,6 +997,12 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // update partition buffer base after split
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     partition_buffer_idx_base_[pid] += partition_id_cnt_[pid];
+//    #ifdef DEBUG
+//    if (partition_buffer_idx_base_[pid] > 0) {
+//      std::cout << "Update partition buffer base after split, current partition id is " << pid <<
+//        ", partition_buffer_idx_base_ is: " << partition_buffer_idx_base_[pid] << std::endl;
+//    }
+//    #endif
   }
 
   return arrow::Status::OK();
@@ -1444,7 +1515,7 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
 
   arrow::ArrayVector outputs;
   TIME_NANO_OR_RAISE(total_compute_pid_time_,
-                     projector_->Evaluate(rb, options_.memory_pool, &outputs));
+                     projector_->Evaluate(rb, arrow::default_memory_pool(), &outputs));
   if (outputs.size() != 1) {
     return arrow::Status::Invalid("Projector result should have one field, actual is ",
                                   std::to_string(outputs.size()));

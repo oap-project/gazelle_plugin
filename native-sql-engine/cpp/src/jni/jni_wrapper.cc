@@ -1028,6 +1028,124 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate2(
   JNI_METHOD_END(nullptr)
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_intel_oap_vectorized_SplitIterator_nativeHasNext(
+    JNIEnv* env, jobject, jlong splitter_id) {
+  JNI_METHOD_START
+  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter_) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+  return splitter_->hasNext();
+  JNI_METHOD_END(false)
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_SplitIterator_nativeNext(
+    JNIEnv* env, jobject, jlong splitter_id) {
+  JNI_METHOD_START
+  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter_) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+  auto record_batch = splitter_->nextBatch();
+  jbyteArray serialized_record_batch = JniGetOrThrow(
+    ToBytes(env, record_batch), "Error deserializing message");
+  record_batch = nullptr;
+  return serialized_record_batch;
+
+  JNI_METHOD_END(nullptr)
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_SplitIterator_nativeNextPartitionId(
+    JNIEnv* env, jobject, jlong splitter_id) {
+  JNI_METHOD_START
+  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter_) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+  return splitter_->nextPartitionId();
+  JNI_METHOD_END(-1L)
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_initSplit(
+    JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
+    jbyteArray schema_arr, jbyteArray expr_arr, jlong offheap_per_task, jint buffer_size) {
+  JNI_METHOD_START
+  if (partitioning_name_jstr == NULL) {
+    JniThrow(std::string("Short partitioning name can't be null"));
+    return 0;
+  }
+  if (schema_arr == NULL) {
+    JniThrow(std::string("Make splitter schema can't be null"));
+  }
+
+  auto partitioning_name_c = env->GetStringUTFChars(partitioning_name_jstr, JNI_FALSE);
+  auto partitioning_name = std::string(partitioning_name_c);
+  env->ReleaseStringUTFChars(partitioning_name_jstr, partitioning_name_c);
+
+  auto splitOptions = SplitOptions::Defaults();
+  splitOptions.prefer_spill = false;
+  splitOptions.buffered_write = true;
+  if (buffer_size > 0) {
+    splitOptions.buffer_size = buffer_size;
+  }
+  splitOptions.offheap_per_task = offheap_per_task;
+
+//  auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+//  if (pool == nullptr) {
+//    JniThrow("Memory pool does not exist or has been closed");
+//  }
+//  splitOptions.memory_pool = pool;
+
+  std::shared_ptr<arrow::Schema> schema;
+  // ValueOrDie in MakeSchema
+  MakeSchema(env, schema_arr, &schema);
+
+  gandiva::ExpressionVector expr_vector = {};
+  if (expr_arr != NULL) {
+    gandiva::FieldVector ret_types;
+    JniAssertOkOrThrow(MakeExprVector(env, expr_arr, &expr_vector, &ret_types),
+                       "Failed to parse expressions protobuf");
+  }
+
+  jclass cls = env->FindClass("java/lang/Thread");
+  jmethodID mid = env->GetStaticMethodID(cls, "currentThread", "()Ljava/lang/Thread;");
+  jobject thread = env->CallStaticObjectMethod(cls, mid);
+  if (thread == NULL) {
+    std::cout << "Thread.currentThread() return NULL" << std::endl;
+  } else {
+    jmethodID mid_getid = env->GetMethodID(cls, "getId", "()J");
+    jlong sid = env->CallLongMethod(thread, mid_getid);
+    splitOptions.thread_id = (int64_t)sid;
+  }
+
+  jclass tc_cls = env->FindClass("org/apache/spark/TaskContext");
+  jmethodID get_tc_mid =
+      env->GetStaticMethodID(tc_cls, "get", "()Lorg/apache/spark/TaskContext;");
+  jobject tc_obj = env->CallStaticObjectMethod(tc_cls, get_tc_mid);
+  if (tc_obj == NULL) {
+    std::cout << "TaskContext.get() return NULL" << std::endl;
+  } else {
+    jmethodID get_tsk_attmpt_mid = env->GetMethodID(tc_cls, "taskAttemptId", "()J");
+    jlong attmpt_id = env->CallLongMethod(tc_obj, get_tsk_attmpt_mid);
+    splitOptions.task_attempt_id = (int64_t)attmpt_id;
+  }
+
+  auto splitter =
+      JniGetOrThrow(Splitter::Make(partitioning_name, std::move(schema), num_partitions,
+                                   expr_vector, std::move(splitOptions)),
+                    "Failed create native shuffle splitter");
+  return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(splitter));
+
+  JNI_METHOD_END(-1L)
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
@@ -1192,6 +1310,48 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
   JniAssertOkOrThrow(splitter->Split(*in), "Native split: splitter split failed");
   return -1L;
   JNI_METHOD_END(-1L)
+}
+
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_collect(
+    JNIEnv* env, jobject obj, jlong splitter_id, jint num_rows) {
+  JNI_METHOD_START
+  auto splitter_ = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter_) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+  JniAssertOkOrThrow(splitter_->Collect(), "Native split: splitter collect failed");
+  JNI_METHOD_END()
+}
+
+JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_clear(
+    JNIEnv* env, jobject, jlong splitter_id) {
+  JNI_METHOD_START
+  auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    JniThrow(error_message);
+  }
+
+  JniAssertOkOrThrow(splitter->Clear(), "Native split:: splitter close failed");
+  const auto& partition_lengths = splitter->PartitionLengths();
+  auto partition_length_arr = env->NewLongArray(partition_lengths.size());
+  auto src = reinterpret_cast<const jlong*>(partition_lengths.data());
+  env->SetLongArrayRegion(partition_length_arr, 0, partition_lengths.size(), src);
+
+  const auto& raw_partition_lengths = splitter->RawPartitionLengths();
+  auto raw_partition_length_arr = env->NewLongArray(raw_partition_lengths.size());
+  auto raw_src = reinterpret_cast<const jlong*>(raw_partition_lengths.data());
+  env->SetLongArrayRegion(raw_partition_length_arr, 0, raw_partition_lengths.size(), raw_src);
+
+  jobject split_result = env->NewObject(split_result_class, split_result_constructor, splitter->TotalComputePidTime(),
+        splitter->TotalWriteTime(), splitter->TotalSpillTime(),
+        splitter->TotalCompressTime(), splitter->TotalBytesWritten(),
+        splitter->TotalBytesSpilled(), partition_length_arr, raw_partition_length_arr
+  );
+  return split_result;
+  JNI_METHOD_END(nullptr)
 }
 
 JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(

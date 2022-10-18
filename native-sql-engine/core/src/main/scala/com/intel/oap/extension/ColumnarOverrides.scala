@@ -183,7 +183,7 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
     case plan: ShuffleExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      if ((child.supportsColumnar || columnarConf.enablePreferColumnar) && columnarConf.enableColumnarShuffle) {
+      if ((child.supportsColumnar || columnarConf.enablePreferColumnar) && (columnarConf.enableColumnarShuffle || columnarConf.enableFallbackShuffle)) {
         if (isSupportAdaptive) {
           new ColumnarShuffleExchangeAdaptor(
             plan.outputPartitioning,
@@ -290,7 +290,7 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
 
     case plan
       if (SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan)
-        && columnarConf.enableColumnarShuffle) =>
+        && (columnarConf.enableColumnarShuffle || columnarConf.enableFallbackShuffle)) =>
       val child = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
       val partitionSpecs =
         SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(plan)
