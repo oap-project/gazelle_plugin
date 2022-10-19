@@ -203,12 +203,10 @@ class HashRelation {
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<KeyArrayType> original_key,
                                 bool semi = false) {
-    std::cout << "Appending number key" << std::endl;
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
       for (int i = 0; i < typed_array->length(); i++) {
-        std::cout << "key: " << original_key->GetView(i) << std::endl;
         // RETURN_NOT_OK(
         //     Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
         hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
@@ -243,13 +241,10 @@ class HashRelation {
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<StringArray> original_key,
                                 bool semi = false) {
-    std::cout << "Appending String key" << std::endl;
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
       for (int i = 0; i < original_key->length(); i++) {
-        std::cout << "hash: " << typed_array->GetView(i) << std::endl;
-        std::cout << "key: " << original_key->GetView(i) << std::endl;
         auto str = original_key->GetView(i);
         // RETURN_NOT_OK(
         //     Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
@@ -424,7 +419,6 @@ class HashRelation {
 
   template <typename T>
   arrow::Status GetColumn(int idx, std::shared_ptr<T>* out) {
-    std::cout << "AAA GetColumn" << std::endl;
     *out = std::dynamic_pointer_cast<T>(hash_relation_column_list_[idx]);
     return arrow::Status::OK();
   }
