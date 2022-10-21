@@ -131,6 +131,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           new ColumnarExpandExec(plan.projections, plan.output, plan.child)
         case plan: SortExec =>
           if (!enableColumnarSort) return false
+          if (plan.global) return false
           new ColumnarSortExec(plan.sortOrder, plan.global, plan.child, plan.testSpillFrequency)
         case plan: ShuffleExchangeExec =>
           if (!enableColumnarShuffle) return false
