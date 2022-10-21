@@ -329,6 +329,12 @@ case class ColumnarCollapseCodegenStages(
       case plan: ColumnarCodegenSupport if enableProjectionCodegen && supportCodegen(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())
+      // Remove ColumnarConditionProjectExec from WSCG,
+      // otherwise ColumnarWindowExec will receive empty RecordBatch and run failed.
+      case plan @ ColumnarWindowExec(_, _, _, _, child: ColumnarConditionProjectExec)
+        if supportCodegen(child) && existsJoins(child) =>
+        val newChild = child.withNewChildren(child.children.map(insertWholeStageCodegen))
+        plan.withNewChildren(Seq(newChild))
       case plan: ColumnarCodegenSupport if supportCodegen(plan) && existsJoins(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())
