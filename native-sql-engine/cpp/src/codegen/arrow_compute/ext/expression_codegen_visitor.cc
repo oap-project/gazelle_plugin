@@ -673,22 +673,22 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     if (func_name.compare("castINTOrNull") == 0) {
       // C++17 based from_chars
       // std::from_chars(str.data(), str.data() + str.size(), result);
-      func_str = " = std::from_chars";
+      func_str = " std::from_chars";
       prepare_ss << "int result = 0;" << std::endl;
     } else if (func_name.compare("castBIGINTOrNull") == 0) {
       // C++17 based from_chars
       // std::from_chars(str.data(), str.data() + str.size(), result);
-      func_str = " = std::from_chars";
+      func_str = " std::from_chars";
       prepare_ss << "long int result = 0;" << std::endl;
     } else if (func_name.compare("castFLOAT4OrNull") == 0) {
-      func_str = " = ::arrow_vendored::fast_float::from_chars";
+      func_str = " ::arrow_vendored::fast_float::from_chars";
       prepare_ss << "float result = 0;" << std::endl;
     } else {
-      func_str = " = ::arrow_vendored::fast_float::from_chars";
+      func_str = " ::arrow_vendored::fast_float::from_chars";
       prepare_ss << "double result = 0;" << std::endl;
     }
     prepare_ss << "try {" << std::endl;
-    prepare_ss << codes_str_ << func_str << "(" << child_visitor_list[0]->GetResult()
+    prepare_ss << func_str << "(" << child_visitor_list[0]->GetResult()
                << ".data(), " << child_visitor_list[0]->GetResult() << ".data() + "
                << child_visitor_list[0]->GetResult() << ".length(), "
                << "result);" << std::endl;
