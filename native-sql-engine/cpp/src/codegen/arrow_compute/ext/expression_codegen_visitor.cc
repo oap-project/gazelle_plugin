@@ -688,8 +688,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_ss << "double result = 0;" << std::endl;
     }
     prepare_ss << "try {" << std::endl;
-    prepare_ss << func_str << "(" << child_visitor_list[0]->GetResult()
-               << ".data(), " << child_visitor_list[0]->GetResult() << ".data() + "
+    prepare_ss << func_str << "(" << child_visitor_list[0]->GetResult() << ".data(), "
+               << child_visitor_list[0]->GetResult() << ".data() + "
                << child_visitor_list[0]->GetResult() << ".length(), "
                << "result);" << std::endl;
     prepare_ss << codes_str_ << " = result;" << std::endl;

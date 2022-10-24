@@ -5,8 +5,8 @@
 #include <arrow/record_batch.h>
 
 #include <algorithm>
-#include <cmath>
 #include <charconv>
+#include <cmath>
 #include <numeric>
 #include <tuple>
 
