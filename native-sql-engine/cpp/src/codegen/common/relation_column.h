@@ -54,7 +54,11 @@ class LazyBatchIterator {
 
   bool AdvanceTo(int32_t batch_id) {
     for (; current_batch_id_ <= batch_id; current_batch_id_++) {
-      std::shared_ptr<arrow::RecordBatch> next = in_.Next().ValueOrDie();
+      auto result = in_.Next();
+      if (!result.ok()) {
+        throw JniPendingException("Get next batch failed.");
+      }
+      std::shared_ptr<arrow::RecordBatch> next = result.ValueUnsafe();
       if (next == nullptr) {
         return false;
       }
