@@ -103,7 +103,8 @@ trait SparkShims {
     * Return SparkPlan type since the type name is changed from spark 3.2.
     * TODO: need tests.
     */
-  def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs : Seq[ShufflePartitionSpec]): SparkPlan
+  def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs : Seq[ShufflePartitionSpec]):
+  SparkPlan
 
   def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan
 

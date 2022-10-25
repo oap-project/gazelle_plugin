@@ -14,12 +14,21 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark321
+package com.intel.oap.sql.shims.spark322
 
-import com.intel.oap.sql.shims.ShimDescriptor
-import com.intel.oap.sql.shims.spark32.Spark32Shims
+import com.intel.oap.sql.shims.{SparkShims, SparkShimDescriptor}
 
-class Spark321Shims extends Spark32Shims {
+object SparkShimProvider {
+  val DESCRIPTOR = SparkShimDescriptor(3, 2, 2)
+  val DESCRIPTOR_STRINGS = Seq(s"$DESCRIPTOR")
+}
 
-  override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
+class SparkShimProvider extends com.intel.oap.sql.shims.SparkShimProvider {
+  def createShim: SparkShims = {
+    new Spark322Shims()
+  }
+
+  def matches(version: String): Boolean = {
+    SparkShimProvider.DESCRIPTOR_STRINGS.contains(version)
+  }
 }
