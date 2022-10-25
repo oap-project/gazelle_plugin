@@ -669,22 +669,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
 
-    std::string func_str;
-    if (func_name.compare("castINTOrNull") == 0) {
-      func_str = " = std::stoi";
-    } else if (func_name.compare("castBIGINTOrNull") == 0) {
-      func_str = " = std::stol";
-    } else if (func_name.compare("castFLOAT4OrNull") == 0) {
-      func_str = " = std::stof";
-    } else {
-      func_str = " = std::stod";
-    }
-    prepare_ss << "try {" << std::endl;
-    prepare_ss << codes_str_ << func_str << "(" << child_visitor_list[0]->GetResult()
-               << ");" << std::endl;
-    prepare_ss << "} catch (std::invalid_argument) {" << std::endl;
-    prepare_ss << validity << " = false;" << std::endl;
-    prepare_ss << "} catch (std::out_of_range) {" << std::endl;
+    prepare_ss << "if (!arrow::internal::ParseValue<arrow::"
+               << GetTypeString(node.return_type(), "Type") << ">("
+               << child_visitor_list[0]->GetResult() << ".data(), "
+               << child_visitor_list[0]->GetResult() << ".length(), "
+               << "&" << codes_str_ << ")) {" << std::endl;
     prepare_ss << validity << " = false;" << std::endl;
     prepare_ss << "}" << std::endl;
     prepare_ss << "}" << std::endl;

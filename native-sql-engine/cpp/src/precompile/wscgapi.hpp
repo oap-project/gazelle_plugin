@@ -3,6 +3,7 @@
 #include <arrow/buffer.h>
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
+#include <arrow/util/value_parsing.h>
 
 #include <algorithm>
 #include <cmath>
