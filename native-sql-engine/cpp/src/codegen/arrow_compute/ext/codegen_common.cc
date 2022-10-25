@@ -657,7 +657,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   struct stat pch_stat;
   auto ret = stat(libwscg_pch.c_str(), &pch_stat);
   if (ret == -1) {
-    cmd += env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+    cmd += env_gcc + " -std=c++17 -Wno-deprecated-declarations " + arrow_header +
            arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 + " -c " +
            libwscgfile + env_codegen_option + " -fPIC && ";
   }
