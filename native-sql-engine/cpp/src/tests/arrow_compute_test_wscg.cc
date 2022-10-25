@@ -1756,7 +1756,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCondition2) {
       {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table1_f1)},
       arrow::boolean());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)3)}, uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysSemi",
       {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config, n_condition},

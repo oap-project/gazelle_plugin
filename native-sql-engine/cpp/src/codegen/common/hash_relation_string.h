@@ -59,7 +59,7 @@ class TypedHashRelation<DataType, enable_if_string_like<DataType>> : public Hash
     return arrow::Status::OK();
   }
 
-  int Get(T v) { std::cout << "AAA Get\n"; return hash_table_->Get(arrow::util::string_view(v)); }
+  int Get(T v) { return hash_table_->Get(arrow::util::string_view(v)); }
 
   int Get(arrow::util::string_view v) { return hash_table_->Get(v); }
 

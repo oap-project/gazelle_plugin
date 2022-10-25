@@ -983,13 +983,9 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOneStringInnerJoinType2) {
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema",
-      {TreeExprBuilder::MakeField(table0_f0)},
-      uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {TreeExprBuilder::MakeField(table1_f0)},
-      uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "result",
       {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
@@ -2575,7 +2571,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
 }
 
 TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
-    GTEST_SKIP() << "Skipping decimal key test";
+  GTEST_SKIP() << "Skipping decimal key test";
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", decimal128(5, 0));
   auto table0_f1 = field("table0_f1", uint32());

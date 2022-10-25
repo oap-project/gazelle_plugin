@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include <map>
-
 #include <arrow/compute/api.h>
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
+
+#include <map>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
@@ -34,8 +34,8 @@
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
 using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
-using sparkcolumnarplugin::precompile::is_number_like;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
+using sparkcolumnarplugin::precompile::is_number_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
 using sparkcolumnarplugin::precompile::UnsafeArray;
@@ -186,7 +186,8 @@ class HashRelation {
       if (payload->isNullExists()) continue;
       if (!semi) {
         // RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
-        hash_table_new_.emplace(std::make_pair(std::string(payload->data, payload->cursor), ArrayItemIndex(num_arrays_, i)));
+        hash_table_new_.emplace(std::make_pair(
+            std::string(payload->data, payload->cursor), ArrayItemIndex(num_arrays_, i)));
       } else {
         RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), payload, num_arrays_, i));
       }
@@ -209,7 +210,8 @@ class HashRelation {
       for (int i = 0; i < typed_array->length(); i++) {
         // RETURN_NOT_OK(
         //     Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
-        hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
+        hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)),
+                                               ArrayItemIndex(num_arrays_, i)));
       }
     } else {
       if (semi) {
@@ -228,7 +230,9 @@ class HashRelation {
           } else {
             // RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
             //                      num_arrays_, i));
-            hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
+            hash_table_new_.emplace(
+                std::make_pair(std::to_string(original_key->GetView(i)),
+                               ArrayItemIndex(num_arrays_, i)));
           }
         }
       }
@@ -269,8 +273,10 @@ class HashRelation {
             RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
             auto str = original_key->GetView(i);
-            RETURN_NOT_OK(
-                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+            // RETURN_NOT_OK(
+            //     Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_,
+            //     i));
+            hash_table_new_.emplace(std::make_pair(str, ArrayItemIndex(num_arrays_, i)));
           }
         }
       }
@@ -307,8 +313,8 @@ class HashRelation {
       arrayid_list_.push_back(i->second);
     }
     if (!hasMatch) return -1;
-    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    // if (res == -1) return -1;
+    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v,
+    // &arrayid_list_); if (res == -1) return -1;
     return 0;
   }
 
@@ -333,15 +339,18 @@ class HashRelation {
       return -1;
     }
     return 0;
-    //return safeLookup(hash_table_, payload, v);
+    // return safeLookup(hash_table_, payload, v);
   }
 
   int IfExists(int32_t v, std::string payload) {
-    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0 ;
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0;
   }
 
   int IfExists(int32_t v, std::shared_ptr<UnsafeRow> payload) {
-    return hash_table_new_.find(std::string(payload->data, payload->cursor)) == hash_table_new_.end() ? -1 : 0 ;
+    return hash_table_new_.find(std::string(payload->data, payload->cursor)) ==
+                   hash_table_new_.end()
+               ? -1
+               : 0;
   }
 
   template <typename CType,
@@ -363,7 +372,7 @@ class HashRelation {
       hasMatch = true;
       arrayid_list_.push_back(i->second);
     }
-    
+
     if (!hasMatch) {
       arrayid_list_.clear();
       recent_cached_key_probe_res_ = -1;
@@ -382,8 +391,8 @@ class HashRelation {
       arrayid_list_.push_back(i->second);
     }
     if (!hasMatch) return -1;
-    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    // if (res == -1) return -1;
+    // auto res = safeLookup(hash_table_, payload.data(), payload.size(), v,
+    // &arrayid_list_); if (res == -1) return -1;
     return 0;
   }
 
@@ -391,12 +400,13 @@ class HashRelation {
             typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
   int IfExists(CType payload) {
     int32_t v = hash32(payload, true);
-    return hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end() ? -1 : 0 ;
+    return hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end() ? -1
+                                                                                  : 0;
   }
 
   int IfExists(std::string payload) {
     int32_t v = hash32(payload, true);
-    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0 ;
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0;
   }
 
   int GetNull() {
@@ -515,29 +525,43 @@ class HashRelation {
 
   arrow::Status InsertSkipDup(int32_t v, std::shared_ptr<UnsafeRow> payload,
                               uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
-                      sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // auto index = ArrayItemIndex(array_id, id);
+    // if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
+    //                   sizeof(ArrayItemIndex))) {
+    //   return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // }
+    if (hash_table_new_.find(std::string(payload->data, payload->cursor)) ==
+        hash_table_new_.end()) {
+      hash_table_new_.emplace(std::string(payload->data, payload->cursor),
+                              ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
 
   template <typename CType>
   arrow::Status InsertSkipDup(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // auto index = ArrayItemIndex(array_id, id);
+    // if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex)))
+    // {
+    //   return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // }
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
+      hash_table_new_.emplace(std::to_string(payload), ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
 
   arrow::Status InsertSkipDup(int32_t v, const char* payload, size_t payload_len,
                               uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
-                      sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // auto index = ArrayItemIndex(array_id, id);
+    // if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
+    //                   sizeof(ArrayItemIndex))) {
+    //   return arrow::Status::CapacityError("Insert to HashMap failed.");
+    // }
+    if (hash_table_new_.find(std::string(payload, payload_len)) ==
+        hash_table_new_.end()) {
+      hash_table_new_.emplace(std::string(payload, payload_len),
+                              ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }

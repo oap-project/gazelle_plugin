@@ -542,7 +542,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::TimestampType)          
+  PROCESS(arrow::TimestampType)
     class UnsafeInnerProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeInnerProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -677,7 +677,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::TimestampType)          
+  PROCESS(arrow::TimestampType)
     class UnsafeOuterProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeOuterProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -857,7 +857,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::TimestampType)          
+  PROCESS(arrow::TimestampType)
     class UnsafeAntiProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeAntiProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -1054,7 +1054,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::TimestampType)          
+  PROCESS(arrow::TimestampType)
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
         auto typed_key_array = std::dynamic_pointer_cast<arrow::Int32Array>(key_array);
@@ -1185,7 +1185,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::TimestampType)          
+  PROCESS(arrow::TimestampType)
     class UnsafeExistenceProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeExistenceProbeFunction(
