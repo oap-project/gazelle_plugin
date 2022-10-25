@@ -45,7 +45,42 @@
       <dependencies>
         <dependency>
           <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark32</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
           <artifactId>spark-sql-columnar-shims-spark321</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>spark-3.2.1</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark32</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark321</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>spark-3.2.2</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark32</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark322</artifactId>
           <version>${project.version}</version>
         </dependency>
       </dependencies>

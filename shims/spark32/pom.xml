@@ -25,7 +25,7 @@
     </parent>
 
     <artifactId>spark-sql-columnar-shims-spark32</artifactId>
-    <name>${project.name.prefix} Shims common for Spark 3.2.x</name>
+    <name>${project.name.prefix} Shims Common for Spark 3.2.x</name>
     <packaging>jar</packaging>
 
     <build>

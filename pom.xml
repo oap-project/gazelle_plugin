@@ -166,7 +166,7 @@
     <build_jemalloc>ON</build_jemalloc>
     <native_avx512>ON</native_avx512>
     <project.prefix>spark-sql-columnar</project.prefix>
-    <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
+    <project.name.prefix>OAP Project Gazelle</project.name.prefix>
   </properties>
 
   <dependencyManagement>
