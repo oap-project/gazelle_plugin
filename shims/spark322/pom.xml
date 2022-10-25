@@ -87,6 +87,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.intel.oap</groupId>
+            <artifactId>spark-sql-columnar-shims-spark32</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
             <version>${spark322.version}</version>
