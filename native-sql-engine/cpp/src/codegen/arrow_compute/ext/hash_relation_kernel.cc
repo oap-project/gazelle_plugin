@@ -85,6 +85,9 @@ class HashRelationKernel::Impl {
       // This is for using unsafeHashMap while with skipDuplication strategy
       semi_ = true;
       builder_type_ = 1;
+#ifdef DEBUG
+      std::cout << "using SEMI skipDuplication optimization strategy" << std::endl;
+#endif
     }
     if (builder_type_ == 1) {
       // we will use unsafe_row and new unsafe_hash_map

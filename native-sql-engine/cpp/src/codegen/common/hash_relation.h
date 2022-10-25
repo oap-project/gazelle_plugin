@@ -226,8 +226,9 @@ class HashRelation {
           if (original_key->IsNull(i)) {
             RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
-            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
-                                 num_arrays_, i));
+            // RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
+            //                      num_arrays_, i));
+            hash_table_new_.emplace(std::make_pair(std::to_string(original_key->GetView(i)), ArrayItemIndex(num_arrays_, i)));
           }
         }
       }
