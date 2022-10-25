@@ -189,9 +189,7 @@ class HashRelationKernel::Impl {
     }
     for (int idx = 0; idx < key_hash_cached_.size(); idx++) {
       auto key_array = key_hash_cached_[idx];
-      // if (builder_type_ == 0) {
-      //   RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array));
-      // } else {
+
       auto project_outputs = keys_cached_[idx];
 
 /* For single field fixed_size key, we simply insert to HashMap without append
@@ -241,7 +239,6 @@ class HashRelationKernel::Impl {
         }
         RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads, semi_));
       }
-      //}
     }
     hash_relation_->Minimize();
     return arrow::Status::OK();
