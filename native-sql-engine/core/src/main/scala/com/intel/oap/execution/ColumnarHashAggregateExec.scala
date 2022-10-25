@@ -74,6 +74,12 @@ case class ColumnarHashAggregateExec(
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
 
+  // For compatibility consideration on spark3.2.2.
+  def isStreaming: Boolean = false
+
+  // For compatibility consideration on spark3.2.2.
+  def numShufflePartitions: Option[Int] = Option.empty[Int]
+
   var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)
 
   override lazy val allAttributes: AttributeSeq =
