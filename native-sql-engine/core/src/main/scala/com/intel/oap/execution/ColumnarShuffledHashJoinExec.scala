@@ -270,7 +270,7 @@ case class ColumnarShuffledHashJoinExec(
   }
 
   override def supportColumnarCodegen: Boolean = {
-    this.supportCodegen
+    this.supportCodegen && super.supportColumnarCodegen
   }
 
   val output_skip_alias =

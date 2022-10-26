@@ -723,7 +723,7 @@ case class ColumnarHashAggregateExec(
         }
       }
     }
-    return true
+    super.supportColumnarCodegen
   }
 
   def getKernelFunction: TreeNode = {

@@ -222,6 +222,9 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf
       .getConfString("spark.oap.sql.columnar.shuffleSplitDefaultSize", "8192").toInt
 
+  val maxWholeStageCodegenColumnNum: Int =
+    conf.getConfString("spark.oap.sql.columnar.codegen.maxColumnNum", "30").toInt
+
   val numaBindingInfo: GazelleNumaBindingInfo = {
     val enableNumaBinding: Boolean =
       conf.getConfString("spark.oap.sql.columnar.numaBinding", "false").toBoolean

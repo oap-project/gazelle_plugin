@@ -139,7 +139,7 @@ case class ColumnarSortExec(
       Seq(child.executeColumnar())
   }
 
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = super.supportColumnarCodegen
 
   override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = child match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>

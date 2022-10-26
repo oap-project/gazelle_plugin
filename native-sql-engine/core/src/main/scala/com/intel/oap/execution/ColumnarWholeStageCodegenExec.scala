@@ -46,7 +46,10 @@ trait ColumnarCodegenSupport extends SparkPlan {
   /**
    * Whether this SparkPlan supports whole stage codegen or not.
    */
-  def supportColumnarCodegen: Boolean = true
+  def supportColumnarCodegen: Boolean = {
+    // TODO: support large num columns in WSCG
+    output.size <= GazellePluginConfig.getSessionConf.maxWholeStageCodegenColumnNum
+  }
 
   /**
    * Returns all the RDDs of ColumnarBatch which generates the input rows.
@@ -91,7 +94,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
 
   // This is not strictly needed because the codegen transformation happens after the columnar
   // transformation but just for consistency
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = super.supportColumnarCodegen
 
   override def supportsColumnar: Boolean = true
 
