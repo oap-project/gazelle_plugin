@@ -76,6 +76,7 @@ case class ColumnarShuffleExchangeAdaptor(
 
   override def nodeName: String = "ColumnarExchange"
   override def output: Seq[Attribute] = child.output
+  buildCheck()
 
   override def supportsColumnar: Boolean = true
   override def numMappers: Int = shuffleDependency.rdd.getNumPartitions
@@ -91,7 +92,40 @@ case class ColumnarShuffleExchangeAdaptor(
   }
   override def stringArgs =
     super.stringArgs ++ Iterator(s"[id=#$id]")
-  //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
+
+  def buildCheck(): Unit = {
+    val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
+    // check input datatype
+    for (attr <- child.output) {
+      try {
+        if (!columnarConf.enableComplexType) {
+          ConverterUtils.checkIfTypeSupported(attr.dataType)
+        } else {
+          ConverterUtils.createArrowField(attr)
+        }
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
+      }
+    }
+    // Check partitioning keys
+    outputPartitioning match {
+      case HashPartitioning(exprs, n) =>
+        exprs.zipWithIndex.foreach {
+          case (expr, i) =>
+            val attr = ConverterUtils.getAttrFromExpr(expr)
+            try {
+              ConverterUtils.checkIfTypeSupported(attr.dataType)
+            } catch {
+              case e: UnsupportedOperationException =>
+                throw new UnsupportedOperationException(
+                  s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec Partitioning.")
+            }
+        }
+      case _ =>
+    }
+  }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
     schema,
