@@ -22,7 +22,7 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
-#include <map>
+#include <unordered_map>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
@@ -524,7 +524,7 @@ class HashRelation {
   // see below code for details
   unsafeHashMap* hash_table_ = nullptr;
   // TODO(yuan): using string_view
-  std::multimap<std::string, ArrayItemIndex> hash_table_new_;
+  std::unordered_multimap<std::string, ArrayItemIndex> hash_table_new_;
   // TODO(yuan): should template this instead of using a flag
   bool isBHJ_ = true;
 
