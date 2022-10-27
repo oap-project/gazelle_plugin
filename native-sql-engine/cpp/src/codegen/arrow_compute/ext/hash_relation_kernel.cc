@@ -78,15 +78,25 @@ class HashRelationKernel::Impl {
     }
     // Notes:
     // 0 -> unsed, should be removed
-    // 1 -> SHJ
-    // 2 -> BHJ
-    // 3 -> Semi opts SHJ, can be applied to anti join also
+    // 1 -> BHJ hash map builder
+    // 2 -> BHJ adaptor
+    // 3 -> BHJ Semi opts SHJ, can be applied to anti join also
+    // 11 -> SHJ with std::multimap
+    // 13 -> SHJ Semi Opts with std::multimap
     if (builder_type_ == 3) {
       // This is for using unsafeHashMap while with skipDuplication strategy
       semi_ = true;
       builder_type_ = 1;
 #ifdef DEBUG
-      std::cout << "using SEMI skipDuplication optimization strategy" << std::endl;
+      std::cout << "using BHJ SEMI skipDuplication optimization strategy" << std::endl;
+#endif
+    }
+    if (builder_type_ == 13) {
+      // This is for using unsafeHashMap while with skipDuplication strategy
+      semi_ = true;
+      builder_type_ = 11;
+#ifdef DEBUG
+      std::cout << "using SHJ SEMI skipDuplication optimization strategy" << std::endl;
 #endif
     }
     if (builder_type_ == 1) {
@@ -128,8 +138,30 @@ class HashRelationKernel::Impl {
         // TODO: better to estimate key_size_ for multiple keys join
         hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
       }
-    } else {
+
+    } else if (builder_type_ == 2) {
       hash_relation_ = std::make_shared<HashRelation>(hash_relation_list);
+    } else {
+      // build_type = 11
+      // we will use unsafe_row and new unsafe_hash_map
+      gandiva::ExpressionVector key_project_expr = GetGandivaKernel(key_nodes);
+      gandiva::ExpressionPtr key_hash_expr = GetHash32Kernel(key_nodes);
+
+      auto schema = arrow::schema(input_field_list);
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
+      THROW_NOT_OK(gandiva::Projector::Make(schema, key_project_expr, configuration,
+                                            &key_prepare_projector_));
+      gandiva::FieldVector key_hash_field_list;
+      for (auto expr : key_project_expr) {
+        key_hash_field_list.push_back(expr->result());
+      }
+      hash_input_schema_ = arrow::schema(key_hash_field_list);
+      THROW_NOT_OK(gandiva::Projector::Make(hash_input_schema_, {key_hash_expr},
+                                            configuration, &key_projector_));
+
+      hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
+      // mark as SHJ hashmap
+      hash_relation_->setHashMapType(false /*SHJ*/);
     }
   }
 
@@ -140,7 +172,9 @@ class HashRelationKernel::Impl {
     for (int i = 0; i < in.size(); i++) {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
     }
-    if (builder_type_ == 2) return arrow::Status::OK();
+    if (builder_type_ == 2) {
+      return arrow::Status::OK();
+    }
     std::shared_ptr<arrow::Array> key_array;
 
     /* Process original key projection */
@@ -164,7 +198,9 @@ class HashRelationKernel::Impl {
   }
 
   arrow::Status FinishInternal() {
-    if (builder_type_ == 2) return arrow::Status::OK();
+    if (builder_type_ == 2) {
+      return arrow::Status::OK();
+    }
     // Decide init hashmap size
     if (builder_type_ == 1) {
       int init_key_capacity = 128;

@@ -105,17 +105,17 @@ case class ColumnarShuffledHashJoinExec(
   }
 
   val builder_type = {
-    if (condition.isDefined) 1
+    if (condition.isDefined) 11
     else {
       joinType match {
         case LeftSemi =>
-          3
+          13
         case LeftAnti =>
-          3
+          13
         case j: ExistenceJoin =>
-          3
+          13
         case other =>
-          1
+          11
       }
     }
   }

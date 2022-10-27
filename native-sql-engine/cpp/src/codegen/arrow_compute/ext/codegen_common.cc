@@ -395,7 +395,7 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list) {
         gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node, seed}, ret_type);
     seed = func_node;
   }
-  func_node_list.push_back(seed);
+  func_node_list.push_back(func_node);
   return gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
                                                   arrow::field("hash_key", ret_type));
 }

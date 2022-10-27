@@ -513,14 +513,20 @@ class HashRelation {
   }
 
  protected:
+  using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
   bool unsafe_set = false;
   arrow::compute::ExecContext* ctx_;
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
+  // The unsafeHashMap is for BHJ, std::multimap is for SHJ
+  // each map should impl: Get(), Insert(), InsertSkipDup(), IfExists()
+  // see below code for details
   unsafeHashMap* hash_table_ = nullptr;
+  // TODO(yuan): using string_view
   std::multimap<std::string, ArrayItemIndex> hash_table_new_;
+  // TODO(yuan): should template this instead of using a flag
   bool isBHJ_ = true;
-  using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
+
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
   std::vector<ArrayItemIndex> arrayid_list_;
