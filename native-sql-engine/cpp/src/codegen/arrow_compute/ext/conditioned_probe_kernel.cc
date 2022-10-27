@@ -383,7 +383,7 @@ class ConditionedProbeKernel::Impl {
       auto typed_dependent =
           std::dynamic_pointer_cast<ResultIterator<HashRelation>>(iter);
       if (typed_dependent == nullptr) {
-        throw std::runtime_error("casting on hash relation iterator failed");
+        throw JniPendingException("casting on hash relation iterator failed");
       }
       RETURN_NOT_OK(typed_dependent->Next(&hash_relation_));
 
@@ -600,9 +600,9 @@ class ConditionedProbeKernel::Impl {
               }
             } break;
             default: {
-              throw std::runtime_error(
-                  "UnsafeInnerProbeFunction Evaluate doesn't support single "
-                  "key type ");
+              throw JniPendingException(
+                  "UnsafeInnerProbeFunction Evaluate doesn't support single " +
+                  key_payloads[0]->type()->ToString());
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -739,9 +739,9 @@ class ConditionedProbeKernel::Impl {
               }
             } break;
             default: {
-              throw std::runtime_error(
-                  "UnsafeOuterProbeFunction Evaluate doesn't support single "
-                  "key type ");
+              throw JniPendingException(
+                  "UnsafeOuterProbeFunction Evaluate doesn't support single " +
+                  key_payloads[0]->type()->ToString());
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -941,9 +941,9 @@ class ConditionedProbeKernel::Impl {
               }
             } break;
             default: {
-              throw std::runtime_error(
-                  "UnsafeAntiProbeFunction Evaluate doesn't support single key "
-                  "type ");
+              throw JniPendingException(
+                  "UnsafeAntiProbeFunction Evaluate doesn't support single key " +
+                  key_payloads[0]->type()->ToString());
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1108,9 +1108,9 @@ class ConditionedProbeKernel::Impl {
               }
             } break;
             default: {
-              throw std::runtime_error(
-                  "UnsafeSemiProbeFunction Evaluate doesn't support single key "
-                  "type ");
+              throw JniPendingException(
+                  "UnsafeSemiProbeFunction Evaluate doesn't support single key " +
+                  key_payloads[0]->type()->ToString());
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1244,9 +1244,9 @@ class ConditionedProbeKernel::Impl {
               }
             } break;
             default: {
-              throw std::runtime_error(
-                  "UnsafeSemiProbeFunction Evaluate doesn't support single key "
-                  "type ");
+              throw JniPendingException(
+                  "UnsafeExistenceProbeFunction Evaluate doesn't support single key " +
+                  key_payloads[0]->type()->ToString());
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES

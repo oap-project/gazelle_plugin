@@ -27,6 +27,7 @@
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
 #include "precompile/unsafe_array.h"
+#include "third_party/arrow/utils/hashing.h"
 #include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
 #include "utils/macros.h"
