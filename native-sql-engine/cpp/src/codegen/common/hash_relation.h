@@ -283,7 +283,7 @@ class HashRelation {
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int Get(int32_t v, CType payload) {
+  int Get(const int32_t& v, const CType& payload) {
     if (isBHJ_) {
       auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
       if (res == -1) return -1;
@@ -301,7 +301,7 @@ class HashRelation {
     return 0;
   }
 
-  int Get(int32_t v, std::string payload) {
+  int Get(const int32_t& v, const std::string& payload) {
     if (isBHJ_) {
       auto res =
           safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
@@ -319,7 +319,7 @@ class HashRelation {
     return 0;
   }
 
-  int Get(int32_t v, std::shared_ptr<UnsafeRow> payload) {
+  int Get(const int32_t& v, std::shared_ptr<UnsafeRow> payload) {
     if (isBHJ_) {
       auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
       if (res == -1) return -1;
@@ -338,7 +338,7 @@ class HashRelation {
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int IfExists(int32_t v, CType payload) {
+  int IfExists(const int32_t& v, const CType& payload) {
     if (isBHJ_) {
       return safeLookup(hash_table_, payload, v);
     }
@@ -348,7 +348,7 @@ class HashRelation {
     return 0;
   }
 
-  int IfExists(int32_t v, std::string payload) {
+  int IfExists(const int32_t& v, const std::string& payload) {
     if (isBHJ_) {
       return safeLookup(hash_table_, payload.data(), payload.size(), v);
     }
@@ -367,7 +367,7 @@ class HashRelation {
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int Get(CType payload) {
+  int Get(const CType& payload) {
     if (sizeof(payload) <= 8) {
       if (has_cached_ && *(CType*)recent_cached_key_ == payload) {
         return recent_cached_key_probe_res_;
@@ -403,7 +403,7 @@ class HashRelation {
     return 0;
   }
 
-  int Get(std::string payload) {
+  int Get(const std::string& payload) {
     if (isBHJ_) {
       int32_t v = hash32(payload, true);
       auto res =
@@ -424,7 +424,7 @@ class HashRelation {
 
   template <typename CType,
             typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
-  int IfExists(CType payload) {
+  int IfExists(const CType& payload) {
     if (isBHJ_) {
       int32_t v = hash32(payload, true);
       return safeLookup(hash_table_, payload, v);
@@ -434,7 +434,7 @@ class HashRelation {
                                                                                   : 0;
   }
 
-  int IfExists(std::string payload) {
+  int IfExists(const std::string& payload) {
     if (isBHJ_) {
       int32_t v = hash32(payload, true);
       return safeLookup(hash_table_, payload.data(), payload.size(), v);
@@ -536,8 +536,8 @@ class HashRelation {
   bool has_cached_ = false;
   int recent_cached_key_probe_res_ = -1;
 
-  arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
-                       uint32_t id) {
+  arrow::Status Insert(const int32_t& v, std::shared_ptr<UnsafeRow> payload, const uint32_t& array_id,
+                       const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -551,7 +551,7 @@ class HashRelation {
   }
 
   template <typename CType>
-  arrow::Status Insert(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
+  arrow::Status Insert(const int32_t& v, const CType& payload, const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!append(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -564,8 +564,8 @@ class HashRelation {
     return arrow::Status::OK();
   }
 
-  arrow::Status Insert(int32_t v, const char* payload, size_t payload_len,
-                       uint32_t array_id, uint32_t id) {
+  arrow::Status Insert(const int32_t& v, const char* payload, const size_t& payload_len,
+                       const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!append(hash_table_, payload, payload_len, v, (char*)&index,
@@ -579,8 +579,8 @@ class HashRelation {
     return arrow::Status::OK();
   }
 
-  arrow::Status InsertSkipDup(int32_t v, std::shared_ptr<UnsafeRow> payload,
-                              uint32_t array_id, uint32_t id) {
+  arrow::Status InsertSkipDup(const int32_t& v, std::shared_ptr<UnsafeRow> payload,
+                              const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
@@ -598,7 +598,7 @@ class HashRelation {
   }
 
   template <typename CType>
-  arrow::Status InsertSkipDup(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
+  arrow::Status InsertSkipDup(const int32_t& v, const CType& payload, const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -612,8 +612,8 @@ class HashRelation {
     return arrow::Status::OK();
   }
 
-  arrow::Status InsertSkipDup(int32_t v, const char* payload, size_t payload_len,
-                              uint32_t array_id, uint32_t id) {
+  arrow::Status InsertSkipDup(const int32_t& v, const char* payload, const size_t& payload_len,
+                              const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
@@ -630,7 +630,7 @@ class HashRelation {
     return arrow::Status::OK();
   }
 
-  arrow::Status InsertNull(uint32_t array_id, uint32_t id) {
+  arrow::Status InsertNull(const uint32_t& array_id, const uint32_t& id) {
     if (!null_index_set_) {
       null_index_set_ = true;
       null_index_list_ = {ArrayItemIndex(array_id, id)};
