@@ -89,6 +89,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val enableColumnarShuffledHashJoin: Boolean =
     conf.getConfString("spark.oap.sql.columnar.shuffledhashjoin", "true").toBoolean && enableCpu
 
+  // using new hashmap in columnar shuffledhashjoin or not
+  val enableColumnarShuffledHashJoinNewMap: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.shuffledhashjoinNewMap", "false").toBoolean && enableCpu
+
   val enableArrowColumnarToRow: Boolean =
     conf.getConfString("spark.oap.sql.columnar.columnartorow", "true").toBoolean && enableCpu
 
