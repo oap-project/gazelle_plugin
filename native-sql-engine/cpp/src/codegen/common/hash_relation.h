@@ -536,8 +536,8 @@ class HashRelation {
   bool has_cached_ = false;
   int recent_cached_key_probe_res_ = -1;
 
-  arrow::Status Insert(const int32_t& v, std::shared_ptr<UnsafeRow> payload, const uint32_t& array_id,
-                       const uint32_t& id) {
+  arrow::Status Insert(const int32_t& v, std::shared_ptr<UnsafeRow> payload,
+                       const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -551,7 +551,8 @@ class HashRelation {
   }
 
   template <typename CType>
-  arrow::Status Insert(const int32_t& v, const CType& payload, const uint32_t& array_id, const uint32_t& id) {
+  arrow::Status Insert(const int32_t& v, const CType& payload, const uint32_t& array_id,
+                       const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!append(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -598,7 +599,8 @@ class HashRelation {
   }
 
   template <typename CType>
-  arrow::Status InsertSkipDup(const int32_t& v, const CType& payload, const uint32_t& array_id, const uint32_t& id) {
+  arrow::Status InsertSkipDup(const int32_t& v, const CType& payload,
+                              const uint32_t& array_id, const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
@@ -612,8 +614,9 @@ class HashRelation {
     return arrow::Status::OK();
   }
 
-  arrow::Status InsertSkipDup(const int32_t& v, const char* payload, const size_t& payload_len,
-                              const uint32_t& array_id, const uint32_t& id) {
+  arrow::Status InsertSkipDup(const int32_t& v, const char* payload,
+                              const size_t& payload_len, const uint32_t& array_id,
+                              const uint32_t& id) {
     if (isBHJ_) {
       auto index = ArrayItemIndex(array_id, id);
       if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
