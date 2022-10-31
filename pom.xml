@@ -59,6 +59,26 @@
       </properties>
     </profile>
     <profile>
+      <id>spark-3.2.1</id>
+      <properties>
+        <spark.version>${spark321.version}</spark.version>
+        <scala.version>2.12.15</scala.version>
+        <!--Jackson may be directly used in future UT. Align with the version in spark 3.2.-->
+        <jackson.version>2.12.0</jackson.version>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+    </profile>
+    <profile>
+      <id>spark-3.2.2</id>
+      <properties>
+        <spark.version>${spark322.version}</spark.version>
+        <scala.version>2.12.15</scala.version>
+        <!--Jackson may be directly used in future UT. Align with the version in spark 3.2.-->
+        <jackson.version>2.12.0</jackson.version>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+    </profile>
+    <profile>
       <id>hadoop-2.7.4</id>
       <properties>
         <hadoop.version>2.7.4</hadoop.version>
@@ -122,6 +142,7 @@
     <spark.version>3.1.1</spark.version>
     <spark311.version>3.1.1</spark311.version>
     <spark321.version>3.2.1</spark321.version>
+    <spark322.version>3.2.2</spark322.version>
     <!-- Scala 2.12.10 is the version for default spark 3.1 -->
     <scala.version>2.12.10</scala.version>
     <java.version>1.8</java.version>
@@ -145,7 +166,7 @@
     <build_jemalloc>ON</build_jemalloc>
     <native_avx512>ON</native_avx512>
     <project.prefix>spark-sql-columnar</project.prefix>
-    <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
+    <project.name.prefix>OAP Project Gazelle</project.name.prefix>
   </properties>
 
   <dependencyManagement>

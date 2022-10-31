@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark321
+package com.intel.oap.sql.shims.spark322
 
 import com.intel.oap.sql.shims.ShimDescriptor
 import com.intel.oap.sql.shims.spark32.Spark32Shims
 
-class Spark321Shims extends Spark32Shims {
+class Spark322Shims extends Spark32Shims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
+
 }
