@@ -269,7 +269,7 @@ macro(build_arrow STATIC_ARROW)
     add_dependencies(Arrow::gandiva arrow_ep)
 
     target_link_libraries(spark_columnar_jni
-                      LINK_PUBLIC Arrow::arrow Arrow::gandiva fmt)
+                      LINK_PUBLIC Arrow::arrow Arrow::gandiva)
   endif()
 endmacro()
 
@@ -425,7 +425,7 @@ if(TESTS)
   find_package(GTest)
 macro(package_add_test TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
-  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni dl fmt ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni dl ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
   gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${PROJECT_DIR}

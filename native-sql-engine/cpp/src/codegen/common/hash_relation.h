@@ -22,8 +22,6 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
-#include <fmt/format.h>
-
 #include <unordered_map>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
@@ -294,7 +292,7 @@ class HashRelation {
     }
     bool hasMatch = false;
     arrayid_list_.clear();
-    auto range = hash_table_new_.equal_range(fmt::to_string(payload));
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
     for (auto i = range.first; i != range.second; ++i) {
       hasMatch = true;
       arrayid_list_.push_back(i->second);
@@ -344,7 +342,7 @@ class HashRelation {
     if (isBHJ_) {
       return safeLookup(hash_table_, payload, v);
     }
-    if (hash_table_new_.find(fmt::to_string(payload)) == hash_table_new_.end()) {
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
       return -1;
     }
     return 0;
@@ -390,7 +388,7 @@ class HashRelation {
     }
     bool hasMatch = false;
     arrayid_list_.clear();
-    auto range = hash_table_new_.equal_range(fmt::to_string(payload));
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
     for (auto i = range.first; i != range.second; ++i) {
       hasMatch = true;
       arrayid_list_.push_back(i->second);
@@ -432,7 +430,7 @@ class HashRelation {
       return safeLookup(hash_table_, payload, v);
     }
     int32_t v = hash32(payload, true);
-    return hash_table_new_.find(fmt::to_string(payload)) == hash_table_new_.end() ? -1
+    return hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end() ? -1
                                                                                   : 0;
   }
 
@@ -562,7 +560,7 @@ class HashRelation {
       return arrow::Status::OK();
     }
     hash_table_new_.emplace(
-        std::make_pair(fmt::to_string(payload), ArrayItemIndex(array_id, id)));
+        std::make_pair(std::to_string(payload), ArrayItemIndex(array_id, id)));
     return arrow::Status::OK();
   }
 
@@ -608,8 +606,8 @@ class HashRelation {
       }
       return arrow::Status::OK();
     }
-    if (hash_table_new_.find(fmt::to_string(payload)) == hash_table_new_.end()) {
-      hash_table_new_.emplace(fmt::to_string(payload), ArrayItemIndex(array_id, id));
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
+      hash_table_new_.emplace(std::to_string(payload), ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
