@@ -746,7 +746,7 @@ class JDBCSuite extends QueryTest
     val agg = new AggregatedDialect(List(new JdbcDialect {
       override def canHandle(url: String) : Boolean = url.startsWith("jdbc:h2:")
       override def getCatalystType(
-                                    sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] =
+          sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] =
         if (sqlType % 2 == 0) {
           Some(LongType)
         } else {
@@ -777,10 +777,10 @@ class JDBCSuite extends QueryTest
     def genDialect(cascadingTruncateTable: Option[Boolean]): JdbcDialect = new JdbcDialect {
       override def canHandle(url: String): Boolean = true
       override def getCatalystType(
-          sqlType: Int,
-          typeName: String,
-          size: Int,
-          md: MetadataBuilder): Option[DataType] = None
+        sqlType: Int,
+        typeName: String,
+        size: Int,
+        md: MetadataBuilder): Option[DataType] = None
       override def isCascadingTruncateTable(): Option[Boolean] = cascadingTruncateTable
     }
 
@@ -1047,13 +1047,13 @@ class JDBCSuite extends QueryTest
     withTable(tableName) {
       sql(
         s"""
-          |CREATE TABLE $tableName
-          |USING org.apache.spark.sql.jdbc
-          |OPTIONS (
-          | url '$urlWithUserAndPass',
-          | dbtable 'TEST.PEOPLE',
-          | user 'testUser',
-          | password '$password')
+           |CREATE TABLE $tableName
+           |USING org.apache.spark.sql.jdbc
+           |OPTIONS (
+           | url '$urlWithUserAndPass',
+           | dbtable 'TEST.PEOPLE',
+           | user 'testUser',
+           | password '$password')
          """.stripMargin)
 
       val storageProps = sql(s"DESC FORMATTED $tableName")
@@ -1315,11 +1315,11 @@ class JDBCSuite extends QueryTest
 
     sql(
       s"""
-        |CREATE OR REPLACE TEMPORARY VIEW test_sessionInitStatement
-        |USING org.apache.spark.sql.jdbc
-        |OPTIONS (url '$urlWithUserAndPass',
-        |dbtable '(SELECT NVL(@MYTESTVAR1, -1), NVL(@MYTESTVAR2, -1))',
-        |sessionInitStatement 'SET @MYTESTVAR1 21519; SET @MYTESTVAR2 1234')
+         |CREATE OR REPLACE TEMPORARY VIEW test_sessionInitStatement
+         |USING org.apache.spark.sql.jdbc
+         |OPTIONS (url '$urlWithUserAndPass',
+         |dbtable '(SELECT NVL(@MYTESTVAR1, -1), NVL(@MYTESTVAR2, -1))',
+         |sessionInitStatement 'SET @MYTESTVAR1 21519; SET @MYTESTVAR2 1234')
        """.stripMargin)
 
     val df3 = sql("SELECT * FROM test_sessionInitStatement")
@@ -1339,9 +1339,9 @@ class JDBCSuite extends QueryTest
     withTempView("people_view") {
       sql(
         s"""
-           |CREATE TEMPORARY VIEW people_view
-           |USING org.apache.spark.sql.jdbc
-           |OPTIONS (uRl '$url', DbTaBlE 'TEST.PEOPLE', User 'testUser', PassWord 'testPass')
+          |CREATE TEMPORARY VIEW people_view
+          |USING org.apache.spark.sql.jdbc
+          |OPTIONS (uRl '$url', DbTaBlE 'TEST.PEOPLE', User 'testUser', PassWord 'testPass')
         """.stripMargin.replaceAll("\n", " "))
 
       assert(sql("select * from people_view").schema === schema)
