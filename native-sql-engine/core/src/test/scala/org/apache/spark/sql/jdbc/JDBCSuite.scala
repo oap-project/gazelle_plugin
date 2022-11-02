@@ -59,17 +59,17 @@ class JDBCSuite extends QueryTest
   val testH2Dialect = new JdbcDialect {
     override def canHandle(url: String): Boolean = url.startsWith("jdbc:h2")
     override def getCatalystType(
-                                  sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] =
+        sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] =
       Some(StringType)
   }
 
   val testH2DialectTinyInt = new JdbcDialect {
     override def canHandle(url: String): Boolean = url.startsWith("jdbc:h2")
     override def getCatalystType(
-                                  sqlType: Int,
-                                  typeName: String,
-                                  size: Int,
-                                  md: MetadataBuilder): Option[DataType] = {
+        sqlType: Int,
+        typeName: String,
+        size: Int,
+        md: MetadataBuilder): Option[DataType] = {
       sqlType match {
         case java.sql.Types.TINYINT => Some(ByteType)
         case _ => None
@@ -100,34 +100,34 @@ class JDBCSuite extends QueryTest
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW foobar
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW foobar
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW fetchtwo
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
-         |         ${JDBCOptions.JDBC_BATCH_FETCH_SIZE} '2')
+        |CREATE OR REPLACE TEMPORARY VIEW fetchtwo
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
+        |         ${JDBCOptions.JDBC_BATCH_FETCH_SIZE} '2')
        """.stripMargin.replaceAll("\n", " "))
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW parts
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
-         |         partitionColumn 'THEID', lowerBound '1', upperBound '4', numPartitions '3')
+        |CREATE OR REPLACE TEMPORARY VIEW parts
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
+        |         partitionColumn 'THEID', lowerBound '1', upperBound '4', numPartitions '3')
        """.stripMargin.replaceAll("\n", " "))
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW partsoverflow
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
-         |         partitionColumn 'THEID', lowerBound '-9223372036854775808',
-         |         upperBound '9223372036854775807', numPartitions '3')
+        |CREATE OR REPLACE TEMPORARY VIEW partsoverflow
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.PEOPLE', user 'testUser', password 'testPass',
+        |         partitionColumn 'THEID', lowerBound '-9223372036854775808',
+        |         upperBound '9223372036854775807', numPartitions '3')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement("create table test.inttypes (a INT, b BOOLEAN, c TINYINT, "
@@ -139,9 +139,9 @@ class JDBCSuite extends QueryTest
     conn.commit()
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW inttypes
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.INTTYPES', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW inttypes
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.INTTYPES', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement("create table test.strtypes (a BINARY(20), b VARCHAR(20), "
@@ -156,9 +156,9 @@ class JDBCSuite extends QueryTest
     stmt.executeUpdate()
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW strtypes
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.STRTYPES', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW strtypes
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.STRTYPES', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement("create table test.timetypes (a TIME, b DATE, c TIMESTAMP(7))"
@@ -170,9 +170,9 @@ class JDBCSuite extends QueryTest
     conn.commit()
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW timetypes
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.TIMETYPES', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW timetypes
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.TIMETYPES', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement("CREATE TABLE test.timezone (tz TIMESTAMP WITH TIME ZONE) " +
@@ -194,16 +194,16 @@ class JDBCSuite extends QueryTest
     conn.commit()
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW flttypes
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.FLTTYPES', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW flttypes
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.FLTTYPES', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement(
       s"""
-         |create table test.nulltypes (a INT, b BOOLEAN, c TINYINT, d BINARY(20), e VARCHAR(20),
-         |f VARCHAR_IGNORECASE(20), g CHAR(20), h BLOB, i CLOB, j TIME, k DATE, l TIMESTAMP,
-         |m DOUBLE, n REAL, o DECIMAL(38, 18))
+        |create table test.nulltypes (a INT, b BOOLEAN, c TINYINT, d BINARY(20), e VARCHAR(20),
+        |f VARCHAR_IGNORECASE(20), g CHAR(20), h BLOB, i CLOB, j TIME, k DATE, l TIMESTAMP,
+        |m DOUBLE, n REAL, o DECIMAL(38, 18))
        """.stripMargin.replaceAll("\n", " ")).executeUpdate()
     conn.prepareStatement("insert into test.nulltypes values ("
       + "null, null, null, null, null, null, null, null, null, "
@@ -241,10 +241,10 @@ class JDBCSuite extends QueryTest
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW nullparts
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST.EMP', user 'testUser', password 'testPass',
-         |partitionColumn '"Dept"', lowerBound '1', upperBound '4', numPartitions '3')
+        |CREATE OR REPLACE TEMPORARY VIEW nullparts
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST.EMP', user 'testUser', password 'testPass',
+        |partitionColumn '"Dept"', lowerBound '1', upperBound '4', numPartitions '3')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement(
@@ -257,9 +257,9 @@ class JDBCSuite extends QueryTest
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW mixedCaseCols
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable 'TEST."mixedCaseCols"', user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW mixedCaseCols
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable 'TEST."mixedCaseCols"', user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     conn.prepareStatement("CREATE TABLE test.partition (THEID INTEGER, `THE ID` INTEGER) " +
@@ -442,10 +442,10 @@ class JDBCSuite extends QueryTest
     // Regression test for bug SPARK-7345
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW renamed
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable '(select NAME as NAME1, NAME as NAME2 from TEST.PEOPLE)',
-         |user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW renamed
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable '(select NAME as NAME1, NAME as NAME2 from TEST.PEOPLE)',
+        |user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
 
     val df = sql("SELECT * FROM renamed")
@@ -676,10 +676,10 @@ class JDBCSuite extends QueryTest
   test("SQL query as table name") {
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW hack
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$url', dbtable '(SELECT B, B*B FROM TEST.FLTTYPES)',
-         |         user 'testUser', password 'testPass')
+        |CREATE OR REPLACE TEMPORARY VIEW hack
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$url', dbtable '(SELECT B, B*B FROM TEST.FLTTYPES)',
+        |         user 'testUser', password 'testPass')
        """.stripMargin.replaceAll("\n", " "))
     val rows = sql("SELECT * FROM hack").collect()
     assert(rows(0).getDouble(0) === 1.00000011920928955) // Yes, I meant ==.
@@ -731,39 +731,6 @@ class JDBCSuite extends QueryTest
     assert(DerbyColumns === Seq(""""abc"""", """"key""""))
   }
 
-//  test("compile filters") {
-//    def doCompileFilter(f: Filter): String =
-//      JdbcDialects.get("jdbc:").compileExpression(f.toV2).getOrElse("")
-//
-//    Seq(("col0", "col1"), ("`col0`", "`col1`")).foreach { case(col0, col1) =>
-//      assert(doCompileFilter(EqualTo(col0, 3)) === """"col0" = 3""")
-//      assert(doCompileFilter(Not(EqualTo(col1, "abc"))) === """NOT ("col1" = 'abc')""")
-//      assert(doCompileFilter(And(EqualTo(col0, 0), EqualTo(col1, "def")))
-//        === """("col0" = 0) AND ("col1" = 'def')""")
-//      assert(doCompileFilter(Or(EqualTo(col0, 2), EqualTo(col1, "ghi")))
-//        === """("col0" = 2) OR ("col1" = 'ghi')""")
-//      assert(doCompileFilter(LessThan(col0, 5)) === """"col0" < 5""")
-//      assert(doCompileFilter(LessThan(col0,
-//        Timestamp.valueOf("1995-11-21 00:00:00.0"))) === """"col0" < '1995-11-21 00:00:00.0'""")
-//      assert(doCompileFilter(LessThan(col0, Date.valueOf("1983-08-04")))
-//        === """"col0" < '1983-08-04'""")
-//      assert(doCompileFilter(LessThanOrEqual(col0, 5)) === """"col0" <= 5""")
-//      assert(doCompileFilter(GreaterThan(col0, 3)) === """"col0" > 3""")
-//      assert(doCompileFilter(GreaterThanOrEqual(col0, 3)) === """"col0" >= 3""")
-//      assert(doCompileFilter(In(col1, Array("jkl"))) === """"col1" IN ('jkl')""")
-//      assert(doCompileFilter(In(col1, Array.empty)) ===
-//        """CASE WHEN "col1" IS NULL THEN NULL ELSE FALSE END""")
-//      assert(doCompileFilter(Not(In(col1, Array("mno", "pqr"))))
-//        === """NOT ("col1" IN ('mno', 'pqr'))""")
-//      assert(doCompileFilter(IsNull(col1)) === """"col1" IS NULL""")
-//      assert(doCompileFilter(IsNotNull(col1)) === """"col1" IS NOT NULL""")
-//      assert(doCompileFilter(And(EqualNullSafe(col0, "abc"), EqualTo(col1, "def")))
-//        === """(("col0" = 'abc') OR ("col0" IS NULL AND 'abc' IS NULL))"""
-//        + """ AND ("col1" = 'def')""")
-//    }
-//    assert(doCompileFilter(EqualTo("col0.nested", 3)).isEmpty)
-//  }
-
   test("Dialect unregister") {
     JdbcDialects.unregisterDialect(H2Dialect)
     try {
@@ -810,10 +777,10 @@ class JDBCSuite extends QueryTest
     def genDialect(cascadingTruncateTable: Option[Boolean]): JdbcDialect = new JdbcDialect {
       override def canHandle(url: String): Boolean = true
       override def getCatalystType(
-                                    sqlType: Int,
-                                    typeName: String,
-                                    size: Int,
-                                    md: MetadataBuilder): Option[DataType] = None
+          sqlType: Int,
+          typeName: String,
+          size: Int,
+          md: MetadataBuilder): Option[DataType] = None
       override def isCascadingTruncateTable(): Option[Boolean] = cascadingTruncateTable
     }
 
@@ -1034,34 +1001,6 @@ class JDBCSuite extends QueryTest
     }
   }
 
-//  test("hide credentials in create and describe a persistent/temp table") {
-//    val password = "testPass"
-//    val tableName = "tab1"
-//    Seq("TABLE", "TEMPORARY VIEW").foreach { tableType =>
-//      withTable(tableName) {
-//        val df = sql(
-//          s"""
-//             |CREATE $tableType $tableName
-//             |USING org.apache.spark.sql.jdbc
-//             |OPTIONS (
-//             | url '$urlWithUserAndPass',
-//             | dbtable 'TEST.PEOPLE',
-//             | user 'testUser',
-//             | password '$password')
-//           """.stripMargin)
-//
-//        val explain = ExplainCommand(df.queryExecution.logical, ExtendedMode)
-//        spark.sessionState.executePlan(explain).executedPlan.executeCollect().foreach { r =>
-//          assert(!r.toString.contains(password))
-//        }
-//
-//        sql(s"DESC FORMATTED $tableName").collect().foreach { r =>
-//          assert(!r.toString().contains(password))
-//        }
-//      }
-//    }
-//  }
-
   test("Hide credentials in show create table") {
     val userName = "testUser"
     val password = "testPass"
@@ -1070,13 +1009,13 @@ class JDBCSuite extends QueryTest
     withTable(tableName) {
       sql(
         s"""
-           |CREATE TABLE $tableName
-           |USING org.apache.spark.sql.jdbc
-           |OPTIONS (
-           | url '$urlWithUserAndPass',
-           | dbtable '$dbTable',
-           | user '$userName',
-           | password '$password')
+          |CREATE TABLE $tableName
+          |USING org.apache.spark.sql.jdbc
+          |OPTIONS (
+          | url '$urlWithUserAndPass',
+          | dbtable '$dbTable',
+          | user '$userName',
+          | password '$password')
          """.stripMargin)
 
       val show = ShowCreateTableCommand(TableIdentifier(tableName))
@@ -1108,13 +1047,13 @@ class JDBCSuite extends QueryTest
     withTable(tableName) {
       sql(
         s"""
-           |CREATE TABLE $tableName
-           |USING org.apache.spark.sql.jdbc
-           |OPTIONS (
-           | url '$urlWithUserAndPass',
-           | dbtable 'TEST.PEOPLE',
-           | user 'testUser',
-           | password '$password')
+          |CREATE TABLE $tableName
+          |USING org.apache.spark.sql.jdbc
+          |OPTIONS (
+          | url '$urlWithUserAndPass',
+          | dbtable 'TEST.PEOPLE',
+          | user 'testUser',
+          | password '$password')
          """.stripMargin)
 
       val storageProps = sql(s"DESC FORMATTED $tableName")
@@ -1347,9 +1286,9 @@ class JDBCSuite extends QueryTest
     withTempView("people_view") {
       sql(
         s"""
-           |CREATE TEMPORARY VIEW people_view
-           |USING org.apache.spark.sql.jdbc
-           |OPTIONS (uRl '$url', DbTaBlE 'TEST.PEOPLE', User 'testUser', PassWord 'testPass')
+          |CREATE TEMPORARY VIEW people_view
+          |USING org.apache.spark.sql.jdbc
+          |OPTIONS (uRl '$url', DbTaBlE 'TEST.PEOPLE', User 'testUser', PassWord 'testPass')
         """.stripMargin.replaceAll("\n", " "))
 
       assert(sql("select * from people_view").count() == 3)
@@ -1376,11 +1315,11 @@ class JDBCSuite extends QueryTest
 
     sql(
       s"""
-         |CREATE OR REPLACE TEMPORARY VIEW test_sessionInitStatement
-         |USING org.apache.spark.sql.jdbc
-         |OPTIONS (url '$urlWithUserAndPass',
-         |dbtable '(SELECT NVL(@MYTESTVAR1, -1), NVL(@MYTESTVAR2, -1))',
-         |sessionInitStatement 'SET @MYTESTVAR1 21519; SET @MYTESTVAR2 1234')
+        |CREATE OR REPLACE TEMPORARY VIEW test_sessionInitStatement
+        |USING org.apache.spark.sql.jdbc
+        |OPTIONS (url '$urlWithUserAndPass',
+        |dbtable '(SELECT NVL(@MYTESTVAR1, -1), NVL(@MYTESTVAR2, -1))',
+        |sessionInitStatement 'SET @MYTESTVAR1 21519; SET @MYTESTVAR2 1234')
        """.stripMargin)
 
     val df3 = sql("SELECT * FROM test_sessionInitStatement")
@@ -1705,7 +1644,7 @@ class JDBCSuite extends QueryTest
     }.getMessage
     assert(e.contains(
       "Invalid value `test` for parameter `isolationLevel`. This can be " +
-        "`NONE`, `READ_UNCOMMITTED`, `READ_COMMITTED`, `REPEATABLE_READ` or `SERIALIZABLE`."))
+      "`NONE`, `READ_UNCOMMITTED`, `READ_COMMITTED`, `REPEATABLE_READ` or `SERIALIZABLE`."))
   }
 
   test("SPARK-28552: Case-insensitive database URLs in JdbcDialect") {
