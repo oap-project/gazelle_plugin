@@ -78,13 +78,26 @@ class HashRelationKernel::Impl {
     }
     // Notes:
     // 0 -> unsed, should be removed
-    // 1 -> SHJ
-    // 2 -> BHJ
-    // 3 -> Semi opts SHJ, can be applied to anti join also
+    // 1 -> BHJ hash map builder
+    // 2 -> BHJ adaptor
+    // 3 -> BHJ Semi opts SHJ, can be applied to anti join also
+    // 11 -> SHJ with std::multimap
+    // 13 -> SHJ Semi Opts with std::multimap
     if (builder_type_ == 3) {
       // This is for using unsafeHashMap while with skipDuplication strategy
       semi_ = true;
       builder_type_ = 1;
+#ifdef DEBUG
+      std::cout << "using BHJ SEMI skipDuplication optimization strategy" << std::endl;
+#endif
+    }
+    if (builder_type_ == 13) {
+      // This is for using unsafeHashMap while with skipDuplication strategy
+      semi_ = true;
+      builder_type_ = 11;
+#ifdef DEBUG
+      std::cout << "using SHJ SEMI skipDuplication optimization strategy" << std::endl;
+#endif
     }
     if (builder_type_ == 1) {
       // we will use unsafe_row and new unsafe_hash_map
@@ -125,8 +138,30 @@ class HashRelationKernel::Impl {
         // TODO: better to estimate key_size_ for multiple keys join
         hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
       }
-    } else {
+
+    } else if (builder_type_ == 2) {
       hash_relation_ = std::make_shared<HashRelation>(hash_relation_list);
+    } else {
+      // build_type = 11
+      // we will use unsafe_row and new unsafe_hash_map
+      gandiva::ExpressionVector key_project_expr = GetGandivaKernel(key_nodes);
+      gandiva::ExpressionPtr key_hash_expr = GetHash32Kernel(key_nodes);
+
+      auto schema = arrow::schema(input_field_list);
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
+      THROW_NOT_OK(gandiva::Projector::Make(schema, key_project_expr, configuration,
+                                            &key_prepare_projector_));
+      gandiva::FieldVector key_hash_field_list;
+      for (auto expr : key_project_expr) {
+        key_hash_field_list.push_back(expr->result());
+      }
+      hash_input_schema_ = arrow::schema(key_hash_field_list);
+      THROW_NOT_OK(gandiva::Projector::Make(hash_input_schema_, {key_hash_expr},
+                                            configuration, &key_projector_));
+
+      hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
+      // mark as SHJ hashmap
+      hash_relation_->setHashMapType(false /*SHJ*/);
     }
   }
 
@@ -137,7 +172,9 @@ class HashRelationKernel::Impl {
     for (int i = 0; i < in.size(); i++) {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
     }
-    if (builder_type_ == 2) return arrow::Status::OK();
+    if (builder_type_ == 2) {
+      return arrow::Status::OK();
+    }
     std::shared_ptr<arrow::Array> key_array;
 
     /* Process original key projection */
@@ -161,7 +198,9 @@ class HashRelationKernel::Impl {
   }
 
   arrow::Status FinishInternal() {
-    if (builder_type_ == 2) return arrow::Status::OK();
+    if (builder_type_ == 2) {
+      return arrow::Status::OK();
+    }
     // Decide init hashmap size
     if (builder_type_ == 1) {
       int init_key_capacity = 128;
@@ -186,10 +225,8 @@ class HashRelationKernel::Impl {
     }
     for (int idx = 0; idx < key_hash_cached_.size(); idx++) {
       auto key_array = key_hash_cached_[idx];
-      if (builder_type_ == 0) {
-        RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array));
-      } else {
-        auto project_outputs = keys_cached_[idx];
+
+      auto project_outputs = keys_cached_[idx];
 
 /* For single field fixed_size key, we simply insert to HashMap without append
  * to unsafe Row */
@@ -208,37 +245,35 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::TimestampType)          \
-  PROCESS(arrow::StringType)             \
-  PROCESS(arrow::Decimal128Type)
-        if (project_outputs.size() == 1) {
-          switch (project_outputs[0]->type_id()) {
+  PROCESS(arrow::StringType)
+      if (project_outputs.size() == 1) {
+        switch (project_outputs[0]->type_id()) {
 #define PROCESS(InType)                                                              \
   case TypeTraits<InType>::type_id: {                                                \
     using ArrayType = precompile::TypeTraits<InType>::ArrayType;                     \
     auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);            \
     RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr, semi_)); \
   } break;
-            PROCESS_SUPPORTED_TYPES(PROCESS)
+          PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
-            default: {
-              return arrow::Status::NotImplemented(
-                  "HashRelation Evaluate doesn't support single key type ",
-                  project_outputs[0]->type_id());
-            } break;
-          }
+          default: {
+            return arrow::Status::NotImplemented(
+                "HashRelation Evaluate doesn't support single key type ",
+                project_outputs[0]->type_id());
+          } break;
+        }
 #undef PROCESS_SUPPORTED_TYPES
 
-        } else {
-          /* Append key array to UnsafeArray for later UnsafeRow projection */
-          std::vector<std::shared_ptr<UnsafeArray>> payloads;
-          int i = 0;
-          for (auto arr : project_outputs) {
-            std::shared_ptr<UnsafeArray> payload;
-            RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
-            payloads.push_back(payload);
-          }
-          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads, semi_));
+      } else {
+        /* Append key array to UnsafeArray for later UnsafeRow projection */
+        std::vector<std::shared_ptr<UnsafeArray>> payloads;
+        int i = 0;
+        for (auto arr : project_outputs) {
+          std::shared_ptr<UnsafeArray> payload;
+          RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
+          payloads.push_back(payload);
         }
+        RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads, semi_));
       }
     }
     hash_relation_->Minimize();
@@ -284,6 +319,9 @@ class HashRelationKernel::Impl {
         const std::vector<std::shared_ptr<arrow::Array>>& in,
         const std::shared_ptr<arrow::Array>& selection = nullptr) override {
       for (int i = 0; i < in.size(); i++) {
+#ifdef DEBUG
+        std::cout << "Appending palyload" << std::endl;
+#endif
         RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
       }
       return arrow::Status::OK();

@@ -105,19 +105,36 @@ case class ColumnarShuffledHashJoinExec(
   }
 
   val builder_type = {
-    if (condition.isDefined) 1
-    else {
-      joinType match {
-        case LeftSemi =>
-          3
-        case LeftAnti =>
-          3
-        case j: ExistenceJoin =>
-          3
-        case other =>
-          1
+    if (GazellePluginConfig.getConf.enableColumnarShuffledHashJoinNewMap) {
+      if (condition.isDefined) 11
+      else {
+        joinType match {
+          case LeftSemi =>
+            13
+          case LeftAnti =>
+            13
+          case j: ExistenceJoin =>
+            13
+          case other =>
+            11
+        }
+      }
+    } else {
+      if (condition.isDefined) 1
+      else {
+        joinType match {
+          case LeftSemi =>
+            3
+          case LeftAnti =>
+            3
+          case j: ExistenceJoin =>
+            3
+          case other =>
+            1
+        }
       }
     }
+
   }
 
   def buildCheck(): Unit = {

@@ -22,9 +22,12 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
+#include <unordered_map>
+
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
 #include "precompile/unsafe_array.h"
+#include "third_party/arrow/utils/hashing.h"
 #include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
 #include "utils/macros.h"
@@ -33,6 +36,7 @@ using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
 using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
+using sparkcolumnarplugin::precompile::is_number_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
 using sparkcolumnarplugin::precompile::UnsafeArray;
@@ -167,6 +171,8 @@ class HashRelation {
     return arrow::Status::Invalid("Error minimizing hash table");
   }
 
+  void setHashMapType(bool isBHJ) { isBHJ_ = isBHJ; }
+
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 const std::vector<std::shared_ptr<UnsafeArray>>& payloads,
                                 bool semi = false) {
@@ -183,6 +189,7 @@ class HashRelation {
       if (payload->isNullExists()) continue;
       if (!semi) {
         RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+
       } else {
         RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), payload, num_arrays_, i));
       }
@@ -207,16 +214,22 @@ class HashRelation {
             Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
       }
     } else {
-      for (int i = 0; i < typed_array->length(); i++) {
-        if (original_key->IsNull(i)) {
-          RETURN_NOT_OK(InsertNull(num_arrays_, i));
-        } else {
-          if (!semi) {
-            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
-                                 num_arrays_, i));
+      if (semi) {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
             RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), original_key->GetView(i),
                                         num_arrays_, i));
+          }
+        }
+      } else {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
+          } else {
+            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
+                                 num_arrays_, i));
           }
         }
       }
@@ -233,23 +246,31 @@ class HashRelation {
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
-      for (int i = 0; i < typed_array->length(); i++) {
-        auto str = original_key->GetString(i);
+      for (int i = 0; i < original_key->length(); i++) {
+        auto str = original_key->GetView(i);
         RETURN_NOT_OK(
             Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
       }
+
     } else {
-      for (int i = 0; i < typed_array->length(); i++) {
-        if (original_key->IsNull(i)) {
-          RETURN_NOT_OK(InsertNull(num_arrays_, i));
-        } else {
-          auto str = original_key->GetString(i);
-          if (!semi) {
-            RETURN_NOT_OK(
-                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+      if (semi) {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
           } else {
+            auto str = original_key->GetView(i);
             RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), str.data(), str.size(),
                                         num_arrays_, i));
+          }
+        }
+      } else {
+        for (int i = 0; i < typed_array->length(); i++) {
+          if (original_key->IsNull(i)) {
+            RETURN_NOT_OK(InsertNull(num_arrays_, i));
+          } else {
+            auto str = original_key->GetView(i);
+            RETURN_NOT_OK(
+                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
           }
         }
       }
@@ -262,42 +283,91 @@ class HashRelation {
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int Get(int32_t v, CType payload) {
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) return -1;
+  int Get(const int32_t& v, const CType& payload) {
+    if (isBHJ_) {
+      auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+      if (res == -1) return -1;
 
+      return 0;
+    }
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
     return 0;
   }
 
-  int Get(int32_t v, std::string payload) {
-    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    if (res == -1) return -1;
+  int Get(const int32_t& v, const std::string& payload) {
+    if (isBHJ_) {
+      auto res =
+          safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+      if (res == -1) return -1;
+      return 0;
+    }
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(payload);
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
     return 0;
   }
 
-  int Get(int32_t v, std::shared_ptr<UnsafeRow> payload) {
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) return -1;
+  int Get(const int32_t& v, std::shared_ptr<UnsafeRow> payload) {
+    if (isBHJ_) {
+      auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+      if (res == -1) return -1;
+      return 0;
+    }
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::string(payload->data, payload->cursor));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
     return 0;
   }
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int IfExists(int32_t v, CType payload) {
-    return safeLookup(hash_table_, payload, v);
+  int IfExists(const int32_t& v, const CType& payload) {
+    if (isBHJ_) {
+      return safeLookup(hash_table_, payload, v);
+    }
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
+      return -1;
+    }
+    return 0;
   }
 
-  int IfExists(int32_t v, std::string payload) {
-    return safeLookup(hash_table_, payload.data(), payload.size(), v);
+  int IfExists(const int32_t& v, const std::string& payload) {
+    if (isBHJ_) {
+      return safeLookup(hash_table_, payload.data(), payload.size(), v);
+    }
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0;
   }
 
   int IfExists(int32_t v, std::shared_ptr<UnsafeRow> payload) {
-    return safeLookup(hash_table_, payload, v);
+    if (isBHJ_) {
+      return safeLookup(hash_table_, payload, v);
+    }
+    return hash_table_new_.find(std::string(payload->data, payload->cursor)) ==
+                   hash_table_new_.end()
+               ? -1
+               : 0;
   }
 
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
-  int Get(CType payload) {
+  int Get(const CType& payload) {
     if (sizeof(payload) <= 8) {
       if (has_cached_ && *(CType*)recent_cached_key_ == payload) {
         return recent_cached_key_probe_res_;
@@ -306,8 +376,25 @@ class HashRelation {
       *(CType*)recent_cached_key_ = payload;
     }
     int32_t v = hash32(payload, true);
-    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
-    if (res == -1) {
+    if (isBHJ_) {
+      auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+      if (res == -1) {
+        arrayid_list_.clear();
+        recent_cached_key_probe_res_ = -1;
+        return -1;
+      }
+      recent_cached_key_probe_res_ = 0;
+      return 0;
+    }
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(std::to_string(payload));
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+
+    if (!hasMatch) {
       arrayid_list_.clear();
       recent_cached_key_probe_res_ = -1;
       return -1;
@@ -316,23 +403,44 @@ class HashRelation {
     return 0;
   }
 
-  int Get(std::string payload) {
-    int32_t v = hash32(payload, true);
-    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
-    if (res == -1) return -1;
+  int Get(const std::string& payload) {
+    if (isBHJ_) {
+      int32_t v = hash32(payload, true);
+      auto res =
+          safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+      if (res == -1) return -1;
+      return 0;
+    }
+    bool hasMatch = false;
+    arrayid_list_.clear();
+    auto range = hash_table_new_.equal_range(payload);
+    for (auto i = range.first; i != range.second; ++i) {
+      hasMatch = true;
+      arrayid_list_.push_back(i->second);
+    }
+    if (!hasMatch) return -1;
     return 0;
   }
 
   template <typename CType,
             typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
-  int IfExists(CType payload) {
+  int IfExists(const CType& payload) {
+    if (isBHJ_) {
+      int32_t v = hash32(payload, true);
+      return safeLookup(hash_table_, payload, v);
+    }
     int32_t v = hash32(payload, true);
-    return safeLookup(hash_table_, payload, v);
+    return hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end() ? -1
+                                                                                  : 0;
   }
 
-  int IfExists(std::string payload) {
+  int IfExists(const std::string& payload) {
+    if (isBHJ_) {
+      int32_t v = hash32(payload, true);
+      return safeLookup(hash_table_, payload.data(), payload.size(), v);
+    }
     int32_t v = hash32(payload, true);
-    return safeLookup(hash_table_, payload.data(), payload.size(), v);
+    return hash_table_new_.find(payload) == hash_table_new_.end() ? -1 : 0;
   }
 
   int GetNull() {
@@ -406,12 +514,20 @@ class HashRelation {
   }
 
  protected:
+  using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
   bool unsafe_set = false;
   arrow::compute::ExecContext* ctx_;
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
+  // The unsafeHashMap is for BHJ, std::multimap is for SHJ
+  // each map should impl: Get(), Insert(), InsertSkipDup(), IfExists()
+  // see below code for details
   unsafeHashMap* hash_table_ = nullptr;
-  using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
+  // TODO(yuan): using string_view
+  std::unordered_multimap<std::string, ArrayItemIndex> hash_table_new_;
+  // TODO(yuan): should template this instead of using a flag
+  bool isBHJ_ = true;
+
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
   std::vector<ArrayItemIndex> arrayid_list_;
@@ -420,64 +536,104 @@ class HashRelation {
   bool has_cached_ = false;
   int recent_cached_key_probe_res_ = -1;
 
-  arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
-                       uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+  arrow::Status Insert(const int32_t& v, std::shared_ptr<UnsafeRow> payload,
+                       const uint32_t& array_id, const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    hash_table_new_.emplace(std::make_pair(std::string(payload->data, payload->cursor),
+                                           ArrayItemIndex(array_id, id)));
+    return arrow::Status::OK();
+  }
+
+  template <typename CType>
+  arrow::Status Insert(const int32_t& v, const CType& payload, const uint32_t& array_id,
+                       const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!append(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    hash_table_new_.emplace(
+        std::make_pair(std::to_string(payload), ArrayItemIndex(array_id, id)));
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Insert(const int32_t& v, const char* payload, const size_t& payload_len,
+                       const uint32_t& array_id, const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!append(hash_table_, payload, payload_len, v, (char*)&index,
+                  sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    hash_table_new_.emplace(
+        std::make_pair(std::string(payload, payload_len), ArrayItemIndex(array_id, id)));
+    return arrow::Status::OK();
+  }
+
+  arrow::Status InsertSkipDup(const int32_t& v, std::shared_ptr<UnsafeRow> payload,
+                              const uint32_t& array_id, const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
+                        sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    if (hash_table_new_.find(std::string(payload->data, payload->cursor)) ==
+        hash_table_new_.end()) {
+      hash_table_new_.emplace(std::string(payload->data, payload->cursor),
+                              ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
 
   template <typename CType>
-  arrow::Status Insert(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!append(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+  arrow::Status InsertSkipDup(const int32_t& v, const CType& payload,
+                              const uint32_t& array_id, const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    if (hash_table_new_.find(std::to_string(payload)) == hash_table_new_.end()) {
+      hash_table_new_.emplace(std::to_string(payload), ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
 
-  arrow::Status Insert(int32_t v, const char* payload, size_t payload_len,
-                       uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!append(hash_table_, payload, payload_len, v, (char*)&index,
-                sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
+  arrow::Status InsertSkipDup(const int32_t& v, const char* payload,
+                              const size_t& payload_len, const uint32_t& array_id,
+                              const uint32_t& id) {
+    if (isBHJ_) {
+      auto index = ArrayItemIndex(array_id, id);
+      if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
+                        sizeof(ArrayItemIndex))) {
+        return arrow::Status::CapacityError("Insert to HashMap failed.");
+      }
+      return arrow::Status::OK();
+    }
+    if (hash_table_new_.find(std::string(payload, payload_len)) ==
+        hash_table_new_.end()) {
+      hash_table_new_.emplace(std::string(payload, payload_len),
+                              ArrayItemIndex(array_id, id));
     }
     return arrow::Status::OK();
   }
 
-  arrow::Status InsertSkipDup(int32_t v, std::shared_ptr<UnsafeRow> payload,
-                              uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
-                      sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
-    }
-    return arrow::Status::OK();
-  }
-
-  template <typename CType>
-  arrow::Status InsertSkipDup(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status InsertSkipDup(int32_t v, const char* payload, size_t payload_len,
-                              uint32_t array_id, uint32_t id) {
-    auto index = ArrayItemIndex(array_id, id);
-    if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
-                      sizeof(ArrayItemIndex))) {
-      return arrow::Status::CapacityError("Insert to HashMap failed.");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status InsertNull(uint32_t array_id, uint32_t id) {
+  arrow::Status InsertNull(const uint32_t& array_id, const uint32_t& id) {
     if (!null_index_set_) {
       null_index_set_ = true;
       null_index_list_ = {ArrayItemIndex(array_id, id)};
