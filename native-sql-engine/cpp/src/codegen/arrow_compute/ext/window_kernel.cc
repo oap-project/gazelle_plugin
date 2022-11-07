@@ -903,6 +903,36 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
+// Get the final peer index. In range mode, rows are peers if they have the same values for the ORDER BY fields.
+// A frame start of CURRENT ROW refers to the first peer row of the current row, while a frame end of CURRENT ROW
+// refers to the last peer row of the current row.
+int getLastPeerIndex(std::vector<std::shared_ptr<ArrayItemIndexS>>& sorted_partition, int curr_index) {
+  bool isSameSortValue = true;
+  int lastPeerIndex = curr_index;
+  std::shared_ptr<ArrayItemIndexS> curr_array_index = sorted_partition.at(curr_index);
+  for (int i = curr_index + 1; i < sorted_partition.size(); i++) {
+    // Compare sort key.
+    for (int col = 0; col < order_type_list_.size(); i++) {
+      auto curr_typed_array = 
+         std::dynamic_pointer_cast<ArrayType>(values_.at(curr_array_index->array_id).at(col));
+      std::shared_ptr<ArrayItemIndexS> next_array_index = sorted_partition.at(i);
+      auto next_typed_array =
+        std::dynamic_pointer_cast<ArrayType>(values_.at(next_array_index->array_id).at(col));
+      isSameSortValue = isSameSortValue &&
+       (curr_typed_array->GetView(curr_array_index->id) == next_typed_array->GetView(next_array_index->id));
+      if (!isSameSortValue) {
+        break;
+      }
+    }
+    if (isSameSortValue) {
+      lastPeerIndex = i;
+    } else {
+      break;
+    }
+  }
+  return lastPeerIndex;
+}
+
 // ArrayType: input ArrayType. CType: result CType. BuilderType: result BuilderType.
 // ResArrayType: Result ArrayType.
 template <typename ArrayType, typename CType, typename BuilderType, typename ResArrayType,
@@ -948,8 +978,23 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
           is_valid_value_found = true;
           parition_sum_by_current =
               parition_sum_by_current + (CType)op(typed_array, index->id);
-          sum_array[index->array_id][index->id] = parition_sum_by_current;
-          validity[index->array_id][index->id] = true;
+          int lastPeerIndex = getLastPeerIndex(sorted_partition, j);
+          // Calculate values with peers considered.
+          for (int k = j + 1; k <= lastPeerIndex; k++) {
+            std::shared_ptr<ArrayItemIndexS> peer_index = sorted_partition.at(k);
+            auto peer_typed_array = std::dynamic_pointer_cast<ArrayType>(
+              values.at(peer_index->array_id).at(column_id));
+            parition_sum_by_current =
+              parition_sum_by_current + (CType)op(peer_typed_array, index->id);
+          }
+          // Set values for all peers whose sort key is same in a group.
+          for (int k = j; k <= lastPeerIndex; k++) {
+            std::shared_ptr<ArrayItemIndexS> peer_index = sorted_partition.at(k);
+            auto peer_typed_array = std::dynamic_pointer_cast<ArrayType>(
+              values.at(peer_index->array_id).at(column_id));
+            sum_array[peer_index->array_id][peer_index->id] = parition_sum_by_current;
+            validity[peer_index->array_id][peer_index->id] = true;
+          }
         }
       }
     }
