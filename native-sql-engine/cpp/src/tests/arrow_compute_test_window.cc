@@ -507,5 +507,46 @@ TEST(TestArrowComputeWindow, SumOrderedTest) {
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
 }
 
+// Test case: sort key has repeat values and there are multiple peers need to be considered
+// in range mode.
+TEST(TestArrowComputeWindow, SumOrderedWithMultiplePeersTest) {
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  auto sch =
+      arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::int32())});
+  std::vector<std::string> input_data = {"[1, 2, 1]", "[39, 37, 39]"};
+  MakeInputBatch(input_data, sch, &input_batch);
+
+  std::shared_ptr<Field> res = field("window_res", arrow::int64());
+
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {TreeExprBuilder::MakeFunction(
+               "sum_desc", {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))},
+               null()),
+           TreeExprBuilder::MakeFunction(
+               "partitionSpec",
+               {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+           TreeExprBuilder::MakeFunction(
+               "orderSpec",
+               {TreeExprBuilder::MakeField(field("col_dec", arrow::int32()))}, null())},
+          binary()),
+      res);
+
+  arrow::compute::ExecContext ctx;
+  std::shared_ptr<CodeGenerator> expr;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
+  ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
+  ASSERT_NOT_OK(expr->finish(&out))
+
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_output_data = {"[78, 37, 78]"};
+
+  MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
+  ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
