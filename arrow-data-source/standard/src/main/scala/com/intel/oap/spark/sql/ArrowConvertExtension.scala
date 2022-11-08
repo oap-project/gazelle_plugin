@@ -36,9 +36,10 @@ case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = {
     plan resolveOperators {
       // Write hive path
+      // TODO: support writing with partitioned/bucketed/sorted column
       case s@ InsertIntoStatement(
       l@ LogicalRelation(r@HadoopFsRelation(_, _, _, _, _: ParquetFileFormat, _)
-      , _, _, _), _, _, _, _, _) =>
+      , _, _, _), _, _, _, _, _) if r.partitionSchema.isEmpty && r.bucketSpec.isEmpty =>
         InsertIntoStatement(
           LogicalRelation(
             HadoopFsRelation(r.location, r.partitionSchema, r.dataSchema, r.bucketSpec,
@@ -47,8 +48,10 @@ case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
           s.partitionSpec, s.userSpecifiedCols, s.query, s.overwrite, s.ifPartitionNotExists)
 
       // Write datasource path
+      // TODO: support writing with partitioned/bucketed/sorted column
       case s@ InsertIntoHadoopFsRelationCommand(
-      _, _, _, _, _, _: ParquetFileFormat, _, _, _, _, _, _) =>
+        _, _, _, _, _, _: ParquetFileFormat, _, _, _, _, _, _)
+        if s.partitionColumns.isEmpty && s.bucketSpec.isEmpty =>
         InsertIntoHadoopFsRelationCommand(
           s.outputPath, s.staticPartitions, s.ifPartitionNotExists, s.partitionColumns,
           s.bucketSpec, new ArrowFileFormat, s.options, s.query, s.mode, s.catalogTable,
