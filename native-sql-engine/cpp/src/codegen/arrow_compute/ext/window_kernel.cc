@@ -294,7 +294,6 @@ arrow::Status WindowSortBase::SortToIndicesFinish(
 }
 
 arrow::Status WindowSortBase::prepareFinish() {
-  std::vector<ArrayList> sort_values;  // Sort input.
 #ifdef DEBUG
   std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
 #endif
@@ -322,7 +321,7 @@ arrow::Status WindowSortBase::prepareFinish() {
       auto column_slice = batch.at(i);
       sort_values_batch.push_back(column_slice);
     }
-    sort_values.push_back(sort_values_batch);
+    sort_values_.push_back(sort_values_batch);
   }
 #ifdef DEBUG
   std::cout << "[window kernel] Finished. " << std::endl;
@@ -371,7 +370,7 @@ arrow::Status WindowSortBase::prepareFinish() {
   std::cout << "[window kernel] Finished. " << std::endl;
 #endif
 
-  RETURN_NOT_OK(SortToIndicesPrepare(sort_values));
+  RETURN_NOT_OK(SortToIndicesPrepare(sort_values_));
   for (int i = 0; i <= max_group_id_; i++) {
     std::vector<std::shared_ptr<ArrayItemIndexS>> partition = partitions_to_sort.at(i);
     std::vector<std::shared_ptr<ArrayItemIndexS>> sorted_partition;
@@ -903,34 +902,72 @@ arrow::Status WindowSumKernel::Finish(ArrayList* out) {
   return arrow::Status::OK();
 }
 
+template<typename ArrayType>
+bool WindowSumKernel::isSameSortValue(std::shared_ptr<ArrayItemIndexS> curr_array_index,
+ std::shared_ptr<ArrayItemIndexS> next_array_index, int col) {
+  auto curr_typed_array =
+      std::dynamic_pointer_cast<ArrayType>(sort_values_.at(curr_array_index->array_id).at(col));
+  auto next_typed_array =
+      std::dynamic_pointer_cast<ArrayType>(sort_values_.at(next_array_index->array_id).at(col));
+  std::cout << "curr: " << curr_typed_array->GetView(curr_array_index->id) << std::endl;
+  std::cout << "next: " << next_typed_array->GetView(next_array_index->id) << std::endl;
+  return (curr_typed_array->GetView(curr_array_index->id) == next_typed_array->GetView(next_array_index->id));
+}
+
 // Get the final peer index. In range mode, rows are peers if they have the same values for the ORDER BY fields.
 // A frame start of CURRENT ROW refers to the first peer row of the current row, while a frame end of CURRENT ROW
 // refers to the last peer row of the current row.
-int getLastPeerIndex(std::vector<std::shared_ptr<ArrayItemIndexS>>& sorted_partition, int curr_index) {
-  bool isSameSortValue = true;
+int WindowSumKernel::getLastPeerIndex(std::vector<std::shared_ptr<ArrayItemIndexS>>& sorted_partition, int curr_index) {
+  bool isSame = true;
   int lastPeerIndex = curr_index;
   std::shared_ptr<ArrayItemIndexS> curr_array_index = sorted_partition.at(curr_index);
   for (int i = curr_index + 1; i < sorted_partition.size(); i++) {
+    std::shared_ptr<ArrayItemIndexS> next_array_index = sorted_partition.at(i);
     // Compare sort key.
-    for (int col = 0; col < order_type_list_.size(); i++) {
-      auto curr_typed_array = 
-         std::dynamic_pointer_cast<ArrayType>(values_.at(curr_array_index->array_id).at(col));
-      std::shared_ptr<ArrayItemIndexS> next_array_index = sorted_partition.at(i);
-      auto next_typed_array =
-        std::dynamic_pointer_cast<ArrayType>(values_.at(next_array_index->array_id).at(col));
-      isSameSortValue = isSameSortValue &&
-       (curr_typed_array->GetView(curr_array_index->id) == next_typed_array->GetView(next_array_index->id));
-      if (!isSameSortValue) {
-        break;
-      }
-    }
-    if (isSameSortValue) {
-      lastPeerIndex = i;
-    } else {
+    for (int col = 0; col < order_type_list_.size(); col++) {
+      std::shared_ptr<arrow::DataType> value_type = order_type_list_[col];
+      switch (value_type->id()) {
+
+#define PROCESS_SUPPORTED_COMMON_TYPES_SORT(PROC) \
+  PROC(arrow::UInt8Type, arrow::UInt8Array)       \
+  PROC(arrow::Int8Type, arrow::Int8Array)         \
+  PROC(arrow::UInt16Type, arrow::UInt16Array)     \
+  PROC(arrow::Int16Type, arrow::Int16Array)       \
+  PROC(arrow::UInt32Type, arrow::UInt32Array)     \
+  PROC(arrow::Int32Type, arrow::Int32Array)       \
+  PROC(arrow::UInt64Type, arrow::UInt64Array)     \
+  PROC(arrow::Int64Type, arrow::Int64Array)       \
+  PROC(arrow::FloatType, arrow::FloatArray)       \
+  PROC(arrow::DoubleType, arrow::DoubleArray)
+
+#define PROCESS(VALUE_TYPE, ARRAY_TYPE)                                                        \
+  case VALUE_TYPE::type_id: {                                                                  \
+      isSame = isSame && isSameSortValue<ARRAY_TYPE>(curr_array_index, next_array_index, col); \
+  } break;
+    PROCESS_SUPPORTED_COMMON_TYPES_SORT(PROCESS)
+#undef PROCESS
+#undef PROCESS_SUPPORTED_COMMON_TYPES_SORT
+  case arrow::StringType::type_id: {
+      isSame = isSame && isSameSortValue<arrow::StringArray>(curr_array_index, next_array_index, col);
+    } break;
+    default: {
+      throw std::runtime_error("window function: unsupported input type: " +
+                                    value_type->name());
+    } break;
+  }  // switch
+  // Jump from the sort col loop.
+  if (!isSame) {
       break;
-    }
   }
-  return lastPeerIndex;
+}  // sort col loop.
+
+if (isSame) {
+  lastPeerIndex = i;
+} else {
+  break;
+}
+}  // sorted_partition loop
+return lastPeerIndex;
 }
 
 // ArrayType: input ArrayType. CType: result CType. BuilderType: result BuilderType.
@@ -958,7 +995,8 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
         sorted_partitions.at(i);
     CType parition_sum_by_current = (CType)0;
     bool is_valid_value_found = false;
-    for (int j = 0; j < sorted_partition.size(); j++) {
+    int j = 0;
+    while (j < sorted_partition.size()) {
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         auto typed_array = std::dynamic_pointer_cast<ArrayType>(
@@ -974,6 +1012,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
             sum_array[index->array_id][index->id] = parition_sum_by_current;
             validity[index->array_id][index->id] = true;
           }
+          j++;
         } else {
           is_valid_value_found = true;
           parition_sum_by_current =
@@ -985,9 +1024,9 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
             auto peer_typed_array = std::dynamic_pointer_cast<ArrayType>(
               values.at(peer_index->array_id).at(column_id));
             parition_sum_by_current =
-              parition_sum_by_current + (CType)op(peer_typed_array, index->id);
+              parition_sum_by_current + (CType)op(peer_typed_array, peer_index->id);
           }
-          // Set values for all peers whose sort key is same in a group.
+          // Set values for all peers whose sort keys are same in a group.
           for (int k = j; k <= lastPeerIndex; k++) {
             std::shared_ptr<ArrayItemIndexS> peer_index = sorted_partition.at(k);
             auto peer_typed_array = std::dynamic_pointer_cast<ArrayType>(
@@ -995,6 +1034,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
             sum_array[peer_index->array_id][peer_index->id] = parition_sum_by_current;
             validity[peer_index->array_id][peer_index->id] = true;
           }
+          j = lastPeerIndex + 1;
         }
       }
     }
