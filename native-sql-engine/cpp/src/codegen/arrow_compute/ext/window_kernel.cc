@@ -1006,8 +1006,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
           std::dynamic_pointer_cast<ArrayType>(values.at(index->array_id).at(column_id));
       // If the first value in one partition (ordered) is null, the result is null.
       // If there is valid value before null, the result for null is as same as the
-      // above. So for same value in ordered col, the sum result may be different from
-      // vanilla's.
+      // above.
       if (typed_array->null_count() > 0 && typed_array->IsNull(index->id)) {
         if (!is_valid_value_found) {
           validity[index->array_id][index->id] = false;
