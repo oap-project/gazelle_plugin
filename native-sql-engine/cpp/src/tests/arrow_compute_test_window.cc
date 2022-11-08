@@ -507,8 +507,8 @@ TEST(TestArrowComputeWindow, SumOrderedTest) {
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
 }
 
-// Test case: sort key has repeat values and there are multiple peers need to be considered
-// in range mode.
+// Test case: sort key has repeat values and there are multiple peers need to be
+// considered in range mode.
 TEST(TestArrowComputeWindow, SumOrderedWithMultiplePeersTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
   auto sch =
