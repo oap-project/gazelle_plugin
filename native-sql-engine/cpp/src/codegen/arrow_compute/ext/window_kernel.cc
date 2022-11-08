@@ -909,8 +909,6 @@ bool WindowSumKernel::isSameSortValue(std::shared_ptr<ArrayItemIndexS> curr_arra
       std::dynamic_pointer_cast<ArrayType>(sort_values_.at(curr_array_index->array_id).at(col));
   auto next_typed_array =
       std::dynamic_pointer_cast<ArrayType>(sort_values_.at(next_array_index->array_id).at(col));
-  std::cout << "curr: " << curr_typed_array->GetView(curr_array_index->id) << std::endl;
-  std::cout << "next: " << next_typed_array->GetView(next_array_index->id) << std::endl;
   return (curr_typed_array->GetView(curr_array_index->id) == next_typed_array->GetView(next_array_index->id));
 }
 
@@ -998,7 +996,7 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
     int j = 0;
     while (j < sorted_partition.size()) {
       std::shared_ptr<ArrayItemIndexS> index = sorted_partition.at(j);
-      for (int column_id = 0; column_id < type_list_.size(); column_id++) {
+      int column_id = 0;  // One col input.
         auto typed_array = std::dynamic_pointer_cast<ArrayType>(
             values.at(index->array_id).at(column_id));
         // If the first value in one partition (ordered) is null, the result is null.
@@ -1036,7 +1034,6 @@ arrow::Status WindowSumKernel::HandleSortedPartition(
           }
           j = lastPeerIndex + 1;
         }
-      }
     }
   }
 
