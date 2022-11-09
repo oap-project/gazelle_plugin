@@ -186,7 +186,7 @@ case class ColumnarConditionProjectExec(
         }
       }
     }
-    true
+    super.supportColumnarCodegen
   }
 
   def getKernelFunction(childTreeNode: TreeNode): TreeNode = {

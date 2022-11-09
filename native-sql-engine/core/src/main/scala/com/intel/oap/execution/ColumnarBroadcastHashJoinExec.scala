@@ -295,7 +295,7 @@ case class ColumnarBroadcastHashJoinExec(
   override def getChild: SparkPlan = streamedPlan
 
   override def supportColumnarCodegen: Boolean = {
-    this.supportCodegen
+    this.supportCodegen && super.supportColumnarCodegen
   }
 
   val output_skip_alias =

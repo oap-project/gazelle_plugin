@@ -269,7 +269,7 @@ case class ColumnarSortMergeJoinExec(
         return false
       }
     }
-    true
+    super.supportColumnarCodegen
   }
 
   val output_skip_alias =
