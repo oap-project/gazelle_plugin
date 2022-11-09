@@ -332,7 +332,8 @@ class WindowSortBase : public KernalBase {
 
   std::vector<std::shared_ptr<arrow::DataType>> order_type_list_;
 
-  std::vector<ArrayList> values_;  // The window function input.
+  std::vector<ArrayList> values_;       // The window function input.
+  std::vector<ArrayList> sort_values_;  // Sort input.
   std::vector<std::shared_ptr<arrow::Int32Array>> group_ids_;
   int32_t max_group_id_ = 0;
   std::vector<std::vector<std::shared_ptr<ArrayItemIndexS>>> sorted_partitions_;
@@ -413,6 +414,13 @@ class WindowSumKernel : public WindowSortBase {
       std::vector<std::shared_ptr<arrow::DataType>> order_type_list);
 
   arrow::Status Finish(ArrayList* out) override;
+
+  template <typename ArrayType>
+  bool isSameSortValue(std::shared_ptr<ArrayItemIndexS> curr_array_index,
+                       std::shared_ptr<ArrayItemIndexS> next_array_index, int col);
+
+  int getLastPeerIndex(std::vector<std::shared_ptr<ArrayItemIndexS>>& sorted_partition,
+                       int curr_index);
 
   template <typename VALUE_TYPE, typename CType, typename BuilderType, typename ArrayType,
             typename OP>
