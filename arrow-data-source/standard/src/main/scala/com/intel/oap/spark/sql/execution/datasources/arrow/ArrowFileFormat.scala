@@ -197,6 +197,10 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
   }
 
   override def shortName(): String = "arrow"
+
+  override def hashCode(): Int = getClass.hashCode()
+
+  override def equals(other: Any): Boolean = other.isInstanceOf[ArrowFileFormat]
 }
 
 object ArrowFileFormat {

@@ -20,7 +20,7 @@ package com.intel.oap.spark.sql
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat
 
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
-import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoStatement, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.command.InsertIntoDataSourceDirCommand
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, InsertIntoHadoopFsRelationCommand, LogicalRelation}
@@ -35,39 +35,21 @@ class ArrowConvertorExtension extends (SparkSessionExtensions => Unit) {
 case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = {
     plan resolveOperators {
-      // Write hive path
-      // TODO: support writing with partitioned/bucketed/sorted column
-      case s@ InsertIntoStatement(
-      l@ LogicalRelation(r@HadoopFsRelation(_, _, _, _, _: ParquetFileFormat, _)
-      , _, _, _), _, _, _, _, _) if r.partitionSchema.isEmpty && r.bucketSpec.isEmpty =>
-        InsertIntoStatement(
-          LogicalRelation(
-            HadoopFsRelation(r.location, r.partitionSchema, r.dataSchema, r.bucketSpec,
-              new ArrowFileFormat, r.options)(r.sparkSession),
-            l.output, l.catalogTable, l.isStreaming),
-          s.partitionSpec, s.userSpecifiedCols, s.query, s.overwrite, s.ifPartitionNotExists)
-
       // Write datasource path
       // TODO: support writing with partitioned/bucketed/sorted column
-      case s@ InsertIntoHadoopFsRelationCommand(
-        _, _, _, _, _, _: ParquetFileFormat, _, _, _, _, _, _)
-        if s.partitionColumns.isEmpty && s.bucketSpec.isEmpty =>
-        InsertIntoHadoopFsRelationCommand(
-          s.outputPath, s.staticPartitions, s.ifPartitionNotExists, s.partitionColumns,
-          s.bucketSpec, new ArrowFileFormat, s.options, s.query, s.mode, s.catalogTable,
-          s.fileIndex, s.outputColumnNames)
+      case c: InsertIntoHadoopFsRelationCommand
+        if c.fileFormat.isInstanceOf[ParquetFileFormat] &&
+          c.partitionColumns.isEmpty && c.bucketSpec.isEmpty =>
+        c.copy(fileFormat = new ArrowFileFormat)
 
       // Read path
       case l@ LogicalRelation(
-      r@ HadoopFsRelation(_, _, _, _, _: ParquetFileFormat, _), _, _, _) =>
-        LogicalRelation(
-          HadoopFsRelation(r.location, r.partitionSchema, r.dataSchema, r.bucketSpec,
-            new ArrowFileFormat, r.options)(r.sparkSession),
-          l.output, l.catalogTable, l.isStreaming)
+        r@ HadoopFsRelation(_, _, _, _, _: ParquetFileFormat, _), _, _, _) =>
+        l.copy(relation = r.copy(fileFormat = new ArrowFileFormat)(session))
 
-      // INSERT HIVE DIR
-      case c@ InsertIntoDataSourceDirCommand(_, provider, _, _) if provider == "parquet" =>
-        InsertIntoDataSourceDirCommand(c.storage, "arrow", c.query, c.overwrite)
+      // INSERT DIR
+      case c: InsertIntoDataSourceDirCommand if c.provider == "parquet" =>
+        c.copy(provider = "arrow")
     }
   }
 }
