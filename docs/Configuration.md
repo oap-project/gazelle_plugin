@@ -34,7 +34,7 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.oap.sql.columnar.preferColumnar | Enable or Disable Columnar Operators, default is false.<br /> This parameter could impact the performance in different case. In some cases, to set false can get some performance boost. | false |
 | spark.oap.sql.columnar.joinOptimizationLevel | Fallback to row operators if there are several continous joins | 18 |
 | spark.sql.execution.arrow.maxRecordsPerBatch | Set up the Max Records per Batch | 10000 |
-| spark.sql.execution.sort.spillThreshold | Set up the Max sort in memory threshold in bytes, default is disabled | -1 |
+| spark.oap.sql.execution.sort.spillThreshold | Set up the Max sort in memory threshold in bytes, default is disabled | -1 |
 | spark.oap.sql.columnar.wholestagecodegen.breakdownTime | Enable or Disable metrics in Columnar WholeStageCodeGen | false |
 | spark.oap.sql.columnar.tmp_dir | Set up a folder to store the codegen files, default is disabled | "" |
 | spark.oap.sql.columnar.shuffle.customizedCompression.codec | Set up the codec to be used for Columnar Shuffle, default is lz4. The other option is fastpfor which can bring better perf on compressing fixed-size based contents like int| lz4 |
