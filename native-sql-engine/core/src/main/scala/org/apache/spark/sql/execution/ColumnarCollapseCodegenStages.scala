@@ -219,12 +219,6 @@ case class ColumnarCollapseCodegenStages(
   def isVariantSMJ(plan: SparkPlan): Boolean = {
     plan match {
     /**
-    * To filter the case that a SMJ and its left children is BHJ.
-    */
-      case p: ColumnarSortMergeJoinExec if p.right.isInstanceOf[ColumnarSortExec]
-        && p.left.isInstanceOf[ColumnarBroadcastHashJoinExec] =>
-        true
-    /**
     * To filter the case that a opeeration is SMJ and its children are also SMJ (TPC-DS q23b).
     */
       case p: ColumnarSortMergeJoinExec if p.left.isInstanceOf[ColumnarSortMergeJoinExec]
