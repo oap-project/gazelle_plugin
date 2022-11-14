@@ -34,6 +34,10 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
     with ColumnarExpression
     with Logging {
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   buildCheck()
 
   def buildCheck(): Unit = {

@@ -545,6 +545,9 @@ case class ColumnarHashAggregateExec(
           }
         case Count(_) =>
           mode match {
+            case Final if (exp.isDistinct) =>
+                throw new UnsupportedOperationException(
+                s"Count distinct is not supported in Columnar Count")
             case Partial | PartialMerge | Final =>
               res_index += 1
             case other =>
