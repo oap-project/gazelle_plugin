@@ -191,7 +191,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf.getConfString("spark.sql.execution.arrow.maxRecordsPerBatch", "10000").toInt
 
   val sortSpillThreshold: Long =
-    conf.getConfString("spark.sql.execution.sort.spillThreshold", "-1").toLong
+    conf.getConfString("spark.oap.sql.execution.sort.spillThreshold", "-1").toLong
 
   // enable or disable metrics in columnar wholestagecodegen operator
   val enableMetricsTime: Boolean =
@@ -204,7 +204,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf.getConfString("spark.oap.sql.columnar.tmp_dir", null)
 
   @deprecated val broadcastCacheTimeout: Int =
-    conf.getConfString("spark.sql.columnar.sort.broadcast.cache.timeout", "-1").toInt
+    conf.getConfString("spark.oap.sql.columnar.sort.broadcast.cache.timeout", "-1").toInt
 
   // Whether to spill the partition buffers when buffers are full.
   // If false, the partition buffers will be cached in memory first,

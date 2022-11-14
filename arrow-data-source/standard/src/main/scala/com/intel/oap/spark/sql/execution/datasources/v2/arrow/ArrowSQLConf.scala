@@ -20,12 +20,12 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 import org.apache.spark.sql.internal.SQLConf
 
 object ArrowSQLConf {
-  val ARROW_FILTER_PUSHDOWN_ENABLED = SQLConf.buildConf("spark.sql.arrow.filterPushdown")
+  val ARROW_FILTER_PUSHDOWN_ENABLED = SQLConf.buildConf("spark.oap.sql.arrow.filterPushdown")
     .doc("Enables Arrow filter push-down optimization when set to true.")
     .booleanConf
     .createWithDefault(true)
 
-  val FILES_DYNAMIC_MERGE_ENABLED = SQLConf.buildConf("spark.sql.files.dynamicMergeEnabled")
+  val FILES_DYNAMIC_MERGE_ENABLED = SQLConf.buildConf("spark.oap.sql.files.dynamicMergeEnabled")
     .doc("Whether to merge file partition dynamically. If true, It will use the total size, " +
       "file count and expectPartitionNum to dynamic merge filePartition. This is better to set " +
       "true if there are many small files in the read path. This configuration is effective " +
@@ -33,7 +33,7 @@ object ArrowSQLConf {
     .booleanConf
     .createWithDefault(false)
 
-  val FILES_EXPECTED_PARTITION_NUM = SQLConf.buildConf("spark.sql.files.expectedPartitionNum")
+  val FILES_EXPECTED_PARTITION_NUM = SQLConf.buildConf("spark.oap.sql.files.expectedPartitionNum")
     .doc("The expected number of File partitions. It will automatically merge file splits to " +
       "provide the best concurrency when the file partitions after split exceed the " +
       "expected num and the size of file partition is less than maxSplitSize. If not set, " +
@@ -44,7 +44,7 @@ object ArrowSQLConf {
     .checkValue(v => v > 0, "The expected partition number must be a positive integer.")
     .createOptional
 
-  val FILES_MAX_NUM_IN_PARTITION = SQLConf.buildConf("spark.sql.files.maxNumInPartition")
+  val FILES_MAX_NUM_IN_PARTITION = SQLConf.buildConf("spark.oap.sql.files.maxNumInPartition")
     .doc("The max number of files in one filePartition. If set, it will limit the max file num " +
       "in FilePartition while merging files. This can avoid too many little io in one task. " +
       "This configuration is effective only when using file-based sources such as Parquet, " +
