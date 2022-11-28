@@ -17,7 +17,10 @@
 
 package com.intel.oap.spark.sql
 
+import java.util.Locale
+
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat
+import org.apache.parquet.hadoop.ParquetOutputFormat
 
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -40,7 +43,21 @@ case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
       case c: InsertIntoHadoopFsRelationCommand
         if c.fileFormat.isInstanceOf[ParquetFileFormat] &&
           c.partitionColumns.isEmpty && c.bucketSpec.isEmpty =>
-        c.copy(fileFormat = new ArrowFileFormat)
+        // TODO: Support pass parquet config and writing with other codecs
+        // `compression`, `parquet.compression`(i.e., ParquetOutputFormat.COMPRESSION), and
+        // `spark.sql.parquet.compression.codec`
+        // are in order of precedence from highest to lowest.
+        val parquetCompressionConf = c.options.get(ParquetOutputFormat.COMPRESSION)
+        val codecName = c.options
+          .get("compression")
+          .orElse(parquetCompressionConf)
+          .getOrElse(session.sessionState.conf.parquetCompressionCodec)
+          .toLowerCase(Locale.ROOT)
+        if (codecName.equalsIgnoreCase("snappy")) {
+          c.copy(fileFormat = new ArrowFileFormat)
+        } else {
+          c
+        }
 
       // Read path
       case l@ LogicalRelation(
