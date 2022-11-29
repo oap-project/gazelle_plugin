@@ -23,10 +23,7 @@ import java.util.Objects
 
 import scala.language.implicitConversions
 
-import com.intel.oap.GazellePlugin.GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME
-import com.intel.oap.GazellePlugin.GAZELLE_SESSION_EXTENSION_NAME
-import com.intel.oap.GazellePlugin.GAZELLE_WRITE_SESSION_EXTENSION_NAME
-import com.intel.oap.GazellePlugin.SPARK_SESSION_EXTS_KEY
+import com.intel.oap.GazellePlugin.{GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED, GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME, GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME, SPARK_SESSION_EXTS_KEY}
 import com.intel.oap.extension.{OptimizerOverrides, StrategyOverrides}
 import com.intel.oap.extension.ColumnarOverrides
 
@@ -64,9 +61,14 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
       throw new IllegalArgumentException("Spark gazelle extensions are already specified before " +
         "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
-    conf.set(SPARK_SESSION_EXTS_KEY,
-      s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME," +
-        s"$GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME, $extensions")
+    if (conf.getBoolean(GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED, false)) {
+      conf.set(SPARK_SESSION_EXTS_KEY,
+        s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME," +
+          s"$GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME, $extensions")
+    } else {
+      conf.set(SPARK_SESSION_EXTS_KEY,
+        s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME, $extensions")
+    }
   }
 }
 
@@ -111,6 +113,7 @@ private[oap] object GazellePlugin {
     "com.intel.oap.spark.sql.ArrowWriteExtension")
   val GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     "com.intel.oap.spark.sql.ArrowConvertorExtension")
+  val GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED: String = "spark.oap.extension.convertor.enabled"
   /**
    * Specify all injectors that Gazelle is using in following list.
    */
