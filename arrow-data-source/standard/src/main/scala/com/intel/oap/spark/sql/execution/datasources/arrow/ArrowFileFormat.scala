@@ -137,6 +137,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         }.asJava)
       } else {
         new Schema(requiredSchema.map { readField =>
+          // TODO: check schema inside of complex type
           val matchedFields =
             parquetFileFields.filter(_.getName.equalsIgnoreCase(readField.name))
           if (matchedFields.size > 1) {
