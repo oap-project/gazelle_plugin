@@ -113,6 +113,10 @@ private[oap] object GazellePlugin {
     "com.intel.oap.spark.sql.ArrowWriteExtension")
   val GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     "com.intel.oap.spark.sql.ArrowConvertorExtension")
+  // This configuration is used to enable/disable the convertor from parquet to arrow format.
+  // Enabling the converter extension may result in inconsistent behavior with vanilla spark
+  // in some cases, such as metadata file, struct type support, ignoreMissingFiles and so on.
+  // Thus this configuration is disabled by default.
   val GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED: String = "spark.oap.extension.convertor.enabled"
   /**
    * Specify all injectors that Gazelle is using in following list.
