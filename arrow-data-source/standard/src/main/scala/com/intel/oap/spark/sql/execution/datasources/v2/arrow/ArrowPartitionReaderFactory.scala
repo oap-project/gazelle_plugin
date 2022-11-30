@@ -73,11 +73,23 @@ case class ArrowPartitionReaderFactory(
       }.asJava)
     } else {
       new Schema(readDataSchema.map { readField =>
-        parquetFileFields.find(_.getName.equalsIgnoreCase(readField.name))
-          .map{ field =>
-            caseInsensitiveFieldMap += (readField.name -> field.getName)
-            field
-          }.getOrElse(ArrowUtils.toArrowField(readField))
+        // TODO: check schema inside of complex type
+        val matchedFields =
+          parquetFileFields.filter(_.getName.equalsIgnoreCase(readField.name))
+        if (matchedFields.size > 1) {
+          // Need to fail if there is ambiguity, i.e. more than one field is matched
+          val fieldsString = matchedFields.map(_.getName).mkString("[", ", ", "]")
+          throw new RuntimeException(
+            s"""
+               |Found duplicate field(s) "${readField.name}": $fieldsString
+               |in case-insensitive mode""".stripMargin.replaceAll("\n", " "))
+        } else {
+          matchedFields
+            .map { field =>
+              caseInsensitiveFieldMap += (readField.name -> field.getName)
+              field
+            }.headOption.getOrElse(ArrowUtils.toArrowField(readField))
+        }
       }.asJava)
     }
     val dataset = factory.finish(requiredFields)
