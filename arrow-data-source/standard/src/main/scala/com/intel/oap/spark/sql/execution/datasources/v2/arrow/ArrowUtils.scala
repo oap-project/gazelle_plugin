@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets
 import java.time.ZoneId
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 import com.intel.oap.vectorized.{ArrowColumnVectorUtils, ArrowWritableColumnVector}
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory
@@ -70,7 +71,7 @@ object ArrowUtils {
   }
 
   def makeArrowDiscovery(encodedUri: String, startOffset: Long, length: Long,
-                         options: ArrowOptions): FileSystemDatasetFactory = {
+      options: ArrowOptions): FileSystemDatasetFactory = {
 
     val format = getFormat(options)
     val allocator = SparkMemoryUtils.contextAllocator()
@@ -104,7 +105,8 @@ object ArrowUtils {
   def loadBatch(
       input: ArrowRecordBatch,
       dataSchema: StructType,
-      partitionVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
+      partitionVectors: Array[ArrowWritableColumnVector],
+      nullVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
     val rowCount: Int = input.getLength
 
     val vectors = try {
@@ -113,8 +115,27 @@ object ArrowUtils {
       input.close()
     }
 
+    val totalVectors = if (dataSchema.size != nullVectors.length) {
+      val finalVectors =
+        mutable.ArrayBuffer[ArrowWritableColumnVector]()
+      val nullIterator = nullVectors.iterator
+      while (nullIterator.hasNext) {
+        val nullVector = nullIterator.next()
+        finalVectors.append(
+          vectors.find(_.getValueVector.getName.equals(nullVector.getValueVector.getName))
+            .getOrElse {
+              nullVector.setValueCount(rowCount)
+              nullVector.retain()
+              nullVector
+            })
+      }
+      finalVectors.toArray
+    } else {
+      vectors
+    }
+
     val batch = new ColumnarBatch(
-      vectors.map(_.asInstanceOf[ColumnVector]) ++
+      totalVectors.map(_.asInstanceOf[ColumnVector]) ++
         partitionVectors
           .map { vector =>
             vector.setValueCount(rowCount)
@@ -132,7 +153,7 @@ object ArrowUtils {
   }
 
   def loadBatch(input: ArrowRecordBatch, partitionValues: InternalRow,
-                  partitionSchema: StructType, dataSchema: StructType): ColumnarBatch = {
+      partitionSchema: StructType, dataSchema: StructType): ColumnarBatch = {
     val rowCount: Int = input.getLength
 
     val vectors = try {
@@ -149,13 +170,13 @@ object ArrowUtils {
 
     val batch = new ColumnarBatch(
       vectors.map(_.asInstanceOf[ColumnVector]) ++
-          partitionColumns.map(_.asInstanceOf[ColumnVector]),
+        partitionColumns.map(_.asInstanceOf[ColumnVector]),
       rowCount)
     batch
   }
 
   def getFormat(
-    options: ArrowOptions): org.apache.arrow.dataset.file.format.FileFormat = {
+      options: ArrowOptions): org.apache.arrow.dataset.file.format.FileFormat = {
     val paramMap = options.parameters.toMap.asJava
     options.originalFormat match {
       case "parquet" => org.apache.arrow.dataset.file.format.ParquetFileFormat.create(paramMap)

@@ -28,7 +28,7 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, Arr
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
-import org.apache.arrow.vector.types.pojo.Schema
+import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.Job
@@ -40,6 +40,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.OutputWriter
+import org.apache.spark.sql.execution.datasources.parquet.ParquetUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkVectorUtils}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
 import org.apache.spark.sql.internal.SQLConf
@@ -51,7 +52,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
 
   override def isSplitable(sparkSession: SparkSession,
-                           options: Map[String, String], path: Path): Boolean = {
+      options: Map[String, String], path: Path): Boolean = {
     ArrowUtils.isOriginalFormatSplitable(
       new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap))
   }
@@ -61,15 +62,21 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
   }
 
   override def inferSchema(sparkSession: SparkSession,
-                            options: Map[String, String],
-                            files: Seq[FileStatus]): Option[StructType] = {
-    convert(files, options)
+      options: Map[String, String],
+      files: Seq[FileStatus]): Option[StructType] = {
+    val arrowOptions = new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap)
+    ArrowUtils.getFormat(arrowOptions) match {
+      case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
+        ParquetUtils.inferSchema(sparkSession, options, files)
+      case _ =>
+        convert(files, options)
+    }
   }
 
   override def prepareWrite(sparkSession: SparkSession,
-                             job: Job,
-                             options: Map[String, String],
-                             dataSchema: StructType): OutputWriterFactory = {
+      job: Job,
+      options: Map[String, String],
+      dataSchema: StructType): OutputWriterFactory = {
     val arrowOptions = new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap)
     new OutputWriterFactory {
       override def getFileExtension(context: TaskAttemptContext): String = {
@@ -90,7 +97,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           override def write(row: InternalRow): Unit = {
             val batch = row.asInstanceOf[FakeRow].batch
             writeQueue.enqueue(SparkVectorUtils
-                .toArrowRecordBatch(batch))
+              .toArrowRecordBatch(batch))
           }
 
           override def close(): Unit = {
@@ -130,13 +137,14 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       // todo predicate validation / pushdown
       val parquetFileFields = factory.inspect().getFields.asScala
       val caseInsensitiveFieldMap = mutable.Map[String, String]()
-      val requiredFields = if (caseSensitive) {
-        new Schema(requiredSchema.map { field =>
-          parquetFileFields.find(_.getName.equals(field.name))
-            .getOrElse(ArrowUtils.toArrowField(field))
+      // TODO: support array/map/struct types in out-of-order schema reading.
+      val requestColNames = requiredSchema.map(_.name)
+      val actualReadFields = if (caseSensitive) {
+        new Schema(parquetFileFields.filter { field =>
+          requestColNames.exists(_.equals(field.getName))
         }.asJava)
       } else {
-        new Schema(requiredSchema.map { readField =>
+        requiredSchema.foreach { readField =>
           // TODO: check schema inside of complex type
           val matchedFields =
             parquetFileFields.filter(_.getName.equalsIgnoreCase(readField.name))
@@ -147,57 +155,96 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
               s"""
                  |Found duplicate field(s) "${readField.name}": $fieldsString
                  |in case-insensitive mode""".stripMargin.replaceAll("\n", " "))
-          } else {
-            matchedFields
-              .map { field =>
-                caseInsensitiveFieldMap += (readField.name -> field.getName)
-                field
-              }.headOption.getOrElse(ArrowUtils.toArrowField(readField))
           }
+        }
+        new Schema(parquetFileFields.filter { field =>
+          requestColNames.exists(_.equalsIgnoreCase(field.getName))
         }.asJava)
       }
-      val dataset = factory.finish(requiredFields)
+      val actualReadFieldNames = actualReadFields.getFields.asScala.map(_.getName).toArray
+      val actualReadSchema = if (caseSensitive) {
+        new StructType(actualReadFieldNames.map(f => requiredSchema.find(_.name.equals(f)).get))
+      } else {
+        new StructType(
+          actualReadFieldNames.map(f => requiredSchema.find(_.name.equalsIgnoreCase(f)).get))
+      }
+      val dataset = factory.finish(actualReadFields)
 
+      val hashMissingColumns = actualReadFields.getFields.size() != requiredSchema.size
       val filter = if (enableFilterPushDown) {
-        ArrowFilters.translateFilters(filters, caseInsensitiveFieldMap.toMap)
+        val pushedFilters = if (hashMissingColumns) {
+          ArrowFilters.evaluateMissingFieldFilters(filters, actualReadFieldNames)
+        } else {
+          filters
+        }
+        if (pushedFilters == null) {
+          null
+        } else {
+          ArrowFilters.translateFilters(
+            pushedFilters, caseInsensitiveFieldMap.toMap)
+        }
       } else {
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }
 
-      val scanOptions = new ScanOptions(
-        requiredFields.getFields.asScala.map(f => f.getName).toArray,
-        filter,
-        batchSize)
-      val scanner = dataset.newScan(scanOptions)
+      if (filter == null) {
+        new Iterator[InternalRow] {
+          override def hasNext: Boolean = false
+          override def next(): InternalRow = null
+        }
+      } else {
+        val scanOptions = new ScanOptions(
+          actualReadFieldNames,
+          filter,
+          batchSize)
+        val scanner = dataset.newScan(scanOptions)
 
-      val taskList = scanner
+        val taskList = scanner
           .scan()
           .iterator()
           .asScala
           .toList
-      val itrList = taskList
-        .map(task => task.execute())
+        val itrList = taskList
+          .map(task => task.execute())
 
-      Option(TaskContext.get()).foreach(_.addTaskCompletionListener[Unit](_ => {
-        itrList.foreach(_.close())
-        taskList.foreach(_.close())
-        scanner.close()
-        dataset.close()
-        factory.close()
-      }))
+        Option(TaskContext.get()).foreach(_.addTaskCompletionListener[Unit](_ => {
+          itrList.foreach(_.close())
+          taskList.foreach(_.close())
+          scanner.close()
+          dataset.close()
+          factory.close()
+        }))
 
-      val partitionVectors =
-        ArrowUtils.loadPartitionColumns(batchSize, partitionSchema, file.partitionValues)
+        val partitionVectors =
+          ArrowUtils.loadPartitionColumns(batchSize, partitionSchema, file.partitionValues)
 
-      SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
-        partitionVectors.foreach(_.close())
-      })
+        SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+          partitionVectors.foreach(_.close())
+        })
 
-      val itr = itrList
-        .toIterator
-        .flatMap(itr => itr.asScala)
-        .map(batch => ArrowUtils.loadBatch(batch, requiredSchema, partitionVectors))
-      new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
+        val nullVectors = if (hashMissingColumns) {
+          val vectors =
+            ArrowWritableColumnVector.allocateColumns(batchSize, requiredSchema)
+          vectors.foreach { vector =>
+            vector.putNulls(0, batchSize)
+            vector.setValueCount(batchSize)
+          }
+
+          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+            vectors.foreach(_.close())
+          })
+          vectors
+        } else {
+          Array.empty[ArrowWritableColumnVector]
+        }
+
+        val itr = itrList
+          .toIterator
+          .flatMap(itr => itr.asScala)
+          .map(batch => ArrowUtils.loadBatch(
+            batch, actualReadSchema, partitionVectors, nullVectors))
+        new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
+      }
     }
   }
 

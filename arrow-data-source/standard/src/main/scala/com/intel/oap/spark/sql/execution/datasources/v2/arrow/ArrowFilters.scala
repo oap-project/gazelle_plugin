@@ -20,7 +20,6 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 import org.apache.arrow.dataset.DatasetTypes
 import org.apache.arrow.dataset.DatasetTypes.TreeNode
 import org.apache.arrow.dataset.filter.FilterImpl
-import org.apache.arrow.vector.types.pojo.Field
 
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
@@ -55,6 +54,70 @@ object ArrowFilters {
       }
     })
     false
+  }
+
+  def evaluateMissingFieldFilters(
+      pushedFilters: Seq[Filter],
+      requiredFields: Seq[String]): Seq[Filter] = {
+    val evaluatedFilters = evaluateFilters(pushedFilters, requiredFields)
+    if (evaluatedFilters.exists(_._2 == false)) {
+      null
+    } else {
+      evaluatedFilters.map(_._1).filterNot(_ == null)
+    }
+  }
+
+  def evaluateFilters(
+      pushedFilters: Seq[Filter],
+      requiredFields: Seq[String]): Seq[(Filter, Boolean)] = {
+    pushedFilters.map {
+      case r @ EqualTo(attribute, value) if !requiredFields.contains(attribute) =>
+        (null, null == value)
+      case r @ GreaterThan(attribute, value) if !requiredFields.contains(attribute) =>
+        (null, false)
+      case r @ GreaterThanOrEqual(attribute, value) if !requiredFields.contains(attribute) =>
+        (null, null == value)
+      case LessThan(attribute, value) if !requiredFields.contains(attribute) =>
+        (null, false)
+      case r @ LessThanOrEqual(attribute, value) if !requiredFields.contains(attribute) =>
+        (null, null == value)
+      case r @ Not(child) =>
+        evaluateFilters(Seq(child), requiredFields).head match {
+          case (null, false) => (null, true)
+          case (null, true) => (null, false)
+          case (_, true) => (r, true)
+        }
+      case r @ And(left, right) =>
+        val evaluatedFilters = evaluateFilters(Seq(left, right), requiredFields)
+        val filters = evaluatedFilters.map(_._1).filterNot(_ == null)
+        if (evaluatedFilters.forall(_._2)) {
+          if (filters.size > 1) {
+            (r, true)
+          } else {
+            (filters.head, true)
+          }
+        } else {
+          (null, false)
+        }
+      case r @ Or(left, right) =>
+        val evaluatedFilters = evaluateFilters(Seq(left, right), requiredFields)
+        val filters = evaluatedFilters.map(_._1).filterNot(_ == null)
+        if (evaluatedFilters.exists(_._2)) {
+          if (filters.size > 1) {
+            (r, true)
+          } else {
+            (filters.head, true)
+          }
+        } else {
+          (null, false)
+        }
+      case IsNotNull(attribute) if !requiredFields.contains(attribute) =>
+        (null, false)
+      case IsNull(attribute) if !requiredFields.contains(attribute) =>
+        (null, true)
+      case r =>
+        (r, true)
+    }
   }
 
   def translateFilters(
