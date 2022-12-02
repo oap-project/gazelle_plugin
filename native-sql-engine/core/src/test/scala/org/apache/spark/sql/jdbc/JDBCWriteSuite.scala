@@ -414,7 +414,7 @@ class JDBCWriteSuite extends SharedSparkSession with BeforeAndAfter {
     testCreateTableColDataTypes(Seq("binary"))
   }
 
-  test("SPARK-10849: create table using user specified column type and verify on target table") {
+  ignore("SPARK-10849: create table using user specified column type and verify on target table") {
     def testUserSpecifiedColTypes(
                                    df: DataFrame,
                                    createTableColTypes: String,
