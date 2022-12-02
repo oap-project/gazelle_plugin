@@ -115,19 +115,31 @@ object ArrowUtils {
       input.close()
     }
 
-    val totalVectors = if (dataSchema.size != nullVectors.length) {
+    val totalVectors = if (nullVectors.nonEmpty) {
       val finalVectors =
         mutable.ArrayBuffer[ArrowWritableColumnVector]()
       val nullIterator = nullVectors.iterator
+      val caseSensitive = SQLConf.get.caseSensitiveAnalysis
       while (nullIterator.hasNext) {
         val nullVector = nullIterator.next()
         finalVectors.append(
-          vectors.find(_.getValueVector.getName.equals(nullVector.getValueVector.getName))
-            .getOrElse {
-              nullVector.setValueCount(rowCount)
-              nullVector.retain()
-              nullVector
-            })
+          if (caseSensitive) {
+            vectors.find(
+              _.getValueVector.getName.equals(nullVector.getValueVector.getName))
+              .getOrElse {
+                nullVector.setValueCount(rowCount)
+                nullVector.retain()
+                nullVector
+              }
+          } else {
+            vectors.find(
+              _.getValueVector.getName.equalsIgnoreCase(nullVector.getValueVector.getName))
+              .getOrElse {
+                nullVector.setValueCount(rowCount)
+                nullVector.retain()
+                nullVector
+              }
+          })
       }
       finalVectors.toArray
     } else {
