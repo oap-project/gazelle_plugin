@@ -105,8 +105,9 @@ object ArrowUtils {
   def loadBatch(
       input: ArrowRecordBatch,
       dataSchema: StructType,
-      partitionVectors: Array[ArrowWritableColumnVector],
-      nullVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
+      requiredSchema: StructType,
+      partitionVectors: Array[ArrowWritableColumnVector] = Array.empty,
+      nullVectors: Array[ArrowWritableColumnVector] = Array.empty): ColumnarBatch = {
     val rowCount: Int = input.getLength
 
     val vectors = try {
@@ -118,23 +119,26 @@ object ArrowUtils {
     val totalVectors = if (nullVectors.nonEmpty) {
       val finalVectors =
         mutable.ArrayBuffer[ArrowWritableColumnVector]()
-      val nullIterator = nullVectors.iterator
+      val requiredIterator = requiredSchema.iterator
       val caseSensitive = SQLConf.get.caseSensitiveAnalysis
-      while (nullIterator.hasNext) {
-        val nullVector = nullIterator.next()
+      while (requiredIterator.hasNext) {
+        val field = requiredIterator.next()
         finalVectors.append(
           if (caseSensitive) {
-            vectors.find(
-              _.getValueVector.getName.equals(nullVector.getValueVector.getName))
+            vectors.find(_.getValueVector.getName.equals(field.name))
               .getOrElse {
+                // The missing column need to be find in nullVectors
+                val nullVector = nullVectors.find(_.getValueVector.getName.equals(field.name)).get
                 nullVector.setValueCount(rowCount)
                 nullVector.retain()
                 nullVector
               }
           } else {
-            vectors.find(
-              _.getValueVector.getName.equalsIgnoreCase(nullVector.getValueVector.getName))
+            vectors.find(_.getValueVector.getName.equalsIgnoreCase(field.name))
               .getOrElse {
+                // The missing column need to be find in nullVectors
+                val nullVector =
+                  nullVectors.find(_.getValueVector.getName.equalsIgnoreCase(field.name)).get
                 nullVector.setValueCount(rowCount)
                 nullVector.retain()
                 nullVector

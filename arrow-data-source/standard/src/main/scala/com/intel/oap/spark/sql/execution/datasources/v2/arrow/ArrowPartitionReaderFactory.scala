@@ -99,11 +99,13 @@ case class ArrowPartitionReaderFactory(
       new StructType(
         actualReadFieldNames.map(f => readDataSchema.find(_.name.equalsIgnoreCase(f)).get))
     }
+    val missingSchema =
+      new StructType(readDataSchema.filterNot(actualReadSchema.contains).toArray)
     val dataset = factory.finish(actualReadFields)
 
-    val hashMissingColumns = actualReadFields.getFields.size() != readDataSchema.size
+    val hasMissingColumns = actualReadFields.getFields.size() != readDataSchema.size
     val filter = if (enableFilterPushDown) {
-      val filters = if (hashMissingColumns) {
+      val filters = if (hasMissingColumns) {
         ArrowFilters.evaluateMissingFieldFilters(pushedFilters, actualReadFieldNames).toArray
       } else {
         pushedFilters
@@ -146,9 +148,9 @@ case class ArrowPartitionReaderFactory(
         partitionVectors.foreach(_.close())
       })
 
-      val nullVectors = if (hashMissingColumns) {
+      val nullVectors = if (hasMissingColumns) {
         val vectors =
-          ArrowWritableColumnVector.allocateColumns(batchSize, readDataSchema)
+          ArrowWritableColumnVector.allocateColumns(batchSize, missingSchema)
         vectors.foreach { vector =>
           vector.putNulls(0, batchSize)
           vector.setValueCount(batchSize)
@@ -166,7 +168,7 @@ case class ArrowPartitionReaderFactory(
         .toIterator
         .flatMap(itr => itr.asScala)
         .map(batch => ArrowUtils.loadBatch(
-          batch, actualReadSchema, partitionVectors, nullVectors))
+          batch, actualReadSchema, readDataSchema, partitionVectors, nullVectors))
 
       new PartitionReader[ColumnarBatch] {
         val holder = new ColumnarBatchRetainer()

@@ -168,11 +168,13 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         new StructType(
           actualReadFieldNames.map(f => requiredSchema.find(_.name.equalsIgnoreCase(f)).get))
       }
+      val missingSchema =
+        new StructType(requiredSchema.filterNot(actualReadSchema.contains).toArray)
       val dataset = factory.finish(actualReadFields)
 
-      val hashMissingColumns = actualReadFields.getFields.size() != requiredSchema.size
+      val hasMissingColumns = actualReadFields.getFields.size() != requiredSchema.size
       val filter = if (enableFilterPushDown) {
-        val pushedFilters = if (hashMissingColumns) {
+        val pushedFilters = if (hasMissingColumns) {
           ArrowFilters.evaluateMissingFieldFilters(filters, actualReadFieldNames)
         } else {
           filters
@@ -222,9 +224,9 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           partitionVectors.foreach(_.close())
         })
 
-        val nullVectors = if (hashMissingColumns) {
+        val nullVectors = if (hasMissingColumns) {
           val vectors =
-            ArrowWritableColumnVector.allocateColumns(batchSize, requiredSchema)
+            ArrowWritableColumnVector.allocateColumns(batchSize, missingSchema)
           vectors.foreach { vector =>
             vector.putNulls(0, batchSize)
             vector.setValueCount(batchSize)
@@ -242,7 +244,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           .toIterator
           .flatMap(itr => itr.asScala)
           .map(batch => ArrowUtils.loadBatch(
-            batch, actualReadSchema, partitionVectors, nullVectors))
+            batch, actualReadSchema, requiredSchema, partitionVectors, nullVectors))
         new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
       }
     }
