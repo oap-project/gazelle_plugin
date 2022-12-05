@@ -37,7 +37,7 @@ import org.apache.arrow.vector.types.pojo.Schema
 
 import org.apache.spark.internal.Logging
 
-class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: String)
+class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, compressCodec: String, outputFileURI: String)
     extends AutoCloseable with Logging {
   private val scanner = new ScannerImpl(schema)
   private val writeException = new AtomicReference[Throwable]
@@ -52,7 +52,7 @@ class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: Str
     val fileName = matcher.group(2)
 
     try {
-      DatasetFileWriter.write(scanner, fileFormat, dirURI, Array(), 1, fileName)
+      DatasetFileWriter.write(scanner, fileFormat, compressCodec, dirURI, Array(), 1, fileName)
     } catch {
       case e: Throwable =>
         writeException.set(e)
