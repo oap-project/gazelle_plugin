@@ -148,7 +148,7 @@ object ArrowUtils {
       while (requiredIterator.hasNext) {
         val field = requiredIterator.next()
         finalVectors.append(
-          vectors.find(_.getValueVector.getName.equals(field.name))
+          vectors.find(vector => compareFunc(vector.getValueVector.getName, field.name))
             .getOrElse {
               // The missing column need to be find in nullVectors
               val nullVector = nullVectors.find(vector =>
