@@ -144,30 +144,19 @@ object ArrowUtils {
       val finalVectors =
         mutable.ArrayBuffer[ArrowWritableColumnVector]()
       val requiredIterator = requiredSchema.iterator
-      val caseSensitive = SQLConf.get.caseSensitiveAnalysis
+      val compareFunc = compareStringFunc(SQLConf.get.caseSensitiveAnalysis)
       while (requiredIterator.hasNext) {
         val field = requiredIterator.next()
         finalVectors.append(
-          if (caseSensitive) {
-            vectors.find(_.getValueVector.getName.equals(field.name))
-              .getOrElse {
-                // The missing column need to be find in nullVectors
-                val nullVector = nullVectors.find(_.getValueVector.getName.equals(field.name)).get
-                nullVector.setValueCount(rowCount)
-                nullVector.retain()
-                nullVector
-              }
-          } else {
-            vectors.find(_.getValueVector.getName.equalsIgnoreCase(field.name))
-              .getOrElse {
-                // The missing column need to be find in nullVectors
-                val nullVector =
-                  nullVectors.find(_.getValueVector.getName.equalsIgnoreCase(field.name)).get
-                nullVector.setValueCount(rowCount)
-                nullVector.retain()
-                nullVector
-              }
-          })
+          vectors.find(_.getValueVector.getName.equals(field.name))
+            .getOrElse {
+              // The missing column need to be find in nullVectors
+              val nullVector = nullVectors.find(vector =>
+                compareFunc(vector.getValueVector.getName, field.name)).get
+              nullVector.setValueCount(rowCount)
+              nullVector.retain()
+              nullVector
+            })
       }
       finalVectors.toArray
     } else {
