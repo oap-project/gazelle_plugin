@@ -23,11 +23,9 @@ import java.util.Objects
 
 import scala.language.implicitConversions
 
-import com.intel.oap.GazellePlugin.GAZELLE_SESSION_EXTENSION_NAME
-import com.intel.oap.GazellePlugin.GAZELLE_WRITE_SESSION_EXTENSION_NAME
-import com.intel.oap.GazellePlugin.SPARK_SESSION_EXTS_KEY
-import com.intel.oap.extension.ColumnarOverrides
+import com.intel.oap.GazellePlugin.{GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED, GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME, GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME, SPARK_SESSION_EXTS_KEY}
 import com.intel.oap.extension.{OptimizerOverrides, StrategyOverrides}
+import com.intel.oap.extension.ColumnarOverrides
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
@@ -36,7 +34,7 @@ import org.apache.spark.api.plugin.ExecutorPlugin
 import org.apache.spark.api.plugin.PluginContext
 import org.apache.spark.api.plugin.SparkPlugin
 import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
+import org.apache.spark.sql.internal.StaticSQLConf
 
 class GazellePlugin extends SparkPlugin {
   override def driverPlugin(): DriverPlugin = {
@@ -58,12 +56,19 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
   def setPredefinedConfigs(conf: SparkConf): Unit = {
     val extensions = conf.getOption(SPARK_SESSION_EXTS_KEY).getOrElse("")
     if (extensions.contains(GAZELLE_SESSION_EXTENSION_NAME) ||
-      extensions.contains(GAZELLE_WRITE_SESSION_EXTENSION_NAME)) {
+      extensions.contains(GAZELLE_WRITE_SESSION_EXTENSION_NAME) ||
+      extensions.contains(GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME)) {
       throw new IllegalArgumentException("Spark gazelle extensions are already specified before " +
         "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
-    conf.set(SPARK_SESSION_EXTS_KEY,
-      s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME,$extensions")
+    if (conf.getBoolean(GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED, false)) {
+      conf.set(SPARK_SESSION_EXTS_KEY,
+        s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME," +
+          s"$GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME, $extensions")
+    } else {
+      conf.set(SPARK_SESSION_EXTS_KEY,
+        s"$GAZELLE_SESSION_EXTENSION_NAME,$GAZELLE_WRITE_SESSION_EXTENSION_NAME, $extensions")
+    }
   }
 }
 
@@ -81,7 +86,7 @@ private[oap] class SparkConfImplicits(conf: SparkConf) {
   def enableGazellePlugin(): SparkConf = {
     if (conf.contains(GazellePlugin.SPARK_SQL_PLUGINS_KEY)) {
       throw new IllegalArgumentException("A Spark plugin is already specified before enabling " +
-          "Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SQL_PLUGINS_KEY))
+        "Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SQL_PLUGINS_KEY))
     }
     conf.set(GazellePlugin.SPARK_SQL_PLUGINS_KEY, GazellePlugin.GAZELLE_PLUGIN_NAME)
   }
@@ -100,12 +105,19 @@ private[oap] object GazellePlugin {
   // To enable GazellePlugin in production, set "spark.plugins=com.intel.oap.GazellePlugin"
   val SPARK_SQL_PLUGINS_KEY: String = "spark.plugins"
   val GAZELLE_PLUGIN_NAME: String = Objects.requireNonNull(classOf[GazellePlugin]
-      .getCanonicalName)
+    .getCanonicalName)
   val SPARK_SESSION_EXTS_KEY: String = StaticSQLConf.SPARK_SESSION_EXTENSIONS.key
   val GAZELLE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     classOf[GazelleSessionExtensions].getCanonicalName)
   val GAZELLE_WRITE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     "com.intel.oap.spark.sql.ArrowWriteExtension")
+  val GAZELLE_CONVERTOR_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
+    "com.intel.oap.spark.sql.ArrowConvertorExtension")
+  // This configuration is used to enable/disable the convertor from parquet to arrow format.
+  // Enabling the converter extension may result in inconsistent behavior with vanilla spark
+  // in some cases, such as metadata file, struct type support, ignoreMissingFiles and so on.
+  // Thus this configuration is disabled by default.
+  val GAZELLE_CONVERTOR_SESSION_EXTENSION_ENABLED: String = "spark.oap.extension.convertor.enabled"
   /**
    * Specify all injectors that Gazelle is using in following list.
    */
