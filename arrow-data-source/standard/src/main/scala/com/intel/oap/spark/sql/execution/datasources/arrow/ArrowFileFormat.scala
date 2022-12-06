@@ -138,38 +138,13 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       val parquetFileFields = factory.inspect().getFields.asScala
       val caseInsensitiveFieldMap = mutable.Map[String, String]()
       // TODO: support array/map/struct types in out-of-order schema reading.
-      val requestColNames = requiredSchema.map(_.name)
-      val actualReadFields = if (caseSensitive) {
-        new Schema(parquetFileFields.filter { field =>
-          requestColNames.exists(_.equals(field.getName))
-        }.asJava)
-      } else {
-        requiredSchema.foreach { readField =>
-          // TODO: check schema inside of complex type
-          val matchedFields =
-            parquetFileFields.filter(_.getName.equalsIgnoreCase(readField.name))
-          if (matchedFields.size > 1) {
-            // Need to fail if there is ambiguity, i.e. more than one field is matched
-            val fieldsString = matchedFields.map(_.getName).mkString("[", ", ", "]")
-            throw new RuntimeException(
-              s"""
-                 |Found duplicate field(s) "${readField.name}": $fieldsString
-                 |in case-insensitive mode""".stripMargin.replaceAll("\n", " "))
-          }
-        }
-        new Schema(parquetFileFields.filter { field =>
-          requestColNames.exists(_.equalsIgnoreCase(field.getName))
-        }.asJava)
-      }
+      val actualReadFields =
+        ArrowUtils.getRequestedField(requiredSchema, parquetFileFields, caseSensitive)
+
+      val compare = ArrowUtils.compareStringFunc(caseSensitive)
       val actualReadFieldNames = actualReadFields.getFields.asScala.map(_.getName).toArray
-      val actualReadSchema = if (caseSensitive) {
-        new StructType(actualReadFieldNames.map(f => requiredSchema.find(_.name.equals(f)).get))
-      } else {
-        new StructType(
-          actualReadFieldNames.map(f => requiredSchema.find(_.name.equalsIgnoreCase(f)).get))
-      }
-      val missingSchema =
-        new StructType(requiredSchema.filterNot(actualReadSchema.contains).toArray)
+      val actualReadSchema = new StructType(
+        actualReadFieldNames.map(f => requiredSchema.find(field => compare(f, field.name)).get))
       val dataset = factory.finish(actualReadFields)
 
       val hasMissingColumns = actualReadFields.getFields.size() != requiredSchema.size
@@ -220,22 +195,10 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         val partitionVectors =
           ArrowUtils.loadPartitionColumns(batchSize, partitionSchema, file.partitionValues)
 
-        SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
-          partitionVectors.foreach(_.close())
-        })
-
         val nullVectors = if (hasMissingColumns) {
-          val vectors =
-            ArrowWritableColumnVector.allocateColumns(batchSize, missingSchema)
-          vectors.foreach { vector =>
-            vector.putNulls(0, batchSize)
-            vector.setValueCount(batchSize)
-          }
-
-          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
-            vectors.foreach(_.close())
-          })
-          vectors
+          val missingSchema =
+            new StructType(requiredSchema.filterNot(actualReadSchema.contains).toArray)
+          ArrowUtils.loadMissingColumns(batchSize, missingSchema)
         } else {
           Array.empty[ArrowWritableColumnVector]
         }

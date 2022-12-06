@@ -29,6 +29,7 @@ import org.apache.arrow.dataset.file.FileSystemDatasetFactory
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.hadoop.fs.FileStatus
+import org.apache.spark.TaskContext
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -89,6 +90,24 @@ object ArrowUtils {
     SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getLocalTimezoneID())
   }
 
+  def loadMissingColumns(
+      rowCount: Int,
+      missingSchema: StructType): Array[ArrowWritableColumnVector] = {
+
+    val vectors =
+      ArrowWritableColumnVector.allocateColumns(rowCount, missingSchema)
+    vectors.foreach { vector =>
+      vector.putNulls(0, rowCount)
+      vector.setValueCount(rowCount)
+    }
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      vectors.foreach(_.close())
+    })
+
+    vectors
+  }
+
   def loadPartitionColumns(
       rowCount: Int,
       partitionSchema: StructType,
@@ -99,6 +118,11 @@ object ArrowUtils {
       partitionColumns(i).setValueCount(rowCount)
       partitionColumns(i).setIsConstant()
     })
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      partitionColumns.foreach(_.close())
+    })
+
     partitionColumns
   }
 
@@ -220,5 +244,40 @@ object ArrowUtils {
     }
     val rewritten = new URI(sch, ssp, uri.getFragment)
     rewritten.toString
+  }
+
+  def compareStringFunc(caseSensitive: Boolean): (String, String) => Boolean =
+    if (caseSensitive) {
+      (str1: String, str2: String) => str1.equals(str2)
+    } else {
+      (str1: String, str2: String) => str1.equalsIgnoreCase(str2)
+    }
+
+  def getRequestedField(
+      requiredSchema: StructType,
+      parquetFileFields: mutable.Buffer[Field],
+      caseSensitive: Boolean): Schema = {
+    val compareFunc = compareStringFunc(caseSensitive)
+    if (!caseSensitive) {
+      requiredSchema.foreach { readField =>
+        // TODO: check schema inside of complex type
+        val matchedFields =
+          parquetFileFields.filter(field => compareFunc(field.getName, readField.name))
+        if (matchedFields.size > 1) {
+          // Need to fail if there is ambiguity, i.e. more than one field is matched
+          val fieldsString = matchedFields.map(_.getName).mkString("[", ", ", "]")
+          throw new RuntimeException(
+            s"""
+               |Found duplicate field(s) "${readField.name}": $fieldsString
+
+               |in case-insensitive mode""".stripMargin.replaceAll("\n"
+              , " "))
+        }
+      }
+    }
+    val requestColNames = requiredSchema.map(_.name)
+    new Schema(parquetFileFields.filter { field =>
+      requestColNames.exists(col => compareFunc(col, field.getName))
+    }.asJava)
   }
 }
