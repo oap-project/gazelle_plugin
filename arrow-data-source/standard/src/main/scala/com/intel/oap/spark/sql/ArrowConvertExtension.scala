@@ -43,21 +43,7 @@ case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
       case c: InsertIntoHadoopFsRelationCommand
         if c.fileFormat.isInstanceOf[ParquetFileFormat] &&
           c.partitionColumns.isEmpty && c.bucketSpec.isEmpty =>
-        // TODO: Support pass parquet config and writing with other codecs
-        // `compression`, `parquet.compression`(i.e., ParquetOutputFormat.COMPRESSION), and
-        // `spark.sql.parquet.compression.codec`
-        // are in order of precedence from highest to lowest.
-        val parquetCompressionConf = c.options.get(ParquetOutputFormat.COMPRESSION)
-        val codecName = c.options
-          .get("compression")
-          .orElse(parquetCompressionConf)
-          .getOrElse(session.sessionState.conf.parquetCompressionCodec)
-          .toLowerCase(Locale.ROOT)
-        if (codecName.equalsIgnoreCase("snappy")) {
-          c.copy(fileFormat = new ArrowFileFormat)
-        } else {
-          c
-        }
+        c.copy(fileFormat = new ArrowFileFormat)
 
       // Read path
       case l@ LogicalRelation(
