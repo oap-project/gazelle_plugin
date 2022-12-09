@@ -43,7 +43,6 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.OutputWriter
 import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
-import org.apache.spark.sql.execution.datasources.parquet.ParquetUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.internal.SQLConf
@@ -67,13 +66,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging wi
   override def inferSchema(sparkSession: SparkSession,
       options: Map[String, String],
       files: Seq[FileStatus]): Option[StructType] = {
-    val arrowOptions = new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap)
-    ArrowUtils.getFormat(arrowOptions) match {
-      case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
-        ParquetUtils.inferSchema(sparkSession, options, files)
-      case _ =>
-        convert(files, options)
-    }
+    convert(files, options)
   }
 
   override def prepareWrite(sparkSession: SparkSession,
@@ -86,7 +79,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging wi
     val conf = ContextUtil.getConfiguration(job)
     conf.set(ParquetOutputFormat.COMPRESSION, parquetOptions.compressionCodecClassName)
     logInfo(s"write parquet with codec: ${parquetOptions.compressionCodecClassName}")
-    
+
     new OutputWriterFactory {
       override def getFileExtension(context: TaskAttemptContext): String = {
         ArrowUtils.getFormat(arrowOptions) match {
@@ -100,7 +93,8 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging wi
           context: TaskAttemptContext): OutputWriter = {
         val originPath = path
         val writeQueue = new ArrowWriteQueue(ArrowUtils.toArrowSchema(dataSchema),
-          ArrowUtils.getFormat(arrowOptions), parquetOptions.compressionCodecClassName.toLowerCase(), originPath)
+          ArrowUtils.getFormat(arrowOptions),
+          parquetOptions.compressionCodecClassName.toLowerCase(), originPath)
 
         new OutputWriter {
           override def write(row: InternalRow): Unit = {
@@ -163,12 +157,8 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging wi
         } else {
           filters
         }
-        if (pushedFilters == null) {
-          null
-        } else {
-          ArrowFilters.translateFilters(
-            pushedFilters, caseInsensitiveFieldMap.toMap)
-        }
+        ArrowFilters.translateFilters(
+          pushedFilters, caseInsensitiveFieldMap.toMap)
       } else {
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }

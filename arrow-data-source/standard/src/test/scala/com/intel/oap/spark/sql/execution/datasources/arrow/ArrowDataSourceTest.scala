@@ -482,6 +482,28 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
         .arrow(path), 2, 3)
   }
 
+  test("Test schema merge on arrow datasource") {
+    import testImplicits._
+    withTempPath { dir =>
+      val path1 = s"${dir.getCanonicalPath}/table1"
+      (1 to 3).map(i => (i, i.toString)).toDF("a", "b").write.arrow(path1)
+      val path2 = s"${dir.getCanonicalPath}/table2"
+      (1 to 3).map(i => (i, i.toString)).toDF("c", "b").write.arrow(path2)
+
+      Seq("arrow", "").foreach { v1SourceList =>
+        withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> v1SourceList,
+          SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true") {
+
+          // No matter "c = 1" gets pushed down or not, this query should work without exception.
+          val df = spark.read.arrow(path1, path2).filter("c = 1").selectExpr("c", "b", "a")
+          checkAnswer(
+            df,
+            Row(1, "1", null))
+        }
+      }
+    }
+  }
+
   def verifyFrame(frame: DataFrame, rowCount: Int, columnCount: Int): Unit = {
     assert(frame.schema.length === columnCount)
     assert(frame.collect().length === rowCount)

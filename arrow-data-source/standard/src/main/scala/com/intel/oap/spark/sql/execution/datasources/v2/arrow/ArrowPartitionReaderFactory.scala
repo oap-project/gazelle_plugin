@@ -21,20 +21,16 @@ import java.net.URLDecoder
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.google.common.collect.Lists
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowPartitionReaderFactory.ColumnarBatchRetainer
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
-import org.apache.arrow.vector.types.pojo.{Field, Schema}
-import org.apache.spark.TaskContext
 
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader}
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.v2.FilePartitionReaderFactory
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
@@ -85,13 +81,9 @@ case class ArrowPartitionReaderFactory(
       } else {
         pushedFilters
       }
-      if (filters == null) {
-        null
-      } else {
-        ArrowFilters.translateFilters(
-          ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema),
-          caseInsensitiveFieldMap.toMap)
-      }
+      ArrowFilters.translateFilters(
+        ArrowFilters.pruneWithSchema(filters, readDataSchema),
+        caseInsensitiveFieldMap.toMap)
     } else {
       org.apache.arrow.dataset.filter.Filter.EMPTY
     }

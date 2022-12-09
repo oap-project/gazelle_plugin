@@ -18,8 +18,6 @@
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import java.net.URI
-import java.nio.charset.StandardCharsets
-import java.time.ZoneId
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -29,12 +27,12 @@ import org.apache.arrow.dataset.file.FileSystemDatasetFactory
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.hadoop.fs.FileStatus
-import org.apache.spark.TaskContext
 
+import org.apache.spark.TaskContext
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.util.DateTimeUtils
+import org.apache.spark.sql.execution.datasources.parquet.ParquetUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
-import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -58,7 +56,13 @@ object ArrowUtils {
     if (files.isEmpty) {
       throw new IllegalArgumentException("No input file specified")
     }
-    readSchema(files.toList.head, options) // todo merge schema
+    val arrowOptions = new ArrowOptions(options.asScala.toMap)
+    ArrowUtils.getFormat(arrowOptions) match {
+      case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
+        ParquetUtils.inferSchema(SparkSession.active, options.asScala.toMap, files)
+      case _ =>
+        readSchema(files.toList.head, options) // todo merge schema
+    }
   }
 
   def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {

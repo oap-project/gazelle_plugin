@@ -61,7 +61,7 @@ object ArrowFilters {
       requiredFields: Seq[String]): Seq[Filter] = {
     val evaluatedFilters = evaluateFilters(pushedFilters, requiredFields)
     if (evaluatedFilters.exists(_._2 == false)) {
-      null
+      Seq.empty[Filter]
     } else {
       evaluatedFilters.map(_._1).filterNot(_ == null)
     }
