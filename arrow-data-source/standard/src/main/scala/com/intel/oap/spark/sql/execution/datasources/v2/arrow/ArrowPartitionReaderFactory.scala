@@ -77,13 +77,17 @@ case class ArrowPartitionReaderFactory(
     val hasMissingColumns = actualReadFields.getFields.size() != readDataSchema.size
     val filter = if (enableFilterPushDown) {
       val filters = if (hasMissingColumns) {
-        ArrowFilters.evaluateMissingFieldFilters(pushedFilters, actualReadFieldNames).toArray
+        ArrowFilters.evaluateMissingFieldFilters(pushedFilters, actualReadFieldNames)
       } else {
-        pushedFilters
+        pushedFilters.toSeq
       }
-      ArrowFilters.translateFilters(
-        ArrowFilters.pruneWithSchema(filters, readDataSchema),
-        caseInsensitiveFieldMap.toMap)
+      if (filters == null) {
+        null
+      } else {
+        ArrowFilters.translateFilters(
+          ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema),
+          caseInsensitiveFieldMap.toMap)
+      }
     } else {
       org.apache.arrow.dataset.filter.Filter.EMPTY
     }

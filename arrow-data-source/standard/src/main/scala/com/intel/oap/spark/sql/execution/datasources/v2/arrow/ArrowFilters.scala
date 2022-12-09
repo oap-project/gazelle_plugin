@@ -25,7 +25,7 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 
 object ArrowFilters {
-  def pruneWithSchema(pushedFilters: Array[Filter], schema: StructType): Seq[Filter] = {
+  def pruneWithSchema(pushedFilters: Seq[Filter], schema: StructType): Seq[Filter] = {
     pushedFilters.filter(pushedFilter => {
       isToBeAccepted(pushedFilter, schema)
     })
@@ -61,7 +61,7 @@ object ArrowFilters {
       requiredFields: Seq[String]): Seq[Filter] = {
     val evaluatedFilters = evaluateFilters(pushedFilters, requiredFields)
     if (evaluatedFilters.exists(_._2 == false)) {
-      Seq.empty[Filter]
+      null
     } else {
       evaluatedFilters.map(_._1).filterNot(_ == null)
     }

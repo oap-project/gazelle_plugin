@@ -157,8 +157,12 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Logging wi
         } else {
           filters
         }
-        ArrowFilters.translateFilters(
-          pushedFilters, caseInsensitiveFieldMap.toMap)
+        if (pushedFilters == null) {
+          null
+        } else {
+          ArrowFilters.translateFilters(
+            pushedFilters, caseInsensitiveFieldMap.toMap)
+        }
       } else {
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }
