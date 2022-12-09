@@ -18,10 +18,9 @@
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import java.net.URI
-import java.nio.charset.StandardCharsets
-import java.time.ZoneId
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 import com.intel.oap.vectorized.{ArrowColumnVectorUtils, ArrowWritableColumnVector}
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory
@@ -29,10 +28,11 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.hadoop.fs.FileStatus
 
+import org.apache.spark.TaskContext
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.util.DateTimeUtils
+import org.apache.spark.sql.execution.datasources.parquet.ParquetUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
-import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -56,7 +56,13 @@ object ArrowUtils {
     if (files.isEmpty) {
       throw new IllegalArgumentException("No input file specified")
     }
-    readSchema(files.toList.head, options) // todo merge schema
+    val arrowOptions = new ArrowOptions(options.asScala.toMap)
+    ArrowUtils.getFormat(arrowOptions) match {
+      case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
+        ParquetUtils.inferSchema(SparkSession.active, options.asScala.toMap, files)
+      case _ =>
+        readSchema(files.toList.head, options) // todo merge schema
+    }
   }
 
   def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {
@@ -70,7 +76,7 @@ object ArrowUtils {
   }
 
   def makeArrowDiscovery(encodedUri: String, startOffset: Long, length: Long,
-                         options: ArrowOptions): FileSystemDatasetFactory = {
+      options: ArrowOptions): FileSystemDatasetFactory = {
 
     val format = getFormat(options)
     val allocator = SparkMemoryUtils.contextAllocator()
@@ -88,6 +94,24 @@ object ArrowUtils {
     SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getLocalTimezoneID())
   }
 
+  def loadMissingColumns(
+      rowCount: Int,
+      missingSchema: StructType): Array[ArrowWritableColumnVector] = {
+
+    val vectors =
+      ArrowWritableColumnVector.allocateColumns(rowCount, missingSchema)
+    vectors.foreach { vector =>
+      vector.putNulls(0, rowCount)
+      vector.setValueCount(rowCount)
+    }
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      vectors.foreach(_.close())
+    })
+
+    vectors
+  }
+
   def loadPartitionColumns(
       rowCount: Int,
       partitionSchema: StructType,
@@ -98,13 +122,20 @@ object ArrowUtils {
       partitionColumns(i).setValueCount(rowCount)
       partitionColumns(i).setIsConstant()
     })
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      partitionColumns.foreach(_.close())
+    })
+
     partitionColumns
   }
 
   def loadBatch(
       input: ArrowRecordBatch,
       dataSchema: StructType,
-      partitionVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
+      requiredSchema: StructType,
+      partitionVectors: Array[ArrowWritableColumnVector] = Array.empty,
+      nullVectors: Array[ArrowWritableColumnVector] = Array.empty): ColumnarBatch = {
     val rowCount: Int = input.getLength
 
     val vectors = try {
@@ -113,8 +144,31 @@ object ArrowUtils {
       input.close()
     }
 
+    val totalVectors = if (nullVectors.nonEmpty) {
+      val finalVectors =
+        mutable.ArrayBuffer[ArrowWritableColumnVector]()
+      val requiredIterator = requiredSchema.iterator
+      val compareFunc = compareStringFunc(SQLConf.get.caseSensitiveAnalysis)
+      while (requiredIterator.hasNext) {
+        val field = requiredIterator.next()
+        finalVectors.append(
+          vectors.find(vector => compareFunc(vector.getValueVector.getName, field.name))
+            .getOrElse {
+              // The missing column need to be find in nullVectors
+              val nullVector = nullVectors.find(vector =>
+                compareFunc(vector.getValueVector.getName, field.name)).get
+              nullVector.setValueCount(rowCount)
+              nullVector.retain()
+              nullVector
+            })
+      }
+      finalVectors.toArray
+    } else {
+      vectors
+    }
+
     val batch = new ColumnarBatch(
-      vectors.map(_.asInstanceOf[ColumnVector]) ++
+      totalVectors.map(_.asInstanceOf[ColumnVector]) ++
         partitionVectors
           .map { vector =>
             vector.setValueCount(rowCount)
@@ -132,7 +186,7 @@ object ArrowUtils {
   }
 
   def loadBatch(input: ArrowRecordBatch, partitionValues: InternalRow,
-                  partitionSchema: StructType, dataSchema: StructType): ColumnarBatch = {
+      partitionSchema: StructType, dataSchema: StructType): ColumnarBatch = {
     val rowCount: Int = input.getLength
 
     val vectors = try {
@@ -149,13 +203,13 @@ object ArrowUtils {
 
     val batch = new ColumnarBatch(
       vectors.map(_.asInstanceOf[ColumnVector]) ++
-          partitionColumns.map(_.asInstanceOf[ColumnVector]),
+        partitionColumns.map(_.asInstanceOf[ColumnVector]),
       rowCount)
     batch
   }
 
   def getFormat(
-    options: ArrowOptions): org.apache.arrow.dataset.file.format.FileFormat = {
+      options: ArrowOptions): org.apache.arrow.dataset.file.format.FileFormat = {
     val paramMap = options.parameters.toMap.asJava
     options.originalFormat match {
       case "parquet" => org.apache.arrow.dataset.file.format.ParquetFileFormat.create(paramMap)
@@ -183,5 +237,40 @@ object ArrowUtils {
     }
     val rewritten = new URI(sch, ssp, uri.getFragment)
     rewritten.toString
+  }
+
+  def compareStringFunc(caseSensitive: Boolean): (String, String) => Boolean =
+    if (caseSensitive) {
+      (str1: String, str2: String) => str1.equals(str2)
+    } else {
+      (str1: String, str2: String) => str1.equalsIgnoreCase(str2)
+    }
+
+  def getRequestedField(
+      requiredSchema: StructType,
+      parquetFileFields: mutable.Buffer[Field],
+      caseSensitive: Boolean): Schema = {
+    val compareFunc = compareStringFunc(caseSensitive)
+    if (!caseSensitive) {
+      requiredSchema.foreach { readField =>
+        // TODO: check schema inside of complex type
+        val matchedFields =
+          parquetFileFields.filter(field => compareFunc(field.getName, readField.name))
+        if (matchedFields.size > 1) {
+          // Need to fail if there is ambiguity, i.e. more than one field is matched
+          val fieldsString = matchedFields.map(_.getName).mkString("[", ", ", "]")
+          throw new RuntimeException(
+            s"""
+               |Found duplicate field(s) "${readField.name}": $fieldsString
+
+               |in case-insensitive mode""".stripMargin.replaceAll("\n"
+              , " "))
+        }
+      }
+    }
+    val requestColNames = requiredSchema.map(_.name)
+    new Schema(parquetFileFields.filter { field =>
+      requestColNames.exists(col => compareFunc(col, field.getName))
+    }.asJava)
   }
 }

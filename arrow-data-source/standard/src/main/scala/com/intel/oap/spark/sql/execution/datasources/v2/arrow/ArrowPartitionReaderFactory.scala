@@ -23,16 +23,14 @@ import scala.collection.mutable
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowPartitionReaderFactory.ColumnarBatchRetainer
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
+import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
-import org.apache.arrow.vector.types.pojo.Schema
 
-import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader}
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.v2.FilePartitionReaderFactory
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
@@ -66,86 +64,93 @@ case class ArrowPartitionReaderFactory(
       partitionedFile.start, partitionedFile.length, options)
     val parquetFileFields = factory.inspect().getFields.asScala
     val caseInsensitiveFieldMap = mutable.Map[String, String]()
-    val requiredFields = if (caseSensitive) {
-      new Schema(readDataSchema.map { field =>
-        parquetFileFields.find(_.getName.equals(field.name))
-          .getOrElse(ArrowUtils.toArrowField(field))
-      }.asJava)
-    } else {
-      new Schema(readDataSchema.map { readField =>
-        // TODO: check schema inside of complex type
-        val matchedFields =
-          parquetFileFields.filter(_.getName.equalsIgnoreCase(readField.name))
-        if (matchedFields.size > 1) {
-          // Need to fail if there is ambiguity, i.e. more than one field is matched
-          val fieldsString = matchedFields.map(_.getName).mkString("[", ", ", "]")
-          throw new RuntimeException(
-            s"""
-               |Found duplicate field(s) "${readField.name}": $fieldsString
-               |in case-insensitive mode""".stripMargin.replaceAll("\n", " "))
-        } else {
-          matchedFields
-            .map { field =>
-              caseInsensitiveFieldMap += (readField.name -> field.getName)
-              field
-            }.headOption.getOrElse(ArrowUtils.toArrowField(readField))
-        }
-      }.asJava)
-    }
-    val dataset = factory.finish(requiredFields)
+    // TODO: support array/map/struct types in out-of-order schema reading.
+    val actualReadFields =
+      ArrowUtils.getRequestedField(readDataSchema, parquetFileFields, caseSensitive)
+
+    val compare = ArrowUtils.compareStringFunc(caseSensitive)
+    val actualReadFieldNames = actualReadFields.getFields.asScala.map(_.getName).toArray
+    val actualReadSchema = new StructType(
+      actualReadFieldNames.map(f => readDataSchema.find(field => compare(f, field.name)).get))
+    val dataset = factory.finish(actualReadFields)
+
+    val hasMissingColumns = actualReadFields.getFields.size() != readDataSchema.size
     val filter = if (enableFilterPushDown) {
-      ArrowFilters.translateFilters(
-        ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema),
-        caseInsensitiveFieldMap.toMap)
+      val filters = if (hasMissingColumns) {
+        ArrowFilters.evaluateMissingFieldFilters(pushedFilters, actualReadFieldNames)
+      } else {
+        pushedFilters.toSeq
+      }
+      if (filters == null) {
+        null
+      } else {
+        ArrowFilters.translateFilters(
+          ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema),
+          caseInsensitiveFieldMap.toMap)
+      }
     } else {
       org.apache.arrow.dataset.filter.Filter.EMPTY
     }
-    val scanOptions = new ScanOptions(readDataSchema.map(f => f.name).toArray,
-      filter, batchSize)
-    val scanner = dataset.newScan(scanOptions)
+    if (filter == null) {
+      new PartitionReader[ColumnarBatch] {
+        override def next(): Boolean = false
+        override def get(): ColumnarBatch = null
+        override def close(): Unit = {
+          // Nothing will be done
+        }
+      }
+    } else {
+      val scanOptions = new ScanOptions(actualReadFieldNames, filter, batchSize)
+      val scanner = dataset.newScan(scanOptions)
 
-    val taskList = scanner
-      .scan()
-      .iterator()
-      .asScala
-      .toList
+      val taskList = scanner
+        .scan()
+        .iterator()
+        .asScala
+        .toList
 
-    val vsrItrList = taskList
-      .map(task => task.execute())
+      val vsrItrList = taskList
+        .map(task => task.execute())
 
-    val partitionVectors = ArrowUtils.loadPartitionColumns(
-      batchSize, readPartitionSchema, partitionedFile.partitionValues)
+      val partitionVectors = ArrowUtils.loadPartitionColumns(
+        batchSize, readPartitionSchema, partitionedFile.partitionValues)
 
-    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
-      partitionVectors.foreach(_.close())
-    })
-
-    val batchItr = vsrItrList
-      .toIterator
-      .flatMap(itr => itr.asScala)
-      .map(batch => ArrowUtils.loadBatch(batch, readDataSchema, partitionVectors))
-
-    new PartitionReader[ColumnarBatch] {
-      val holder = new ColumnarBatchRetainer()
-
-      override def next(): Boolean = {
-        holder.release()
-        batchItr.hasNext
+      val nullVectors = if (hasMissingColumns) {
+        val missingSchema =
+          new StructType(readDataSchema.filterNot(actualReadSchema.contains).toArray)
+        ArrowUtils.loadMissingColumns(batchSize, missingSchema)
+      } else {
+        Array.empty[ArrowWritableColumnVector]
       }
 
-      override def get(): ColumnarBatch = {
-        val batch = batchItr.next()
-        holder.retain(batch)
-        batch
-      }
+      val batchItr = vsrItrList
+        .toIterator
+        .flatMap(itr => itr.asScala)
+        .map(batch => ArrowUtils.loadBatch(
+          batch, actualReadSchema, readDataSchema, partitionVectors, nullVectors))
 
-      override def close(): Unit = {
-        holder.release()
-        vsrItrList.foreach(itr => itr.close())
-        taskList.foreach(task => task.close())
-        scanner.close()
-        dataset.close()
-        factory.close()
+      new PartitionReader[ColumnarBatch] {
+        val holder = new ColumnarBatchRetainer()
+
+        override def next(): Boolean = {
+          holder.release()
+          batchItr.hasNext
+        }
+
+        override def get(): ColumnarBatch = {
+          val batch = batchItr.next()
+          holder.retain(batch)
+          batch
+        }
+
+        override def close(): Unit = {
+          holder.release()
+          vsrItrList.foreach(itr => itr.close())
+          taskList.foreach(task => task.close())
+          scanner.close()
+          dataset.close()
+          factory.close()
+        }
       }
     }
   }

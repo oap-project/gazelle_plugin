@@ -27,16 +27,14 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
 import com.sun.management.UnixOperatingSystemMXBean
 import org.apache.commons.io.FileUtils
 
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.{DataFrame, QueryTest, Row}
+import org.apache.spark.{SparkConf, SparkException}
+import org.apache.spark.sql.{DataFrame, QueryTest, Row, SaveMode}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.SPARK_SESSION_EXTENSIONS
 import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField, StructType}
 
 class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   import testImplicits._
@@ -480,6 +478,42 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
         .arrow(path), 2, 3)
+  }
+
+  test("Test schema merge on arrow datasource") {
+    import testImplicits._
+    withTempPath { dir =>
+      val path1 = s"${dir.getCanonicalPath}/table1"
+      (1 to 3).map(i => (i, i.toString)).toDF("a", "b").write.arrow(path1)
+      val path2 = s"${dir.getCanonicalPath}/table2"
+      (1 to 3).map(i => (i, i.toString)).toDF("c", "b").write.arrow(path2)
+
+      val path3 = s"${dir.getCanonicalPath}/table3"
+      val dfStruct = sparkContext.parallelize(Seq((1, 1))).toDF("a", "b")
+      dfStruct.select(struct("a").as("s")).write.parquet(path3)
+      val path4 = s"${dir.getCanonicalPath}/table4"
+      val dfStruct2 = sparkContext.parallelize(Seq((1, 1))).toDF("c", "b")
+      dfStruct2.select(struct("c").as("s")).write.parquet(path4)
+
+      Seq("arrow", "").foreach { v1SourceList =>
+        withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> v1SourceList,
+          SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true") {
+
+          // No matter "c = 1" gets pushed down or not, this query should work without exception.
+          val df = spark.read.arrow(path1, path2).filter("c = 1").selectExpr("c", "b", "a")
+          checkAnswer(
+            df,
+            Row(1, "1", null))
+
+          // Not support schema merge and fiter pushdown for struct type
+          val expr = intercept[SparkException] {
+            spark.read.arrow(path3, path4).filter("s.c = 1").selectExpr("s").show()
+          }
+          assert(expr.getCause.getMessage.contains(
+            """no more field nodes for for field c"""))
+        }
+      }
+    }
   }
 
   def verifyFrame(frame: DataFrame, rowCount: Int, columnCount: Int): Unit = {
