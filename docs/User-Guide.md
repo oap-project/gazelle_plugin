@@ -68,9 +68,9 @@ And for spark 3.2.x, the jar whose `<spark-version>` is `spark321` should be use
 
 Since 1.4.0 release, we consolidate 4 jars into one single jar. And the supported spark version is contained in the jar name. User can pick one jar according to your spark version.
 
-`gazelle-plugin-1.4.0-spark-3.1.1.jar`
+`gazelle-plugin-<version>-spark-3.1.1.jar`
 
-`gazelle-plugin-1.4.0-spark-3.2.1.jar`
+`gazelle-plugin-<version>-spark-3.2.1.jar`
 
 
 Please note the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage.
@@ -97,7 +97,7 @@ Please check the document [Installation Guide](./Installation.md)
 ## Get started
 
 To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` and `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` should be added to Spark configuration. As of 1.3.1 release, a new shim layer was introduced to work with Spark minor releases. The shim layer also have two jars`spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar` and `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
-And after 1.4.0 release, only one single jar is required: `gazelle-plugin-1.4.0-spark-3.1.1.jar` or `gazelle-plugin-1.4.0-spark-3.2.1.jar`.
+And after 1.4.0 release, only one single jar is required: `gazelle-plugin-<version>-spark-3.1.1.jar` or `gazelle-plugin-<version>-spark-3.2.1.jar`.
 
 We will demonstrate how to deploy Gazelle (since 1.4.0 release) on Spark 3.2.1.
 SPARK related options are:
@@ -120,8 +120,8 @@ ${SPARK_HOME}/bin/spark-shell \
         --master yarn \
         --driver-memory 10G \
         --conf spark.plugins=com.intel.oap.GazellePlugin \
-        --conf spark.driver.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_JAR/gazelle-plugin-1.4.0-spark-3.2.1.jar \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/gazelle-plugin-<version>-spark-3.2.1.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/gazelle-plugin-<version>-spark-3.2.1.jar \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
