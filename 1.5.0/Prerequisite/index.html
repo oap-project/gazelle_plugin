@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Prerequisite - Gazelle Plugin - 1.5.0</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Prerequisite";
+        var mkdocs_page_input_path = "Prerequisite.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <script src="../js/jquery-3.6.0.min.js" defer></script>
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+      <script>hljs.initHighlightingOnLoad();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Gazelle Plugin - 1.5.0
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Prerequisite</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#gcc-installation">GCC installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#llvm-70-installation">LLVM 7.0 installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#cmake-installation">cmake installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#maven-installation">maven installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hadoopspark-installation">HADOOP/SPARK Installation</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#hadoop-native-librarydefault">Hadoop Native Library(Default)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#use-libhdfs3-library-for-better-performanceoptional">Use libhdfs3 library for better performance(Optional)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#intel-optimized-apache-arrow-installation">Intel Optimized Apache Arrow Installation</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../OAP-Developer-Guide/">OAP Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../">Version Selector</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Gazelle Plugin - 1.5.0</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+      <li>Prerequisite</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="prerequisite">Prerequisite</h1>
+<p>There are some requirements before you build the project.
+Please make sure you have already installed the software in your system.</p>
+<ol>
+<li>GCC 9.0 or higher version</li>
+<li>LLVM 7.0 or higher version</li>
+<li>java8 OpenJDK -&gt; yum install java-1.8.0-openjdk</li>
+<li>cmake 3.16 or higher version</li>
+<li>Maven 3.6.3 or higher version</li>
+<li>Hadoop 2.7.5 or higher version</li>
+<li>Spark 3.1.x or Spark 3.2.x</li>
+<li>Intel Optimized Arrow 4.0.0</li>
+</ol>
+<h2 id="gcc-installation">GCC installation</h2>
+<p>Please install GCC 9.0 or higher version.</p>
+<p>Please note for better performance support, GCC 9.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
+https://gcc.gnu.org/install/index.html</p>
+<p>Follow the above website to download GCC.
+If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.</p>
+<p>Follow the steps to configure GCC
+https://gcc.gnu.org/install/configure.html</p>
+<p>If you are facing a multilib issue, you can try to add --disable-multilib parameter in ../configure</p>
+<p>Follow the steps to build GCC
+https://gcc.gnu.org/install/build.html</p>
+<p>Follow the steps to install GCC
+https://gcc.gnu.org/install/finalinstall.html</p>
+<p>Set up environment for new GCC</p>
+<pre><code>export PATH=$YOUR_GCC_INSTALLATION_DIR/bin:$PATH
+export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
+</code></pre>
+<p>Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc</p>
+<p>Verify if GCC has been installed.
+Use <code>gcc -v</code> command to verify if your gcc version is correct.(Must larger than 9)</p>
+<h2 id="llvm-70-installation">LLVM 7.0 installation</h2>
+<p>Arrow Gandiva depends on LLVM, and I noticed current version strictly depends on llvm7.0 if you installed any other version rather than 7.0, it will fail.</p>
+<pre><code class="language-shell">wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz
+tar xf llvm-7.0.1.src.tar.xz
+cd llvm-7.0.1.src/
+cd tools
+wget http://releases.llvm.org/7.0.1/cfe-7.0.1.src.tar.xz
+tar xf cfe-7.0.1.src.tar.xz
+mv cfe-7.0.1.src clang
+cd ..
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j
+cmake --build . --target install
+# check if clang has also been compiled, if no
+cd tools/clang
+mkdir build
+cd build
+cmake ..
+make -j
+make install
+</code></pre>
+<h2 id="cmake-installation">cmake installation</h2>
+<p>If you are facing some trouble when installing cmake, please follow below steps to install cmake.</p>
+<pre><code>// installing Cmake 3.16.1
+sudo yum install cmake3
+
+// If you have an existing cmake, you can use below command to set it as an option within alternatives command
+sudo alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake 10 --slave /usr/local/bin/ctest ctest /usr/bin/ctest --slave /usr/local/bin/cpack cpack /usr/bin/cpack --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake --family cmake
+
+// Set cmake3 as an option within alternatives command
+sudo alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 --slave /usr/local/bin/ctest ctest /usr/bin/ctest3 --slave /usr/local/bin/cpack cpack /usr/bin/cpack3 --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 --family cmake
+
+// Use alternatives to choose cmake version
+sudo alternatives --config cmake
+</code></pre>
+<h2 id="maven-installation">maven installation</h2>
+<p>If you are facing some trouble when installing maven, please follow below steps to install maven</p>
+<p>// installing maven 3.6.3</p>
+<p>Go to https://maven.apache.org/download.cgi and download the specific version of maven</p>
+<p>// Below command use maven 3.6.3 as an example</p>
+<pre><code>wget htps://ftp.wayne.edu/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+wget https://ftp.wayne.edu/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+tar xzf apache-maven-3.6.3-bin.tar.gz
+mkdir /usr/local/maven
+mv apache-maven-3.6.3/ /usr/local/maven/
+</code></pre>
+<p>// Set maven 3.6.3 as an option within alternatives command</p>
+<pre><code>sudo alternatives --install /usr/bin/mvn mvn /usr/local/maven/apache-maven-3.6.3/bin/mvn 1
+</code></pre>
+<p>// Use alternatives to choose mvn version</p>
+<pre><code>sudo alternatives --config mvn
+</code></pre>
+<h2 id="hadoopspark-installation">HADOOP/SPARK Installation</h2>
+<p>If there is no existing Hadoop/Spark installed, Please follow the guide to install your Hadoop/Spark <a href="../SparkInstallation/">SPARK/HADOOP Installation</a></p>
+<h3 id="hadoop-native-librarydefault">Hadoop Native Library(Default)</h3>
+<p>Please make sure you have set up Hadoop directory properly with Hadoop Native Libraries
+By default, Apache Arrow would scan <code>$HADOOP_HOME</code> and find the native Hadoop library <code>libhdfs.so</code>(under <code>$HADOOP_HOME/lib/native</code> directory) to be used for Hadoop client.</p>
+<p>You can also use <code>ARROW_LIBHDFS_DIR</code> to configure the location of <code>libhdfs.so</code> if it is installed in other directory than <code>$HADOOP_HOME/lib/native</code></p>
+<p>If your SPARK and HADOOP are separated in different nodes, please find <code>libhdfs.so</code> in your Hadoop cluster and copy it to SPARK cluster, then use one of the above methods to set it properly.</p>
+<p>For more information, please check
+Arrow HDFS interface <a href="https://github.com/apache/arrow/blob/master/cpp/apidoc/HDFS.md">documentation</a>
+Hadoop Native Library, please read the official Hadoop website <a href="https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/NativeLibraries.html">documentation</a></p>
+<h3 id="use-libhdfs3-library-for-better-performanceoptional">Use libhdfs3 library for better performance(Optional)</h3>
+<p>For better performance ArrowDataSource reads HDFS files using the third-party library <code>libhdfs3</code>. The library must be pre-installed on machines Spark Executor nodes are running on.</p>
+<p>To install the library, use of <a href="https://docs.conda.io/en/latest/">Conda</a> is recommended.</p>
+<pre><code>// installing libhdfs3
+conda install -c conda-forge libhdfs3
+
+// check the installed library file
+ll ~/miniconda/envs/$(YOUR_ENV_NAME)/lib/libhdfs3.so
+</code></pre>
+<p>We also provide a libhdfs3 binary in cpp/src/resources directory.</p>
+<p>To set up libhdfs3, there are two different ways:
+Option1: Overwrite the soft link for libhdfs.so
+To install libhdfs3.so, you have to create a soft link for libhdfs.so in your Hadoop directory(<code>$HADOOP_HOME/lib/native</code> by default).</p>
+<pre><code>ln -f -s libhdfs3.so libhdfs.so
+</code></pre>
+<p>Option2:
+Add env variable to the system</p>
+<pre><code>export ARROW_LIBHDFS3_DIR=&quot;PATH_TO_LIBHDFS3_DIR/&quot;
+</code></pre>
+<p>Add following Spark configuration options before running the DataSource to make the library to be recognized:</p>
+<ul>
+<li><code>spark.executorEnv.ARROW_LIBHDFS3_DIR = "PATH_TO_LIBHDFS3_DIR/"</code></li>
+<li><code>spark.executorEnv.LD_LIBRARY_PATH = "PATH_TO_LIBHDFS3_DEPENDENCIES_DIR/"</code></li>
+</ul>
+<p>Please notes: If you choose to use libhdfs3.so, there are some other dependency libraries you have to installed such as libprotobuf or libcrypto.</p>
+<h2 id="intel-optimized-apache-arrow-installation">Intel Optimized Apache Arrow Installation</h2>
+<p>During the mvn compile command, it will launch a script(build_arrow.sh) to help install and compile a Intel custom Arrow library.
+If you wish to build Apache Arrow by yourself, please follow the guide to build and install Apache Arrow <a href="../ApacheArrowInstallation/">ArrowInstallation</a></p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../User-Guide/" class="btn btn-neutral float-left" title="User Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Installation/" class="btn btn-neutral float-right" title="Installation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../User-Guide/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../Installation/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme_extra.js" defer></script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
