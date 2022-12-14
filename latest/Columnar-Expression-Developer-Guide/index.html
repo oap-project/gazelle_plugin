@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Columnar Expression Developer Guide - Gazelle Plugin - latest</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Columnar Expression Developer Guide";
+        var mkdocs_page_input_path = "Columnar-Expression-Developer-Guide.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <script src="../js/jquery-3.6.0.min.js" defer></script>
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+      <script>hljs.initHighlightingOnLoad();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Gazelle Plugin - latest
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Prerequisite/">Prerequisite</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../Columnar-UDF-Development-Guide/">Columnar UDF Development</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../memory/">Memory Allocation in Gazelle Plugin</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../performance/">Performance Tuning for Gazelle Plugin</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../OAP-Developer-Guide/">OAP Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../">Version Selector</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Gazelle Plugin - latest</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+      <li>Columnar Expression Developer Guide</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="columnar-expression-developer-guide">Columnar Expression Developer Guide</h1>
+<p>This is a short guide on adding new columnar expressions in Gazelle.</p>
+<p>Currently, the columnar expressions in Gazelle are implemented based on Arrow/gandiva. Developer needs to
+implement a columnar expression class in Gazelle scala code and also add some logic to replace Spark expression
+with the implemented columnar expression. And the native code is implemented in Arrow/gandiva for expression's
+core functionality.</p>
+<p>Before native code development, we should check whether the desired function is already implemented
+in gandiva. If so, we can directly use it or just make a few code changes to meet the compatibility with Spark.</p>
+<p>Take <code>regexp_extract</code> as example.</p>
+<h2 id="arrowgandiva-native-code">Arrow/gandiva Native Code</h2>
+<h3 id="functions-need-to-use-external-c-libs">functions need to use external C++ libs</h3>
+<p>See <a href="https://github.com/oap-project/arrow/pull/97">arrow/pull/97</a>.</p>
+<p>Since C++ lib google/RE2 is leveraged, we implemented the core function in a gandiva function holder.</p>
+<p>In <code>extract_holder.h</code>, we need declare the below functions other than some other necessary functions.</p>
+<pre><code>static Status Make(const FunctionNode &amp;node, std::shared_ptr&lt;ExtractHolder&gt; *holder);
+</code></pre>
+<p>This function is used to construct <code>ExtractHolder</code> and check the legality of input if needed. It will
+be called by <code>function_holder_registry.h</code> to register the function holder.</p>
+<p>In <code>gdv_function_stubs.cc</code>，we need to implement a function called <code>gdv_fn_regexp_extract_utf8_utf8_int32</code>,
+which will invoke overloaded <code>operator()</code> in <code>ExtractHolder</code>. The <code>operator()</code> is the core function to do
+the extract work.</p>
+<p>We need also register <code>regexp_extract</code> in <code>function_registry_string.cc</code> (for functions handling strings).
+This exposed function name will be used to create function tree in Gazelle scala code. In this case,
+function holder is required, so we should specify <code>NativeFunction::kNeedsFunctionHolder</code> in the registry.</p>
+<h3 id="functions-does-not-need-to-use-external-c-libs">functions does not need to use external C++ libs</h3>
+<p>see <a href="https://github.com/oap-project/arrow/pull/103">arrow/pull/103</a>
+The <code>pmod</code> function uses standard C libs only so it can be precompiled in Gandiva. The idea is similar
+with adding functions using external libs:
+- adding the function implemenation in precompile/xxx.c
+- register the function pointer in the function registry
+Here's also one <a href="https://www.dremio.com/blog/adding-a-user-define-function-to-gandiva/">detailed guide</a> from Dremio</p>
+<p>For unit test, please refer to <code>extract_holder_test.cc</code>. Here is the compile steps.</p>
+<pre><code>cd arrow/cpp/release-build (create by yourself if not exists)
+cmake -DARROW_DEPENDENCY_SOURCE=BUNDLED -DARROW_CSV=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON
+-DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JNI=ON -DARROW_WITH_SNAPPY=ON
+-DARROW_FILESYSTEM=ON -DARROW_JSON=ON -DARROW_WITH_PROTOBUF=ON -DARROW_DATASET=ON -DARROW_IPC=ON
+-DARROW_WITH_LZ4=ON -DARROW_JEMALLOC=OFF -DARROW_BUILD_TESTS=ON ..
+make -j
+./release/gandiva-internals-test
+</code></pre>
+<h2 id="gazelle-scala-code">Gazelle Scala Code</h2>
+<p>See <a href="https://github.com/oap-project/gazelle_plugin/pull/847">gazelle_plugin/pull/847</a>.</p>
+<p>In scala code, <code>ColumnarRegExpExtract</code> is created to replace Spark's <code>RegExpExtract</code>.</p>
+<p>We can add <code>buildCheck</code> to check the input types. For legal types currently not supported in this implementation,
+we can throw an <code>UnsupportedOperationException</code> to let the expression fallback. </p>
+<p>In <code>doColumnarCodeGen</code>, arrow function node is constructed with gandiva function name <code>regexp_extract</code> specified.</p>
+<p>The <code>supportColumnarCodegen</code> function is used to check if columnar wholestage codegen support is added, please set
+to <code>false</code> if it's not implemented.</p>
+<p>At last, in <code>replaceWithColumnarExpression</code> of <code>ColumnarExpressionConverter.scala</code>，we need to replace Spark's
+expression to the implemented columnar expression.</p>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme_extra.js" defer></script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
