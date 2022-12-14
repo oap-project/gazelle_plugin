@@ -1,5 +1,5 @@
 # Change log
-Generated on 2022-12-08
+Generated on 2022-12-14
 
 ## Release 1.5.0
 
@@ -25,6 +25,7 @@ Generated on 2022-12-08
 #### Bugs Fixed
 |||
 |:---|:---|
+|[#1170](https://github.com/oap-project/gazelle_plugin/issues/1170)|Segfault on data source v2|
 |[#1164](https://github.com/oap-project/gazelle_plugin/issues/1164)|Limit the column num in WSCG|
 |[#1166](https://github.com/oap-project/gazelle_plugin/issues/1166)|Peers' values should be considered in window function for CURRENT ROW in range mode|
 |[#1149](https://github.com/oap-project/gazelle_plugin/issues/1149)|Vulnerability issues|
@@ -48,6 +49,13 @@ Generated on 2022-12-08
 #### PRs
 |||
 |:---|:---|
+|[#1175](https://github.com/oap-project/gazelle_plugin/pull/1175)|[NSE-1171] Support merge parquet schema and read missing schema|
+|[#1178](https://github.com/oap-project/gazelle_plugin/pull/1178)|[NSE-1161][FOLLOWUP] Remove extra compression type check|
+|[#1162](https://github.com/oap-project/gazelle_plugin/pull/1162)|[NSE-1161] Support read-write parquet conversion to read-write arrow|
+|[#1014](https://github.com/oap-project/gazelle_plugin/pull/1014)|[NSE-956] allow to write parquet with compression|
+|[#1176](https://github.com/oap-project/gazelle_plugin/pull/1176)|bump h2/pgsql version|
+|[#1173](https://github.com/oap-project/gazelle_plugin/pull/1173)|[NSE-1171] Throw RuntimeException when reading duplicate fields in case-insensitive mode|
+|[#1172](https://github.com/oap-project/gazelle_plugin/pull/1172)|[NSE-1170] Setting correct row number in batch scan w/ partition columns|
 |[#1169](https://github.com/oap-project/gazelle_plugin/pull/1169)|[NSE-1161] Format sql config string key|
 |[#1167](https://github.com/oap-project/gazelle_plugin/pull/1167)|[NSE-1166] Cover peers' values in sum window function in range mode|
 |[#1165](https://github.com/oap-project/gazelle_plugin/pull/1165)|[NSE-1164] Limit the max column num in WSCG|
