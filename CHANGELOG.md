@@ -1,5 +1,147 @@
 # Change log
-Generated on 2022-07-05
+Generated on 2022-12-14
+
+## Release 1.5.0
+
+### Gazelle Plugin
+
+#### Features
+|||
+|:---|:---|
+|[#931](https://github.com/oap-project/gazelle_plugin/issues/931)|Reuse partition vectors for arrow scan|
+|[#955](https://github.com/oap-project/gazelle_plugin/issues/955)|implement missing expressions|
+|[#1120](https://github.com/oap-project/gazelle_plugin/issues/1120)|Support aggregation window functions with order by|
+|[#1135](https://github.com/oap-project/gazelle_plugin/issues/1135)|Supports Spark 3.2.2 shims|
+|[#1114](https://github.com/oap-project/gazelle_plugin/issues/1114)|Remove tmp directory after application exits|
+|[#862](https://github.com/oap-project/gazelle_plugin/issues/862)|implement row_number window function|
+|[#1007](https://github.com/oap-project/gazelle_plugin/issues/1007)|Document how to test columnar UDF|
+|[#942](https://github.com/oap-project/gazelle_plugin/issues/942)|Use hash aggregate for string type input|
+
+#### Performance
+|||
+|:---|:---|
+|[#1144](https://github.com/oap-project/gazelle_plugin/issues/1144)|Optimize cast WSCG performance|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#1170](https://github.com/oap-project/gazelle_plugin/issues/1170)|Segfault on data source v2|
+|[#1164](https://github.com/oap-project/gazelle_plugin/issues/1164)|Limit the column num in WSCG|
+|[#1166](https://github.com/oap-project/gazelle_plugin/issues/1166)|Peers' values should be considered in window function for CURRENT ROW in range mode|
+|[#1149](https://github.com/oap-project/gazelle_plugin/issues/1149)|Vulnerability issues|
+|[#1112](https://github.com/oap-project/gazelle_plugin/issues/1112)|Validate Error： “Invalid: Length spanned by binary offsets (21) larger than values array (size 20)”|
+|[#1103](https://github.com/oap-project/gazelle_plugin/issues/1103)|wrong hashagg results|
+|[#929](https://github.com/oap-project/gazelle_plugin/issues/929)|Failed to add user extension while using gazelle|
+|[#1100](https://github.com/oap-project/gazelle_plugin/issues/1100)|Wildcard in json path is not supported|
+|[#1079](https://github.com/oap-project/gazelle_plugin/issues/1079)|Like function gets wrong result when default escape char is contained|
+|[#1046](https://github.com/oap-project/gazelle_plugin/issues/1046)|Fall back to use row-based operators, error is makeStructField is unable to parse from conv|
+|[#1053](https://github.com/oap-project/gazelle_plugin/issues/1053)|Exception when there is function expression in pos or len of substring|
+|[#1024](https://github.com/oap-project/gazelle_plugin/issues/1024)|ShortType is not supported in ColumnarLiteral|
+|[#1034](https://github.com/oap-project/gazelle_plugin/issues/1034)|Exception when there is unix_timestamp in CaseWhen |
+|[#1032](https://github.com/oap-project/gazelle_plugin/issues/1032)|Missing WSCG check for ExistenceJoin|
+|[#1027](https://github.com/oap-project/gazelle_plugin/issues/1027)|partition by literal in window function|
+|[#1019](https://github.com/oap-project/gazelle_plugin/issues/1019)|Support more date formats for from_unixtime & unix_timestamp|
+|[#999](https://github.com/oap-project/gazelle_plugin/issues/999)|The performance of using ColumnarSort operator to sort string type is significantly lower than that of native spark Sortexec|
+|[#984](https://github.com/oap-project/gazelle_plugin/issues/984)|concat_ws|
+|[#958](https://github.com/oap-project/gazelle_plugin/issues/958)|JVM/Native R2C and CoalesceBatcth process time inaccuracy|
+|[#979](https://github.com/oap-project/gazelle_plugin/issues/979)|Failed to find column while reading parquet with case insensitive|
+
+#### PRs
+|||
+|:---|:---|
+|[#1175](https://github.com/oap-project/gazelle_plugin/pull/1175)|[NSE-1171] Support merge parquet schema and read missing schema|
+|[#1178](https://github.com/oap-project/gazelle_plugin/pull/1178)|[NSE-1161][FOLLOWUP] Remove extra compression type check|
+|[#1162](https://github.com/oap-project/gazelle_plugin/pull/1162)|[NSE-1161] Support read-write parquet conversion to read-write arrow|
+|[#1014](https://github.com/oap-project/gazelle_plugin/pull/1014)|[NSE-956] allow to write parquet with compression|
+|[#1176](https://github.com/oap-project/gazelle_plugin/pull/1176)|bump h2/pgsql version|
+|[#1173](https://github.com/oap-project/gazelle_plugin/pull/1173)|[NSE-1171] Throw RuntimeException when reading duplicate fields in case-insensitive mode|
+|[#1172](https://github.com/oap-project/gazelle_plugin/pull/1172)|[NSE-1170] Setting correct row number in batch scan w/ partition columns|
+|[#1169](https://github.com/oap-project/gazelle_plugin/pull/1169)|[NSE-1161] Format sql config string key|
+|[#1167](https://github.com/oap-project/gazelle_plugin/pull/1167)|[NSE-1166] Cover peers' values in sum window function in range mode|
+|[#1165](https://github.com/oap-project/gazelle_plugin/pull/1165)|[NSE-1164] Limit the max column num in WSCG|
+|[#1160](https://github.com/oap-project/gazelle_plugin/pull/1160)|[NSE-1149] upgrade guava to 30.1.1|
+|[#1158](https://github.com/oap-project/gazelle_plugin/pull/1158)|[NSE-1149] upgrade guava to 30.1.1|
+|[#1152](https://github.com/oap-project/gazelle_plugin/pull/1152)|[NSE-1149] upgrade guava to 24.1.1|
+|[#1153](https://github.com/oap-project/gazelle_plugin/pull/1153)|[NSE-1149] upgrade pgsql to 42.3.3|
+|[#1150](https://github.com/oap-project/gazelle_plugin/pull/1150)|[NSE-1149] Remove log4j in shims module|
+|[#1146](https://github.com/oap-project/gazelle_plugin/pull/1146)|[NSE-1135] Introduce shim layer for supporting spark 3.2.2|
+|[#1145](https://github.com/oap-project/gazelle_plugin/pull/1145)|[NSE-1144] Optimize cast wscg performance|
+|[#1136](https://github.com/oap-project/gazelle_plugin/pull/1136)|Remove project from wscg when it's the child of window|
+|[#1122](https://github.com/oap-project/gazelle_plugin/pull/1122)|[NSE-1120] Support sum window function with order by statement|
+|[#1131](https://github.com/oap-project/gazelle_plugin/pull/1131)|[NSE-1114] Remove temp directory without FileUtils.forceDeleteOnExit|
+|[#1129](https://github.com/oap-project/gazelle_plugin/pull/1129)|[NSE-1127] Use larger buffer for hash agg|
+|[#1130](https://github.com/oap-project/gazelle_plugin/pull/1130)|[NSE-610] fix hashjoin build time metric|
+|[#1126](https://github.com/oap-project/gazelle_plugin/pull/1126)|[NSE-1125] Add status check for hashing GetOrInsert|
+|[#1056](https://github.com/oap-project/gazelle_plugin/pull/1056)|[NSE-955] Support window function lag|
+|[#1123](https://github.com/oap-project/gazelle_plugin/pull/1123)|[NSE-1118] fix codegen on TPCDS Q88|
+|[#1119](https://github.com/oap-project/gazelle_plugin/pull/1119)|[NSE-1118] adding more checks for SMJ codegen|
+|[#1058](https://github.com/oap-project/gazelle_plugin/pull/1058)|[NSE-981] Add a test suite for projection codegen|
+|[#1117](https://github.com/oap-project/gazelle_plugin/pull/1117)|[NSE-1116] Disable columnar url_decoder|
+|[#1113](https://github.com/oap-project/gazelle_plugin/pull/1113)|[NSE-1112] Fix Arrow array meta data validating issue when writing parquet files|
+|[#1039](https://github.com/oap-project/gazelle_plugin/pull/1039)|[NSE-1019] fix codegen for all expressions|
+|[#1115](https://github.com/oap-project/gazelle_plugin/pull/1115)|[NSE-1114] Remove tmp directory after application exits|
+|[#1111](https://github.com/oap-project/gazelle_plugin/pull/1111)|remove debug log|
+|[#1098](https://github.com/oap-project/gazelle_plugin/pull/1098)|[NSE-1108] allow to use different cases in column names|
+|[#1082](https://github.com/oap-project/gazelle_plugin/pull/1082)|[NSE-1071] Refactor vector resizing in hash aggregate|
+|[#1036](https://github.com/oap-project/gazelle_plugin/pull/1036)|[NSE-987] fix string date|
+|[#948](https://github.com/oap-project/gazelle_plugin/pull/948)|[NSE-947] Add a whole stage fallback strategy|
+|[#1099](https://github.com/oap-project/gazelle_plugin/pull/1099)|[NSE-1104] fix hashagg w/ empty string|
+|[#1102](https://github.com/oap-project/gazelle_plugin/pull/1102)|[NSE-400] Fix memory leak for native C2R and R2C.|
+|[#1101](https://github.com/oap-project/gazelle_plugin/pull/1101)|[NSE-1100] Fall back get_json_object when wildcard is contained in json path|
+|[#1090](https://github.com/oap-project/gazelle_plugin/pull/1090)|[NSE-1065] fix on count distinct w/ keys|
+|[#1097](https://github.com/oap-project/gazelle_plugin/pull/1097)|Ignore two unit tests|
+|[#1081](https://github.com/oap-project/gazelle_plugin/pull/1081)|[NSE-1075] Support dynamic merge file partition|
+|[#1080](https://github.com/oap-project/gazelle_plugin/pull/1080)|[NSE-1079] Set the default escape char for like function|
+|[#1078](https://github.com/oap-project/gazelle_plugin/pull/1078)|[NSE-610] support big keys in hashagg|
+|[#1072](https://github.com/oap-project/gazelle_plugin/pull/1072)|[NSE-1071] Add tiny optimizations for hash aggregation functions|
+|[#1069](https://github.com/oap-project/gazelle_plugin/pull/1069)|[NSE-800] Remove spark-arrow-datasource-parquet in assembly|
+|[#1066](https://github.com/oap-project/gazelle_plugin/pull/1066)|[NSE-1065] Adding hashagg w/ filter support|
+|[#1067](https://github.com/oap-project/gazelle_plugin/pull/1067)|[NSE-958] Fix JVM R2C operator metrics|
+|[#935](https://github.com/oap-project/gazelle_plugin/pull/935)|[NSE-931] Reuse partition vectors for arrow scan|
+|[#1064](https://github.com/oap-project/gazelle_plugin/pull/1064)|[NSE-955] Implement parse_url|
+|[#1063](https://github.com/oap-project/gazelle_plugin/pull/1063)|[NSE-955] Support more date format in unix timestamp|
+|[#930](https://github.com/oap-project/gazelle_plugin/pull/930)|[NSE-929] Support user defined spark extensions|
+|[#1038](https://github.com/oap-project/gazelle_plugin/pull/1038)|[NSE-928] allow to sort with big partitions |
+|[#1057](https://github.com/oap-project/gazelle_plugin/pull/1057)|[NSE-1019] fix codegen for unixtimestamp|
+|[#1055](https://github.com/oap-project/gazelle_plugin/pull/1055)|[NSE-955] Support md5/sha1/sha2 functions|
+|[#903](https://github.com/oap-project/gazelle_plugin/pull/903)|[NSE-610] hashagg opt#3|
+|[#1044](https://github.com/oap-project/gazelle_plugin/pull/1044)|[NE-400] fix memory leakage in native columnartorow|
+|[#1041](https://github.com/oap-project/gazelle_plugin/pull/1041)|[NSE-1023] [NSE-1046] Cover more supported expressions in getting AttributeReference|
+|[#1054](https://github.com/oap-project/gazelle_plugin/pull/1054)|[NSE-1053] Support function in substring's pos and len|
+|[#1049](https://github.com/oap-project/gazelle_plugin/pull/1049)|[NSE-955] Support bin function|
+|[#1048](https://github.com/oap-project/gazelle_plugin/pull/1048)|[NSE-955] Support power function|
+|[#1042](https://github.com/oap-project/gazelle_plugin/pull/1042)|[NSE-955] Support find_in_set function|
+|[#1025](https://github.com/oap-project/gazelle_plugin/pull/1025)|[NSE-1024] Support ShortType in ColumnarLiteral|
+|[#1037](https://github.com/oap-project/gazelle_plugin/pull/1037)|[NSE-955] Turn on the support for get_json_object|
+|[#1033](https://github.com/oap-project/gazelle_plugin/pull/1033)|[NSE-1032] Adding WSCG check for keys in Join|
+|[#1035](https://github.com/oap-project/gazelle_plugin/pull/1035)|[NSE-1034] Add timeZoneId in ColumnarUnixTimestamp|
+|[#1028](https://github.com/oap-project/gazelle_plugin/pull/1028)|[NSE-1027] Problem with Literal in window function|
+|[#1017](https://github.com/oap-project/gazelle_plugin/pull/1017)|[NSE-999] use TimSort for STRING/DECIMAL onekey based sorting|
+|[#1022](https://github.com/oap-project/gazelle_plugin/pull/1022)|[NSE-955] Support remainder function|
+|[#1021](https://github.com/oap-project/gazelle_plugin/pull/1021)|[NSE-1019] [NSE-1020] Support more date formats and be aware of local time zone in handling unix timestamp|
+|[#1009](https://github.com/oap-project/gazelle_plugin/pull/1009)|[NSE-999] s/string/string_view in sort|
+|[#990](https://github.com/oap-project/gazelle_plugin/pull/990)|[NSE-943] Improve rowtocolumn operator|
+|[#1000](https://github.com/oap-project/gazelle_plugin/pull/1000)|[NSE-862] improve row_number()|
+|[#1013](https://github.com/oap-project/gazelle_plugin/pull/1013)|[NSE-955] Add Murmur3Hash expression support|
+|[#995](https://github.com/oap-project/gazelle_plugin/pull/995)|[NSE-981] Add more codegen checking in BHJ & SHJ|
+|[#1006](https://github.com/oap-project/gazelle_plugin/pull/1006)|[NSE-1007] Add a test guide for columnar UDF|
+|[#969](https://github.com/oap-project/gazelle_plugin/pull/969)|[NSE-943] Optimize data conversion for String/Binary type in Row2Columnar|
+|[#973](https://github.com/oap-project/gazelle_plugin/pull/973)|[NSE-928] Add ARROW_CHECK for batch_size check|
+|[#992](https://github.com/oap-project/gazelle_plugin/pull/992)|[NSE-984] fix concat_ws|
+|[#991](https://github.com/oap-project/gazelle_plugin/pull/991)|[NSE-981] check all expressions in HashAgg|
+|[#993](https://github.com/oap-project/gazelle_plugin/pull/993)|[NSE-979] fix data source|
+|[#980](https://github.com/oap-project/gazelle_plugin/pull/980)|[NSE-979] Support reading parquet with case sensitive|
+|[#985](https://github.com/oap-project/gazelle_plugin/pull/985)|[NSE-981] Implement supportColumnarCodegen to reflect the actual support state|
+|[#964](https://github.com/oap-project/gazelle_plugin/pull/964)|[NSE-955] implement lpad/rpad|
+|[#963](https://github.com/oap-project/gazelle_plugin/pull/963)|[NSE-955] implement concat_ws|
+|[#971](https://github.com/oap-project/gazelle_plugin/pull/971)|[NSE-955] Support hex expression|
+|[#968](https://github.com/oap-project/gazelle_plugin/pull/968)|[NSE-955] implement lower function |
+|[#965](https://github.com/oap-project/gazelle_plugin/pull/965)|[NSE-955] Support expression conv|
+|[#949](https://github.com/oap-project/gazelle_plugin/pull/949)|[NSE-862] implement row_number function|
+|[#960](https://github.com/oap-project/gazelle_plugin/pull/960)|[NSE-955] doc: Add columnar expression development guide|
+|[#941](https://github.com/oap-project/gazelle_plugin/pull/941)|[NSE-942] Force to use hash aggregate for string type input|
+|[#959](https://github.com/oap-project/gazelle_plugin/pull/959)|[NSE-958] Fix SQLMetrics inaccuracy in JVM/Native R2C and CoalesceBatcth|
+
 
 ## Release 1.4.0
 

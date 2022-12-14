@@ -28,5 +28,5 @@ theme: readthedocs
 plugins:
   - search
   - mkdocs-versioning:
-      version: 1.4.0
+      version: 1.5.0
       exclude_from_nav: ["image", "js", "css", "fonts", "img"]
