@@ -492,7 +492,7 @@ case class AdaptiveSparkPlanExec(
               // and reuse the existing stage found in the `stageCache`, otherwise update the
               // `stageCache` with the new stage.
               val queryStage = context.stageCache.getOrElseUpdate(
-                newStage.plan.canonicalized, newStage)
+                e.canonicalized, newStage)
               if (queryStage.ne(newStage)) {
                 newStage = reuseQueryStage(queryStage, e)
               }
