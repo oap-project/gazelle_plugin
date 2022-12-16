@@ -17,11 +17,19 @@
 
 package com.intel.oap.vectorized;
 
+import org.apache.spark.util.GazelleShutdownManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import scala.Function0;
+import scala.runtime.BoxedUnit;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
@@ -30,9 +38,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Vector;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -53,6 +67,23 @@ public class JniUtils {
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
   private static volatile JniUtils INSTANCE;
   private static String tmp_dir;
+  private static final Logger LOG =
+  LoggerFactory.getLogger(JniUtils.class);
+
+  public static Set<String> LOADED_LIBRARY_PATHS = new HashSet<>();
+  public static Set<String> REQUIRE_UNLOAD_LIBRARY_PATHS = new LinkedHashSet<>();
+
+  static {
+    GazelleShutdownManager.registerUnloadLibShutdownHook(new Function0<BoxedUnit>() {
+      @Override
+      public BoxedUnit apply() {
+        List<String> loaded = new ArrayList<>(REQUIRE_UNLOAD_LIBRARY_PATHS);
+        Collections.reverse(loaded); // use reversed order to unload
+        loaded.forEach(JniUtils::unloadFromPath);
+        return BoxedUnit.UNIT;
+      }
+    });
+  }
 
   public static JniUtils getInstance() throws IOException {
     String tmp_dir = System.getProperty("java.io.tmpdir");
@@ -118,6 +149,19 @@ public class JniUtils {
     }
   }
 
+  private static synchronized void loadFromPath0(String libPath, boolean requireUnload) {
+    if (LOADED_LIBRARY_PATHS.contains(libPath)) {
+      LOG.debug("Library in path {} has already been loaded, skipping", libPath);
+    } else {
+      System.load(libPath);
+      LOADED_LIBRARY_PATHS.add(libPath);
+      LOG.info("Library {} has been loaded using path-loading method", libPath);
+    }
+    if (requireUnload) {
+      REQUIRE_UNLOAD_LIBRARY_PATHS.add(libPath);
+    }
+  }
+
   static void loadLibraryFromJar(String tmp_dir) throws IOException, IllegalAccessException {
     synchronized (JniUtils.class) {
       if (tmp_dir == null) {
@@ -127,15 +171,18 @@ public class JniUtils {
       Path arrowMiddleLink = createSoftLink(arrowlibraryFile, ARROW_PARENT_LIBRARY_NAME);
       Path arrowShortLink = createSoftLink(new File(arrowMiddleLink.toString()), ARROW_PARENT_LIBRARY_SHORT);
       System.load(arrowShortLink.toAbsolutePath().toString());
+      loadFromPath0(arrowShortLink.toAbsolutePath().toString(), true);
 
       final File gandivalibraryFile = moveFileFromJarToTemp(tmp_dir, GANDIVA_LIBRARY_NAME);
       Path gandivaMiddleLink = createSoftLink(gandivalibraryFile, GANDIVA_PARENT_LIBRARY_NAME);
       Path gandivaShortLink = createSoftLink(new File(gandivaMiddleLink.toString()), GANDIVA_PARENT_LIBRARY_SHORT);
       System.load(gandivaShortLink.toAbsolutePath().toString());
+      loadFromPath0(gandivaShortLink.toAbsolutePath().toString(), true);
 
       final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
       final File libraryFile = moveFileFromJarToTemp(tmp_dir, libraryToLoad);
       System.load(libraryFile.getAbsolutePath());
+      loadFromPath0(libraryFile.getAbsolutePath(), true);
     }
   }
 
@@ -280,6 +327,43 @@ public class JniUtils {
         } catch (Exception e) {
         }
       }
+    }
+  }
+
+  public static synchronized void unloadFromPath(String libPath) {
+    if (!LOADED_LIBRARY_PATHS.remove(libPath)) {
+      throw new IllegalStateException("Library not exist: " + libPath);
+    }
+
+    REQUIRE_UNLOAD_LIBRARY_PATHS.remove(libPath);
+
+    try {
+      while (Files.isSymbolicLink(Paths.get(libPath))) {
+        libPath = Files.readSymbolicLink(Paths.get(libPath)).toString();
+      }
+
+      ClassLoader classLoader = JniUtils.class.getClassLoader();
+      Field field = ClassLoader.class.getDeclaredField("nativeLibraries");
+      field.setAccessible(true);
+      Vector<Object> libs = (Vector<Object>) field.get(classLoader);
+      Iterator it = libs.iterator();
+      while (it.hasNext()) {
+        Object object = it.next();
+        Field[] fs = object.getClass().getDeclaredFields();
+        for (int k = 0; k < fs.length; k++) {
+          if (fs[k].getName().equals("name")) {
+            fs[k].setAccessible(true);
+            String verbosePath = fs[k].get(object).toString();
+            if (verbosePath.endsWith(libPath)) {
+              Method finalize = object.getClass().getDeclaredMethod("finalize");
+              finalize.setAccessible(true);
+              finalize.invoke(object);
+            }
+          }
+        }
+      }
+    } catch (Throwable th) {
+      LOG.error("Unload native library error: ", th);
     }
   }
 }
