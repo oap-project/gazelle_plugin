@@ -118,6 +118,12 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    if (exps.size == 1) {
+      val (exp_node, expType): (TreeNode, ArrowType) =
+        exps.head.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      return (exp_node, expType)
+    }
+
     val iter: Iterator[Expression] = exps.iterator
     val exp = iter.next()
     val iterFaster: Iterator[Expression] = exps.iterator
