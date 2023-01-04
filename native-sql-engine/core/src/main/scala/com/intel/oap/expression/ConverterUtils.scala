@@ -435,7 +435,7 @@ object ConverterUtils extends Logging {
           }
         } catch {
           case e: ClassCastException =>
-            throw new ClassCastException("Failed to get getResultAttr for " + other +
+            throw new ClassCastException("Failed to get result attr for " + other +
               ", due to:\n " + e.getMessage)
         }
     }
