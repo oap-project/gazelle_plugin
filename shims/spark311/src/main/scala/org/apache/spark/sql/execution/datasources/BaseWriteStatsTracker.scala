@@ -36,6 +36,8 @@ import org.apache.spark.util.SerializableConfiguration
 /**
  * Simple metrics collected during an instance of [[FileFormatDataWriter]].
  * These were first introduced in https://github.com/apache/spark/pull/18159 (SPARK-20703).
+ *
+ * We changed the newRow method to support write with FakeRow
  */
 case class BasicWriteTaskStats(
     partitions: Seq[InternalRow],
