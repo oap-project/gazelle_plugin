@@ -390,7 +390,7 @@ object ConverterUtils extends Logging {
         AttributeReference(c.name, a.dataType, c.nullable, c.metadata)(c.exprId, c.qualifier)
       case a: AttributeReference =>
         if (name != "None") {
-          new AttributeReference(name, a.dataType, a.nullable)()
+          AttributeReference(name, a.dataType, a.nullable)()
         } else {
           a
         }
@@ -401,29 +401,42 @@ object ConverterUtils extends Logging {
           a.toAttribute.asInstanceOf[AttributeReference]
         }
       case d: ColumnarDivide =>
-        new AttributeReference(name, DoubleType, d.nullable)()
+        AttributeReference(name, DoubleType, d.nullable)()
       case m: ColumnarMultiply =>
-        new AttributeReference(name, m.dataType, m.nullable)()
+        AttributeReference(name, m.dataType, m.nullable)()
       // for situation like: case when x = y
       case cet: ColumnarEqualTo =>
-        new AttributeReference(name, cet.dataType, cet.nullable)()
+        AttributeReference(name, cet.dataType, cet.nullable)()
+      case _: ColumnarLessThan | _: ColumnarLessThanOrEqual |
+           _: ColumnarGreaterThan | _: ColumnarGreaterThanOrEqual =>
+        AttributeReference(name, fieldExpr.dataType, fieldExpr.nullable)()
       case cin: ColumnarIn =>
-        new AttributeReference(name, cin.dataType, cin.nullable)()
+        AttributeReference(name, cin.dataType, cin.nullable)()
       case cand: ColumnarAnd =>
-        new AttributeReference(name, cand.dataType, cand.nullable)()
+        AttributeReference(name, cand.dataType, cand.nullable)()
       case cor: ColumnarOr =>
-        new AttributeReference(name, cor.dataType, cor.nullable)()
+        AttributeReference(name, cor.dataType, cor.nullable)()
+      case _: ColumnarLike | _: ColumnarRLike =>
+        AttributeReference(name, fieldExpr.dataType, fieldExpr.nullable)()
+      case _: ColumnarContains =>
+        AttributeReference(name, fieldExpr.dataType, fieldExpr.nullable)()
       case other =>
         val a = if (name != "None") {
-          new Alias(other, name)()
+          Alias(other, name)()
         } else {
-          new Alias(other, "res")()
+          Alias(other, "res")()
         }
-        val tmpAttr = a.toAttribute.asInstanceOf[AttributeReference]
-        if (dataType.isDefined) {
-          new AttributeReference(tmpAttr.name, dataType.getOrElse(null), tmpAttr.nullable)()
-        } else {
-          tmpAttr
+        try {
+          val tmpAttr = a.toAttribute.asInstanceOf[AttributeReference]
+          if (dataType.isDefined) {
+            AttributeReference(tmpAttr.name, dataType.getOrElse(null), tmpAttr.nullable)()
+          } else {
+            tmpAttr
+          }
+        } catch {
+          case e: ClassCastException =>
+            throw new ClassCastException("Failed to get getResultAttr for " + other +
+              ", due to:\n " + e.getMessage)
         }
     }
   }

@@ -444,6 +444,7 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           replaceWithColumnarExpression(
             r.scale,
+            attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       case getArrayItem: GetArrayItem =>
@@ -456,9 +457,11 @@ object ColumnarExpressionConverter extends Logging {
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
               replaceWithColumnarExpression(
                 strSplit.regex,
+                attributeSeq,
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
               replaceWithColumnarExpression(
                 getArrayItem.ordinal,
+                attributeSeq,
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
               new StringSplit(strSplit.str, strSplit.regex, getArrayItem.ordinal))
           case other =>
