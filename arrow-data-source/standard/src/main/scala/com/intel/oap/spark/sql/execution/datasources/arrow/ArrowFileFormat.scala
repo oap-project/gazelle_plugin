@@ -22,8 +22,8 @@ import java.net.URLDecoder
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
+import com.intel.oap.spark.sql.FakeRow
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
