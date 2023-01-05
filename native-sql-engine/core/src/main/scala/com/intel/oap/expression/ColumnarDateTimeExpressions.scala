@@ -637,8 +637,8 @@ object ColumnarDateTimeExpressions {
     * The result is the date/time for local timezone (can be configured in spark). The input is
     * the timestamp for UTC. So we need consider timezone difference.
     */
-  class ColumnarFromUnixTime(left: Expression, right: Expression)
-      extends FromUnixTime(left, right) with
+  class ColumnarFromUnixTime(left: Expression, right: Expression, timeZoneId: Option[String] = None)
+      extends FromUnixTime(left, right, timeZoneId) with
       ColumnarExpression {
         
     override def supportColumnarCodegen(args: Object): Boolean = {

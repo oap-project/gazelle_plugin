@@ -214,7 +214,7 @@ object ColumnarBinaryExpression {
         // Convert a string to Timestamp. Default timezone is used.
         new ColumnarGetTimestamp(left, right, None)
       case a: FromUnixTime =>
-        new ColumnarFromUnixTime(left, right)
+        new ColumnarFromUnixTime(left, right, a.timeZoneId)
       case d: DateSub =>
         new ColumnarDateSub(left, right)
       case g: GetJsonObject =>
