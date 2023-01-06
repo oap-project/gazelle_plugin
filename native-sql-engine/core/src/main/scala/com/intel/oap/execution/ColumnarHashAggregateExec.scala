@@ -642,16 +642,22 @@ case class ColumnarHashAggregateExec(
                 s"${other} is not supported in Columnar StddevSamp")
           }
         case first @ First(_, _) =>
-          // Spark will use sort agg for string type input, see AggUtils.scala.
-          // So it will fallback to row-based operator for such case.
-          val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
-            FloatType, DoubleType, DateType, BooleanType, StringType)
-          val aggBufferAttr = first.inputAggBufferAttributes
-          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-          // Currently, decimal is not supported.
-          if (supportedTypes.indexOf(attr.dataType) == -1) {
-            throw new UnsupportedOperationException(s"${attr.dataType} is NOT" +
-              s" supported in Columnar First!")
+          mode match {
+            case Partial | Final =>
+              // Spark will use sort agg for string type input, see AggUtils.scala.
+              // So it will fallback to row-based operator for such case.
+              val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
+                FloatType, DoubleType, DateType, BooleanType, StringType)
+              val aggBufferAttr = first.inputAggBufferAttributes
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+              // Currently, decimal is not supported.
+              if (supportedTypes.indexOf(attr.dataType) == -1) {
+                throw new UnsupportedOperationException(s"${attr.dataType} is NOT" +
+                  s" supported in Columnar First!")
+              }
+            case other =>
+              throw new UnsupportedOperationException(s"${other} is NOT supported" +
+                " for First agg func.")
           }
         case other =>
           throw new UnsupportedOperationException(
