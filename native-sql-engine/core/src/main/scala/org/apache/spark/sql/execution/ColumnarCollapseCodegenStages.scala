@@ -141,25 +141,28 @@ case class ColumnarCollapseCodegenStages(
     }
   }
 
-  private def existsJoins(plan: SparkPlan, count: Int = 0): Boolean = plan match {
+  private def existsJoins(
+      plan: SparkPlan,
+      existsJoin: Boolean = false,
+      existsHashAgg: Boolean = false): Boolean = plan match {
     case p: ColumnarBroadcastHashJoinExec =>
       if (p.condition.isDefined) return true
-      if (count >= 1) true
-      else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
+      if (existsJoin || existsHashAgg) true
+      else plan.children.map(existsJoins(_, true, existsHashAgg)).exists(_ == true)
     case p: ColumnarShuffledHashJoinExec =>
       if (p.condition.isDefined) return true
-      if (count >= 1) true
-      else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
+      if (existsJoin || existsHashAgg) true
+      else plan.children.map(existsJoins(_, true, existsHashAgg)).exists(_ == true)
     case p: ColumnarSortMergeJoinExec =>
       true
     case p: ColumnarHashAggregateExec =>
-      if (count >= 1) true
-      else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
+      if (existsJoin) true
+      else plan.children.map(existsJoins(_, false, true)).exists(_ == true)
     case p: ColumnarConditionProjectExec
         if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
       false
     case p: ColumnarCodegenSupport if p.supportColumnarCodegen =>
-      plan.children.map(existsJoins(_, count)).exists(_ == true)
+      plan.children.map(existsJoins(_, existsJoin, existsHashAgg)).exists(_ == true)
     case _ =>
       false
   }
