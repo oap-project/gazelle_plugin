@@ -151,7 +151,7 @@ case class ColumnarHashAggregateExec(
       }
 
       var numRowsInput = 0
-      var hasNextCount = 0
+      var firstBatch = true
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
@@ -201,17 +201,16 @@ case class ColumnarHashAggregateExec(
           processed = true
         }
         override def hasNext: Boolean = {
-          hasNextCount += 1
           if (!processed) process
           if (skip_count) {
             count_num_row > 0
           } else if (skip_native) {
-            hasNextCount == 1
-          } else if (onlyResultExpressions && hasNextCount == 1) {
+            firstBatch
+          } else if (onlyResultExpressions && firstBatch) {
             onlyResExpr = true
             true
           } else if (!onlyResultExpressions && groupingExpressions.isEmpty &&
-                     numRowsInput == 0 && hasNextCount == 1) {
+                     numRowsInput == 0 && firstBatch) {
             emptyInput = true
             true
           } else {
@@ -220,6 +219,7 @@ case class ColumnarHashAggregateExec(
         }
 
         override def next(): ColumnarBatch = {
+          firstBatch = false
           if (!processed) process
           val beforeEval = System.nanoTime()
           if (skip_native) {
