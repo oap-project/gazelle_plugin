@@ -23,7 +23,7 @@ import com.intel.oap.tpc.util.TPCRunner
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.execution.ColumnarShuffleExchangeExec
+import org.apache.spark.sql.execution.ColumnarShuffleExchangeAdaptor
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -128,7 +128,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count == 2)
   }
 
@@ -136,7 +136,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count == 2)
   }
 
@@ -144,7 +144,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count == 2)
   }
 
@@ -152,7 +152,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count == 2)
   }
 
@@ -160,7 +160,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -168,7 +168,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.struct_struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -176,7 +176,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.struct_array_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -184,7 +184,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -192,7 +192,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.map_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -200,7 +200,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.map_arr_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -208,7 +208,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.map_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count() == 2)
   }
 
@@ -224,7 +224,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     df.printSchema()
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeAdaptor]).isDefined)
     assert(df.count == 2)
   }
 

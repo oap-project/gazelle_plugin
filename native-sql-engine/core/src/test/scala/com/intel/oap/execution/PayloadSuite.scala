@@ -24,7 +24,7 @@ import org.apache.log4j.{Level, LogManager}
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.execution.ColumnarShuffleExchangeExec
+import org.apache.spark.sql.execution.ColumnarShuffleExchangeAdaptor
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.test.SharedSparkSession

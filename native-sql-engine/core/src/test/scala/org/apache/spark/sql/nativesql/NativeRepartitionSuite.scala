@@ -24,7 +24,7 @@ import org.apache.spark.sql.{DataFrame, QueryTest}
 import org.apache.spark.sql.catalyst.plans.physical.UnknownPartitioning
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
-import org.apache.spark.sql.execution.{ColumnarShuffleExchangeExec, ColumnarToRowExec, RowToColumnarExec}
+import org.apache.spark.sql.execution.{ColumnarShuffleExchangeAdaptor, ColumnarToRowExec, RowToColumnarExec}
 import org.apache.spark.sql.test.SharedSparkSession
 
 class NativeRepartitionSuite extends QueryTest with SharedSparkSession {
@@ -40,7 +40,7 @@ class NativeRepartitionSuite extends QueryTest with SharedSparkSession {
       .collect {
         case r2c: RowToColumnarExec => 1
         case c2r: ColumnarToRowExec => 10
-        case exc: ColumnarShuffleExchangeExec => 100
+        case exc: ColumnarShuffleExchangeAdaptor => 100
       }
       .distinct
       .sum
@@ -111,7 +111,7 @@ class NativeDisableColumnarShuffleSuite extends NativeRepartitionSuite {
   override def checkCoulumnarExec(data: DataFrame) = {
     val found = data.queryExecution.executedPlan
       .collectFirst {
-        case exc: ColumnarShuffleExchangeExec => exc
+        case exc: ColumnarShuffleExchangeAdaptor => exc
       }
     data.explain
     assert(found.isEmpty)
@@ -150,7 +150,7 @@ class NativeAdaptiveQueryExecRepartitionSuite extends NativeTPCHTableRepartition
       .collect {
         case c2r: ColumnarToRowExec => 1
         case row: ShuffleExchangeExec => 10
-        case col: ColumnarShuffleExchangeExec => 100
+        case col: ColumnarShuffleExchangeAdaptor => 100
       }
       .distinct
       .sum
@@ -188,8 +188,8 @@ class NativeReuseExchangeSuite extends NativeRepartitionSuite {
 
     assert(hashAgg1.sameResult(hashAgg2))
 
-    val exchange1 = new ColumnarShuffleExchangeExec(UnknownPartitioning(1), hashAgg1)
-    val exchange2 = new ColumnarShuffleExchangeExec(UnknownPartitioning(1), hashAgg2)
+    val exchange1 = new ColumnarShuffleExchangeAdaptor(UnknownPartitioning(1), hashAgg1)
+    val exchange2 = new ColumnarShuffleExchangeAdaptor(UnknownPartitioning(1), hashAgg2)
     assert(exchange1.sameResult(exchange2))
   }
 }
