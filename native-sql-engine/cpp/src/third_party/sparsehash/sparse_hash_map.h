@@ -21,6 +21,7 @@
 
 #include <cmath>
 
+#include "third_party/hash_table7.hpp"
 #include "third_party/parallel_hashmap/phmap.h"
 using phmap::flat_hash_map;
 
@@ -77,7 +78,7 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
   int32_t size_ = 0;
 
  private:
-  flat_hash_map<Scalar, int32_t> dense_map_;
+  emhash7::HashMap<Scalar, int32_t> dense_map_;
 
   bool null_index_set_ = false;
   int32_t null_index_;
@@ -151,7 +152,7 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
   int32_t size_ = 0;
 
  private:
-  flat_hash_map<Scalar, int32_t> dense_map_;
+  emhash7::HashMap<Scalar, int32_t> dense_map_;
 
   bool null_index_set_ = false;
   int32_t null_index_;
