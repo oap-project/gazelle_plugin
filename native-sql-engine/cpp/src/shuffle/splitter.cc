@@ -1455,14 +1455,12 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
   }
   for (auto i = 0; i < num_rows; ++i) {
     // positive mod
-    auto pid = pid_arr->Value(i) % num_partitions_;
-    // force to generate ASM
-    __asm__(
-        "lea (%[num_partitions],%[pid],1),%[tmp]\n"
-        "test %[pid],%[pid]\n"
-        "cmovs %[tmp],%[pid]\n"
-        : [ pid ] "+r"(pid)
-        : [ num_partitions ] "r"(num_partitions_), [ tmp ] "r"(0));
+    auto localPid = pid_arr->Value(i);
+    auto positiveLocalPid = localPid < 0 ? -localPid : localPid;
+    uint64_t M = fastmod::computeM_s32(num_partitions_);  // do once
+    // auto pid = positiveLocalPid % num_partitions_;
+    auto pid = fastmod::fastmod_s32(positiveLocalPid, M, num_partitions_);
+
     partition_id_[i] = pid;
     partition_id_cnt_[pid]++;
   }

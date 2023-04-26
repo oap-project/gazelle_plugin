@@ -31,6 +31,7 @@
 
 #include "shuffle/type.h"
 #include "shuffle/utils.h"
+#include "third_party/fastmod.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
