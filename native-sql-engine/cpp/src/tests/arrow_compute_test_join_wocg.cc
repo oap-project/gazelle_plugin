@@ -1346,6 +1346,174 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
   }
 }
 
+TEST(TestArrowComputeWSCG, JoinTestUsingInnerJoinwith2KeysforHashProbeIterator) {
+  setenv("NATIVESQL_BATCH_SIZE", "2", 1);
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto table0_f0 = field("table0_f0", utf8());
+  auto table0_f1 = field("table0_f1", utf8());
+  auto table0_f2 = field("table0_f2", uint32());
+  auto table1_f0 = field("table1_f0", utf8());
+  auto table1_f1 = field("table1_f1", utf8());
+
+  ///////////////////////////////////////////
+  auto n_left = TreeExprBuilder::MakeFunction(
+      "codegen_left_schema",
+      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
+       TreeExprBuilder::MakeField(table0_f2)},
+      uint32());
+  auto n_right = TreeExprBuilder::MakeFunction(
+      "codegen_right_schema",
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
+  auto f_res = field("res", uint32());
+
+  auto n_left_key = TreeExprBuilder::MakeFunction(
+      "codegen_left_key_schema",
+      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
+      uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema",
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "result",
+      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
+       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
+       TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
+  auto n_hash_config = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedProbeArraysInner",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+
+  auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
+  auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
+  auto schema_table =
+      arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
+
+  auto n_hash_kernel = TreeExprBuilder::MakeFunction(
+      "HashRelation", {n_left_key, n_hash_config}, uint32());
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
+  std::shared_ptr<CodeGenerator> expr_build;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
+  std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
+
+  std::vector<std::string> input_data_string = {
+      R"(["l", "c", "a", "b"])", R"(["L", "C", "A", "B"])", "[10, 3, 1, 2]"};
+  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+  table_0.push_back(input_batch);
+
+  input_data_string = {R"(["f", "n", "e", "j"])", R"(["F", "N", "E", "J"])",
+                       "[6, 12, 5, 8]"};
+  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+  table_0.push_back(input_batch);
+
+  std::vector<std::string> input_data_2_string = {R"(["a", "b", "c", "d", "e", "f"])",
+                                                  R"(["A", "B", "C", "D", "F", "F"])"};
+  MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
+  table_1.push_back(input_batch);
+
+  input_data_2_string = {R"(["i", "j", "k", "l", "m", "n"])",
+                         R"(["I", "J", "K", "L", "M", "N"])"};
+  MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
+  table_1.push_back(input_batch);
+
+  //////////////////////// data prepared /////////////////////////
+
+  std::vector<std::shared_ptr<RecordBatch>> expected_table;
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+      R"(["a", "b", "c", "f"])", R"(["A", "B", "C", "F"])", "[1, 2, 3, 6]",
+      R"(["a", "b", "c", "f"])", R"(["A", "B", "C", "F"])"};
+  MakeInputBatch(expected_result_string, schema_table, &expected_result);
+  expected_table.push_back(expected_result);
+
+  expected_result_string = {R"(["j", "l", "n"])", R"(["J", "L", "N"])", "[8, 10, 12]",
+                            R"(["j", "l", "n"])", R"(["J", "L", "N"])"};
+  MakeInputBatch(expected_result_string, schema_table, &expected_result);
+  expected_table.push_back(expected_result);
+
+  std::vector<std::vector<std::shared_ptr<RecordBatch>>> expected_table_vec;
+  {
+    std::vector<std::shared_ptr<RecordBatch>> iterator_expected_table;
+    std::shared_ptr<arrow::RecordBatch> expected_result;
+    std::vector<std::string> expected_result_string = {
+        R"(["a", "b"])", R"(["A", "B"])", "[1, 2]", R"(["a", "b"])", R"(["A", "B"])"};
+    MakeInputBatch(expected_result_string, schema_table, &expected_result);
+    iterator_expected_table.push_back(expected_result);
+    expected_result_string = {R"(["c", "f"])", R"(["C", "F"])", "[3, 6]", R"(["c", "f"])",
+                              R"(["C", "F"])"};
+    MakeInputBatch(expected_result_string, schema_table, &expected_result);
+    iterator_expected_table.push_back(expected_result);
+    expected_table_vec.push_back(iterator_expected_table);
+  }
+  {
+    std::vector<std::shared_ptr<RecordBatch>> iterator_expected_table;
+    std::shared_ptr<arrow::RecordBatch> expected_result;
+    std::vector<std::string> expected_result_string = {
+        R"(["j", "l"])", R"(["J", "L"])", "[8, 10]", R"(["j", "l"])", R"(["J", "L"])"};
+    MakeInputBatch(expected_result_string, schema_table, &expected_result);
+    iterator_expected_table.push_back(expected_result);
+    expected_result_string = {R"(["n"])", R"(["N"])", "[12]", R"(["n"])", R"(["N"])"};
+    MakeInputBatch(expected_result_string, schema_table, &expected_result);
+    iterator_expected_table.push_back(expected_result);
+    expected_table_vec.push_back(iterator_expected_table);
+  }
+
+  ////////////////////// evaluate //////////////////////
+  for (auto batch : table_0) {
+    ASSERT_NOT_OK(expr_build->evaluate(batch, &dummy_result_batches));
+  }
+  std::shared_ptr<ResultIteratorBase> build_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_build->finish(&build_result_iterator));
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+
+  auto probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
+  probe_result_iterator->SetDependencies({build_result_iterator});
+
+  for (int i = 0; i < 2; i++) {
+    auto right_batch = table_1[i];
+
+    std::shared_ptr<arrow::RecordBatch> result_batch;
+    std::vector<std::shared_ptr<arrow::Array>> input;
+    for (int i = 0; i < right_batch->num_columns(); i++) {
+      input.push_back(right_batch->column(i));
+    }
+
+    ASSERT_NOT_OK(probe_result_iterator->Process(input, &result_batch));
+    ASSERT_NOT_OK(Equals(*(expected_table[i]).get(), *result_batch.get()));
+
+    std::shared_ptr<arrow::RecordBatch> iterator_result_batch;
+    int j = 0;
+    while (probe_result_iterator->HasNext()) {
+      ASSERT_NOT_OK(probe_result_iterator->Next(&iterator_result_batch));
+      ASSERT_NOT_OK(
+          Equals(*(expected_table_vec[i][j]).get(), *iterator_result_batch.get()));
+      j++;
+    }
+  }
+}
+
 TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", float64());
