@@ -141,6 +141,9 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowTransit
             arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
             SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
 
+          // Because nativeConvertColumnarToRow didn't need Buffers of batch anymore, so close immediately
+//          batch.close()
+
           convertTime += NANOSECONDS.toMillis(System.nanoTime() - beforeConvert)
 
           new Iterator[InternalRow] {

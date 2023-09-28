@@ -608,6 +608,9 @@ arrow::Status ColumnarToRowConverter::Write() {
                support_avx512_);
   }
 
+  // Because didn't need rb_ anymore here, so reset immediately.
+  rb_.reset();
+
   return arrow::Status::OK();
 }
 
