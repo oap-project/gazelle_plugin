@@ -412,31 +412,47 @@ case class ColumnarShuffledHashJoinExec(
 
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
-        override def hasNext: Boolean = iter.hasNext
+        override def hasNext: Boolean = {
+          nativeIterator.hasNext || iter.hasNext
+        }
 
         override def next(): ColumnarBatch = {
-          val cb = iter.next()
-          val beforeEval = System.nanoTime()
-          val input_rb =
-            ConverterUtils.createArrowRecordBatch(cb)
-          if (input_rb.getLength == 0) {
-            ConverterUtils.releaseArrowRecordBatch(input_rb)
+          if (nativeIterator.hasNext) {
+            val beforeEval = System.nanoTime()
+            val out_batch = nativeIterator.next
+            val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            ConverterUtils.releaseArrowRecordBatch(out_batch)
             eval_elapse += System.nanoTime() - beforeEval
-            return createEmptyBatch()
-          }
-          val output_rb = nativeIterator.process(probe_input_schema, input_rb)
-          if (output_rb == null) {
-            ConverterUtils.releaseArrowRecordBatch(input_rb)
+            val outputNumRows = out_batch.getLength
+            numOutputRows += outputNumRows
+            val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            return out_cb
+          } else {
+            val cb = iter.next()
+            val beforeEval = System.nanoTime()
+            val input_rb =
+              ConverterUtils.createArrowRecordBatch(cb)
+            if (input_rb.getLength == 0) {
+              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              return createEmptyBatch()
+            }
+            val output_rb = nativeIterator.process(probe_input_schema, input_rb)
+            if (output_rb == null || output_rb.getLength == 0) {
+              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              return createEmptyBatch()
+            }
+
+            val out_batch = nativeIterator.next
+            val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, out_batch)
+            ConverterUtils.releaseArrowRecordBatch(out_batch)
+            val outputNumRows = out_batch.getLength
             eval_elapse += System.nanoTime() - beforeEval
-            return createEmptyBatch()
+            numOutputRows += outputNumRows
+            val out_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+            out_cb
           }
-          val outputNumRows = output_rb.getLength
-          ConverterUtils.releaseArrowRecordBatch(input_rb)
-          val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
-          ConverterUtils.releaseArrowRecordBatch(output_rb)
-          eval_elapse += System.nanoTime() - beforeEval
-          numOutputRows += outputNumRows
-          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
         }
 
         private def createEmptyBatch() = {
